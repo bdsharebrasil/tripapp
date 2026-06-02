@@ -1,0 +1,26 @@
+kind = "mobile"
+previewPath = "/"
+title = "Share Brasil"
+version = "1.0.0"
+id = "artifacts/share-brasil"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+name = "expo"
+paths = [ "/" ]
+localPort = 19869
+
+[services.development]
+run = "pnpm --filter @workspace/share-brasil run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/share-brasil", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/share-brasil", "run", "serve" ]
+
+[services.env]
+PORT = "19869"
+BASE_PATH = "/"
