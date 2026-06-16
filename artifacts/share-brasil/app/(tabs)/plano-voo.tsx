@@ -14,7 +14,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from "react-native-maps";
+import { WebView } from "react-native-webview";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
@@ -45,12 +45,53 @@ async function fetchFlightplan(adep: string, ades: string): Promise<FlightplanDa
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
-function calcMapRegion(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const centerLat = (lat1 + lat2) / 2;
-  const centerLon = (lon1 + lon2) / 2;
-  const latDelta = Math.max(Math.abs(lat2 - lat1) * 1.6, 1.5);
-  const lonDelta = Math.max(Math.abs(lon2 - lon1) * 1.6, 1.5);
-  return { latitude: centerLat, longitude: centerLon, latitudeDelta: latDelta, longitudeDelta: lonDelta };
+function buildLeafletHtml(
+  depLat: number, depLon: number, depIcao: string,
+  desLat: number, desLon: number, desIcao: string,
+): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#000; }
+  #map { height:100vh; width:100vw; }
+  .pin-label {
+    background:#1B3A6B; color:#fff; font-size:11px; font-weight:700;
+    padding:3px 7px; border-radius:6px; border:2px solid #fff;
+    white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,0.5);
+  }
+  .pin-label.des { background:#4A6741; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+  var map = L.map('map',{zoomControl:true,attributionControl:false}).setView([${(depLat + desLat) / 2},${(depLon + desLon) / 2}],6);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}).addTo(map);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}).addTo(map);
+  
+  var depIcon = L.divIcon({className:'',html:'<div class="pin-label">${depIcao}</div>',iconAnchor:[0,0]});
+  var desIcon = L.divIcon({className:'',html:'<div class="pin-label des">${desIcao}</div>',iconAnchor:[0,0]});
+  
+  L.marker([${depLat},${depLon}],{icon:depIcon}).addTo(map);
+  L.marker([${desLat},${desLon}],{icon:desIcon}).addTo(map);
+  
+  L.polyline([[${depLat},${depLon}],[${desLat},${desLon}]],{
+    color:'#D4A832',weight:3,dashArray:'10,7',opacity:0.95
+  }).addTo(map);
+  
+  L.circleMarker([${depLat},${depLon}],{radius:6,color:'#fff',fillColor:'#1B3A6B',fillOpacity:1,weight:2}).addTo(map);
+  L.circleMarker([${desLat},${desLon}],{radius:6,color:'#fff',fillColor:'#4A6741',fillOpacity:1,weight:2}).addTo(map);
+  
+  var bounds = L.latLngBounds([[${depLat},${depLon}],[${desLat},${desLon}]]);
+  map.fitBounds(bounds,{padding:[52,52]});
+</script>
+</body>
+</html>`;
 }
 
 function metarConditionColor(metar: string): string {
@@ -133,65 +174,25 @@ function RouteMap({ departure, destination, colors }: {
   destination: { icao: string; lat: number; lon: number };
   colors: ReturnType<typeof useColors>;
 }) {
-  const region = calcMapRegion(departure.lat, departure.lon, destination.lat, destination.lon);
-  const coords = [
-    { latitude: departure.lat, longitude: departure.lon },
-    { latitude: destination.lat, longitude: destination.lon },
-  ];
-
-  if (Platform.OS === "web") {
-    return (
-      <View style={[mapStyles.webFallback, { backgroundColor: colors.muted }]}>
-        <Feather name="map" size={28} color={colors.mutedForeground} />
-        <Text style={[mapStyles.webText, { color: colors.mutedForeground }]}>
-          Mapa disponível no app móvel
-        </Text>
-        <Text style={[mapStyles.webSub, { color: colors.mutedForeground }]}>
-          {departure.icao} → {destination.icao}
-        </Text>
-      </View>
-    );
-  }
+  const html = buildLeafletHtml(
+    departure.lat, departure.lon, departure.icao,
+    destination.lat, destination.lon, destination.icao,
+  );
 
   return (
-    <MapView
-      style={mapStyles.map}
-      provider={PROVIDER_DEFAULT}
-      mapType="hybrid"
-      initialRegion={region}
-      scrollEnabled
-      zoomEnabled
-      showsCompass
-    >
-      <Marker coordinate={coords[0]} title={departure.icao} pinColor={colors.primary}>
-        <View style={[mapStyles.pin, { backgroundColor: colors.primary }]}>
-          <Text style={mapStyles.pinText}>{departure.icao}</Text>
-        </View>
-      </Marker>
-      <Marker coordinate={coords[1]} title={destination.icao} pinColor={colors.secondary}>
-        <View style={[mapStyles.pin, { backgroundColor: colors.secondary }]}>
-          <Text style={mapStyles.pinText}>{destination.icao}</Text>
-        </View>
-      </Marker>
-      <Polyline
-        coordinates={coords}
-        strokeColor={colors.gold}
-        strokeWidth={2.5}
-        lineDashPattern={[8, 4]}
-      />
-    </MapView>
+    <WebView
+      style={mapStyles.container}
+      source={{ html }}
+      originWhitelist={["*"]}
+      javaScriptEnabled
+      domStorageEnabled
+      scrollEnabled={false}
+    />
   );
 }
 
 const mapStyles = StyleSheet.create({
-  map: { width: "100%", height: 260, borderRadius: 14, overflow: "hidden" },
-  pin: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  pinText: { color: "#FFFFFF", fontSize: 11, fontFamily: "Inter_700Bold" },
-  webFallback: {
-    height: 180, borderRadius: 14, alignItems: "center", justifyContent: "center", gap: 8,
-  },
-  webText: { fontSize: 14, fontFamily: "Inter_500Medium" },
-  webSub: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  container: { width: "100%", height: 260, borderRadius: 14, overflow: "hidden" },
 });
 
 // ─── FlightDetailModal ───────────────────────────────────────────────────────
