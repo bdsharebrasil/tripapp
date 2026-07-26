@@ -1,0 +1,14 @@
+{
+  "name": "Share Brasil",
+  "short_name": "ShareBR",
+  "description": "Gestão de tripulação Share Brasil",
+  "theme_color": "#1A2B5A",
+  "background_color": "#0F1A33",
+  "display": "standalone",
+  "scope": "/pwa/",
+  "start_url": "/pwa/",
+  "icons": [
+    {"src": "/pwa/logo.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "/pwa/logo.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}
