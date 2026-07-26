@@ -1,27 +1,37 @@
 import { ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
-import { 
-  Home, 
-  Plane, 
-  FileText, 
-  FileCheck2, 
-  Wrench, 
-  Wallet, 
-  Palmtree, 
-  UserCircle 
+import {
+  Home,
+  BookOpen,
+  Navigation,
+  DollarSign,
+  UserCircle,
+  FileText,
+  Wrench,
+  Palmtree,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppContext } from '@/context/AppContext';
 
-const navItems = [
-  { name: 'Dashboard', path: '/', icon: Home },
-  { name: 'Diário', path: '/diario', icon: Plane },
-  { name: 'Planos', path: '/plano-voo', icon: FileCheck2 },
-  { name: 'Viagens', path: '/relatorio-viagem', icon: FileText },
-  { name: 'Manutenção', path: '/manutencao', icon: Wrench },
-  { name: 'Financeiro', path: '/financeiro', icon: Wallet },
-  { name: 'Férias', path: '/ferias', icon: Palmtree },
-  { name: 'Perfil', path: '/perfil', icon: UserCircle },
+// Bottom 5 tabs — same order as Expo app
+const bottomTabs = [
+  { name: 'Início',     path: '/',               icon: Home },
+  { name: 'Diário',    path: '/diario',          icon: BookOpen },
+  { name: 'Plano',     path: '/plano-voo',       icon: Navigation },
+  { name: 'Financeiro',path: '/financeiro',      icon: DollarSign },
+  { name: 'Perfil',    path: '/perfil',          icon: UserCircle },
+];
+
+// Full sidebar nav (desktop)
+const allNavItems = [
+  { name: 'Início',       path: '/',                   icon: Home },
+  { name: 'Diário',       path: '/diario',             icon: BookOpen },
+  { name: 'Plano de Voo', path: '/plano-voo',          icon: Navigation },
+  { name: 'Rel. Viagem',  path: '/relatorio-viagem',   icon: FileText },
+  { name: 'Manutenção',   path: '/manutencao',         icon: Wrench },
+  { name: 'Financeiro',   path: '/financeiro',         icon: DollarSign },
+  { name: 'Férias',       path: '/ferias',             icon: Palmtree },
+  { name: 'Perfil',       path: '/perfil',             icon: UserCircle },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -30,66 +40,105 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-[100dvh] w-full bg-background overflow-hidden text-foreground">
-      
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-64 bg-card border-r border-border shrink-0">
-        <div className="h-16 flex items-center px-6 border-b border-border">
+
+      {/* ── Desktop Sidebar ── */}
+      <aside className="hidden md:flex flex-col w-64 bg-card/80 backdrop-blur-xl border-r border-white/10 shrink-0">
+        <div className="h-16 flex items-center px-6 border-b border-white/10">
           <div className="flex items-center gap-3">
             <img src="/pwa/logo.png" alt="Share Brasil" className="h-8 w-8 object-contain" />
-            <span className="font-bold tracking-tight text-lg text-primary">ShareBR</span>
+            <span className="font-bold tracking-tight text-lg text-foreground">Share Brasil</span>
           </div>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto py-4">
-          <nav className="space-y-1 px-3">
-            {navItems.map((item) => {
+          <nav className="space-y-0.5 px-3">
+            {allNavItems.map((item) => {
               const isActive = location === item.path;
               const Icon = item.icon;
               return (
-                <Link key={item.path} href={item.path} className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium",
-                  isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}>
-                  <Icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-muted-foreground")} />
+                <Link
+                  key={item.path}
+                  href={item.path}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-sm font-medium',
+                    isActive
+                      ? 'bg-primary/15 text-primary'
+                      : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
+                  )}
+                >
+                  <Icon className={cn('h-5 w-5 shrink-0', isActive ? 'text-primary' : '')} />
                   {item.name}
                 </Link>
               );
             })}
           </nav>
         </div>
-        
-        <div className="p-4 border-t border-border">
+
+        <div className="p-4 border-t border-white/10">
           <Link href="/perfil" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
+            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
               {profile.nome.charAt(0)}
             </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-bold truncate max-w-[140px]">{profile.nome}</span>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-bold truncate">{profile.nome}</span>
               <span className="text-xs text-muted-foreground truncate">{profile.cargo}</span>
             </div>
           </Link>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-full relative overflow-hidden pb-16 md:pb-0">
-        <div className="flex-1 overflow-y-auto">
+      {/* ── Main content ── */}
+      <main className="flex-1 flex flex-col h-full relative overflow-hidden">
+        {/* page content scrolls, bottom nav floats above */}
+        <div className="flex-1 overflow-y-auto pb-[80px] md:pb-0">
           {children}
         </div>
       </main>
 
-      {/* Mobile Bottom Nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around px-2 z-50">
-        {navItems.slice(0, 5).map((item) => {
+      {/* ── Mobile Glass Bottom Nav ── */}
+      <nav
+        data-testid="bottom-nav"
+        className={cn(
+          'md:hidden fixed bottom-0 left-0 right-0 z-50',
+          'h-[72px]',
+          // glass effect
+          'bg-background/75 backdrop-blur-2xl',
+          // top border + rounded corners — native iOS / Android feel
+          'border-t border-white/10 rounded-t-[28px]',
+          // shadow to lift it above content
+          'shadow-[0_-8px_32px_rgba(0,0,0,0.35)]',
+          // flex layout
+          'flex items-center justify-around px-2'
+        )}
+      >
+        {bottomTabs.map((item) => {
           const isActive = location === item.path;
           const Icon = item.icon;
           return (
-            <Link key={item.path} href={item.path} className={cn(
-              "flex flex-col items-center justify-center w-full h-full gap-1",
-              isActive ? "text-primary" : "text-muted-foreground"
-            )}>
-              <Icon className={cn("h-5 w-5", isActive ? "text-primary fill-primary/20" : "")} />
-              <span className="text-[10px] font-medium">{item.name}</span>
+            <Link
+              key={item.path}
+              href={item.path}
+              data-testid={`nav-${item.path.replace('/', '') || 'home'}`}
+              className="flex flex-col items-center justify-center w-full h-full gap-1 relative"
+            >
+              {/* active indicator dot */}
+              {isActive && (
+                <span className="absolute top-1.5 w-1 h-1 rounded-full bg-primary" />
+              )}
+              <Icon
+                className={cn(
+                  'h-[22px] w-[22px] transition-colors',
+                  isActive ? 'text-primary' : 'text-muted-foreground'
+                )}
+              />
+              <span
+                className={cn(
+                  'text-[10px] font-semibold tracking-wide transition-colors',
+                  isActive ? 'text-primary' : 'text-muted-foreground'
+                )}
+              >
+                {item.name}
+              </span>
             </Link>
           );
         })}

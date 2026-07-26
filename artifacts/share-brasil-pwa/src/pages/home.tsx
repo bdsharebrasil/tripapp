@@ -2,238 +2,298 @@ import { cn } from '@/lib/utils';
 import { Link, useLocation } from 'wouter';
 import { format, parseISO, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { 
-  Plane, 
-  FileText, 
-  Wrench, 
-  Wallet, 
-  Palmtree, 
-  Clock, 
-  Calendar as CalendarIcon,
+import {
+  Plane,
+  FileText,
+  Wrench,
+  DollarSign,
+  Palmtree,
+  Navigation,
+  BookOpen,
   AlertTriangle,
   ChevronRight,
-  Plus
+  CheckCircle,
+  Clock,
+  Send,
 } from 'lucide-react';
-import { useAppContext, FlightPlan, TravelReport, MaintenanceReport, FinancialEntry } from '@/context/AppContext';
-import { StatusBadge } from '@/components/StatusBadge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAppContext } from '@/context/AppContext';
 
 export default function Home() {
   const [, setLocation] = useLocation();
   const { profile, flights, flightPlans, travelReports, maintenance, financial } = useAppContext();
 
-  // Stats logic
   const now = new Date();
   const currentMonthFlights = flights.filter(f => isSameMonth(parseISO(f.data), now));
   const horasMes = currentMonthFlights.reduce((acc, f) => acc + f.tempoVoo, 0);
   const voosMes = currentMonthFlights.length;
 
-  // Próximo Voo (next approved plan)
   const proximoVoo = flightPlans
     .filter(p => p.status === 'aprovado' && parseISO(p.data) >= now)
     .sort((a, b) => parseISO(a.data).getTime() - parseISO(b.data).getTime())[0];
 
-  // Pendências
   const reportsDevolvidos = travelReports.filter(r => r.status === 'devolvido');
-  const relatoriosPendentes = travelReports.filter(r => r.status === 'rascunho' || r.status === 'enviado');
+  const relatoriosPendentes = travelReports.filter(r => r.status === 'enviado');
   const manutencaoAberta = maintenance.filter(m => m.status === 'aberto' || m.status === 'em_andamento');
   const financeiroPendente = financial.filter(f => f.status === 'pendente');
+  const hasPendencias = reportsDevolvidos.length > 0 || relatoriosPendentes.length > 0 || manutencaoAberta.length > 0 || financeiroPendente.length > 0;
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-8 max-w-5xl mx-auto w-full">
-      {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-secondary to-background border border-border p-6 shadow-md">
-        <div className="absolute top-0 right-0 p-4 opacity-10">
-          <img src="/pwa/logo.png" alt="" className="w-32 h-32 object-contain" />
-        </div>
-        <div className="relative z-10 flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white mb-1" data-testid="text-pilot-name">
-              {profile.nome}
-            </h1>
-            <p className="text-primary font-medium text-sm md:text-base">
-              {profile.cargo} • CANAC {profile.canac}
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="flex flex-col min-h-full bg-background">
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-3 md:gap-4">
-        <Card className="bg-card">
-          <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-            <Clock className="w-5 h-5 text-primary mb-2" />
-            <span className="text-2xl font-bold font-mono">{horasMes.toFixed(1)}h</span>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Horas/Mês</span>
-          </CardContent>
-        </Card>
-        <Card className="bg-card">
-          <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-            <Plane className="w-5 h-5 text-primary mb-2" />
-            <span className="text-2xl font-bold font-mono">{voosMes}</span>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Voos/Mês</span>
-          </CardContent>
-        </Card>
-        <Card className="bg-card">
-          <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-            <CalendarIcon className="w-5 h-5 text-primary mb-2" />
-            <span className="text-2xl font-bold font-mono">{profile.horasAcumuladas}</span>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Horas Totais</span>
-          </CardContent>
-        </Card>
-      </div>
+      {/* ── Full-bleed navy gradient header (like Expo) ── */}
+      <div
+        className="relative w-full overflow-hidden px-5 pt-12 pb-6"
+        style={{ background: 'linear-gradient(160deg, #1B3A6B 0%, #0F2247 100%)' }}
+      >
+        {/* logo watermark */}
+        <img
+          src="/pwa/logo.png"
+          alt=""
+          aria-hidden
+          className="absolute right-4 top-4 h-14 w-14 object-contain opacity-15 pointer-events-none"
+        />
 
-      {/* Próximo Voo */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Próximo Voo</h2>
-          <Link href="/plano-voo" className="text-xs text-primary font-medium flex items-center">
-            Ver Todos <ChevronRight className="w-3 h-3 ml-1" />
-          </Link>
+        <div className="relative z-10">
+          <p className="text-white/60 text-sm font-medium mb-0.5">Bem-vindo,</p>
+          <h1 className="text-2xl font-bold text-white leading-tight" data-testid="text-pilot-name">
+            {profile.nome.split(' ')[0]} {profile.nome.split(' ')[1]}
+          </h1>
+          <p className="text-white/55 text-xs mt-1">
+            {profile.cargo} · CANAC {profile.canac}
+          </p>
         </div>
-        
-        {proximoVoo ? (
-          <Card className="bg-card border-primary/20 shadow-sm relative overflow-hidden" onClick={() => setLocation('/plano-voo')} data-testid="card-next-flight">
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start mb-3">
-                <StatusBadge status={proximoVoo.status} type="plan" />
-                <span className="text-xs font-mono text-muted-foreground">
-                  {format(parseISO(proximoVoo.data), "dd MMM yyyy", { locale: ptBR })}
-                </span>
-              </div>
-              <div className="flex items-center gap-4 mb-3">
-                <div className="flex-1">
-                  <div className="text-2xl font-bold tracking-tight">{proximoVoo.partida}</div>
-                  <div className="text-xs text-muted-foreground">{proximoVoo.horaPrevista}</div>
-                </div>
-                <div className="flex flex-col items-center px-2">
-                  <Plane className="w-5 h-5 text-primary rotate-90" />
-                  <div className="w-16 h-px bg-border my-2 relative">
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] text-muted-foreground bg-card px-1 font-mono">
-                      {proximoVoo.estimativaVoo}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex-1 text-right">
-                  <div className="text-2xl font-bold tracking-tight">{proximoVoo.chegada}</div>
-                </div>
-              </div>
-              <div className="flex items-center justify-between text-xs bg-muted/50 p-2 rounded-md">
-                <span className="font-mono text-muted-foreground">{proximoVoo.aeronave} / {proximoVoo.matricula}</span>
-                <span className="font-medium text-foreground">Pax: {proximoVoo.passageiros}</span>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="bg-card border-dashed">
-            <CardContent className="p-6 text-center text-muted-foreground text-sm">
-              Nenhum voo aprovado programado.
-            </CardContent>
-          </Card>
-        )}
-      </div>
 
-      {/* Ações Rápidas */}
-      <div className="flex flex-col gap-3">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Ações Rápidas</h2>
-        <div className="grid grid-cols-3 gap-3 md:grid-cols-6">
-          <ActionBtn icon={Plus} label="Novo Voo" onClick={() => setLocation('/diario')} active />
-          <ActionBtn icon={Plane} label="Planos" onClick={() => setLocation('/plano-voo')} />
-          <ActionBtn icon={FileText} label="Viagens" onClick={() => setLocation('/relatorio-viagem')} />
-          <ActionBtn icon={Wrench} label="Manutenção" onClick={() => setLocation('/manutencao')} />
-          <ActionBtn icon={Palmtree} label="Férias" onClick={() => setLocation('/ferias')} />
-          <ActionBtn icon={Wallet} label="Financeiro" onClick={() => setLocation('/financeiro')} />
-        </div>
-      </div>
-
-      {/* Pendências */}
-      {(reportsDevolvidos.length > 0 || relatoriosPendentes.length > 0 || manutencaoAberta.length > 0 || financeiroPendente.length > 0) && (
-        <div className="flex flex-col gap-3">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-orange-500" /> Pendências
-          </h2>
-          <div className="flex flex-col gap-2">
-            {reportsDevolvidos.map(r => (
-              <AlertCard key={r.id} type="destructive" title={`Relatório Devolvido: ${r.numero}`} desc={r.motivoDevolucao || "Ajuste necessário"} onClick={() => setLocation('/relatorio-viagem')} />
-            ))}
-            {manutencaoAberta.length > 0 && (
-              <AlertCard type="warning" title={`${manutencaoAberta.length} reportes de manutenção em aberto`} desc="Verifique o status das aeronaves." onClick={() => setLocation('/manutencao')} />
-            )}
-            {relatoriosPendentes.length > 0 && (
-              <AlertCard type="info" title={`${relatoriosPendentes.length} relatórios de viagem pendentes`} desc="Finalize seus relatórios de despesas." onClick={() => setLocation('/relatorio-viagem')} />
-            )}
-            {financeiroPendente.length > 0 && (
-              <AlertCard type="default" title={`${financeiroPendente.length} lançamentos financeiros pendentes`} desc="Aguardando pagamento." onClick={() => setLocation('/financeiro')} />
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Últimos Voos */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Últimos Voos</h2>
-          <Link href="/diario" className="text-xs text-primary font-medium flex items-center">
-            Diário <ChevronRight className="w-3 h-3 ml-1" />
-          </Link>
-        </div>
-        <div className="flex flex-col gap-2">
-          {flights.slice(0, 3).map(f => (
-            <Card key={f.id} className="bg-card hover-elevate cursor-pointer transition-colors" onClick={() => setLocation('/diario')}>
-              <div className="p-3 px-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-secondary/30 flex items-center justify-center text-secondary">
-                    <Plane className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-sm">{f.partida} <span className="text-muted-foreground font-normal mx-1">→</span> {f.chegada}</div>
-                    <div className="text-xs text-muted-foreground font-mono">{format(parseISO(f.data), "dd/MM/yyyy")} • {f.matricula}</div>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <span className="text-sm font-bold font-mono">{f.tempoVoo.toFixed(1)}h</span>
-                  <StatusBadge status={f.assinado ? "Assinado" : "Pendente"} type="flight" className="text-[9px] px-1.5 py-0" />
-                </div>
-              </div>
-            </Card>
+        {/* stats row — frosted glass cards */}
+        <div className="relative z-10 grid grid-cols-3 gap-2 mt-5">
+          {[
+            { label: 'Horas/Mês', value: `${horasMes.toFixed(1)}h` },
+            { label: 'Voos/Mês',  value: String(voosMes) },
+            { label: 'Hrs Totais', value: String(profile.horasAcumuladas) },
+          ].map((s) => (
+            <div
+              key={s.label}
+              className="rounded-2xl px-3 py-3 text-center"
+              style={{ background: 'rgba(255,255,255,0.10)' }}
+            >
+              <p className="text-white font-bold text-xl leading-none">{s.value}</p>
+              <p className="text-white/55 text-[10px] mt-1 leading-none">{s.label}</p>
+            </div>
           ))}
         </div>
+      </div>
+
+      {/* ── Scrollable content ── */}
+      <div className="flex flex-col gap-5 px-4 py-5 max-w-2xl mx-auto w-full">
+
+        {/* Próximo Voo */}
+        <Section title="Próximo Voo" linkLabel="Ver todos" linkTo="/plano-voo">
+          {proximoVoo ? (
+            <button
+              onClick={() => setLocation('/plano-voo')}
+              data-testid="card-next-flight"
+              className="w-full text-left rounded-2xl overflow-hidden"
+              style={{ background: 'linear-gradient(135deg, #1B3A6B 0%, #0F2247 100%)' }}
+            >
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">
+                    {format(parseISO(proximoVoo.data), "dd MMM yyyy", { locale: ptBR })}
+                  </span>
+                  <span className="rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: '#D4A832', color: '#1A1A2E' }}>
+                    Aprovado
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <p className="text-[26px] font-bold text-white leading-none">{proximoVoo.partida}</p>
+                    <p className="text-white/45 text-xs mt-1">{proximoVoo.horaPrevista}</p>
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="w-1 h-1 rounded-full bg-white/30" />
+                    <Send className="h-4 w-4 text-[#D4A832]" />
+                    <div className="w-1 h-1 rounded-full bg-white/30" />
+                  </div>
+                  <div className="flex-1 text-right">
+                    <p className="text-[26px] font-bold text-white leading-none">{proximoVoo.chegada}</p>
+                    <p className="text-white/45 text-xs mt-1">{proximoVoo.estimativaVoo}</p>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between">
+                  <span className="text-white/55 text-xs">{proximoVoo.matricula}</span>
+                  <span className="text-white/55 text-xs">{proximoVoo.passageiros} pax</span>
+                </div>
+              </div>
+            </button>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-border p-6 text-center text-muted-foreground text-sm">
+              Nenhum voo aprovado programado.
+            </div>
+          )}
+        </Section>
+
+        {/* Pendências */}
+        {hasPendencias && (
+          <Section title="Pendências">
+            <div className="flex flex-col gap-2">
+              {reportsDevolvidos.map(r => (
+                <AlertRow
+                  key={r.id}
+                  color="#EF4444"
+                  icon={AlertTriangle}
+                  title="Relatório devolvido"
+                  desc={r.motivoDevolucao || `${r.numero} precisa de correção`}
+                  onClick={() => setLocation('/relatorio-viagem')}
+                />
+              ))}
+              {relatoriosPendentes.length > 0 && (
+                <AlertRow
+                  color="#D4A832"
+                  icon={FileText}
+                  title="Relatórios pendentes"
+                  desc={`${relatoriosPendentes.length} relatório(s) aguardando aprovação`}
+                  onClick={() => setLocation('/relatorio-viagem')}
+                />
+              )}
+              {manutencaoAberta.length > 0 && (
+                <AlertRow
+                  color="#4A6741"
+                  icon={Wrench}
+                  title="Manutenção aberta"
+                  desc={`${manutencaoAberta.length} ocorrência(s) em aberto`}
+                  onClick={() => setLocation('/manutencao')}
+                />
+              )}
+              {financeiroPendente.length > 0 && (
+                <AlertRow
+                  color="#1B3A6B"
+                  icon={DollarSign}
+                  title="Pagamentos pendentes"
+                  desc={`${financeiroPendente.reduce((a, f) => a + f.valor, 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} a receber`}
+                  onClick={() => setLocation('/financeiro')}
+                />
+              )}
+            </div>
+          </Section>
+        )}
+
+        {/* Ações Rápidas */}
+        <Section title="Ações Rápidas">
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { icon: BookOpen, label: 'Novo Lançamento', path: '/diario',            bg: '#EFF6FF', color: '#1B3A6B' },
+              { icon: Navigation,label: 'Plano de Voo',   path: '/plano-voo',         bg: '#F0FDF4', color: '#4A6741' },
+              { icon: FileText,  label: 'Rel. Viagem',    path: '/relatorio-viagem',  bg: '#FFFBEB', color: '#D4A832' },
+              { icon: Wrench,    label: 'Manutenção',     path: '/manutencao',        bg: '#F0FDF4', color: '#4A6741' },
+              { icon: Palmtree,  label: 'Férias',         path: '/ferias',            bg: '#FEF9C3', color: '#D97706' },
+              { icon: DollarSign,label: 'Financeiro',     path: '/financeiro',        bg: '#EFF6FF', color: '#1B3A6B' },
+            ].map(({ icon: Icon, label, path, bg, color }) => (
+              <button
+                key={path}
+                onClick={() => setLocation(path)}
+                data-testid={`action-${path.replace('/', '')}`}
+                className="flex flex-col items-center gap-2 rounded-2xl p-3 bg-card border border-border active:scale-95 transition-transform"
+              >
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ backgroundColor: bg }}>
+                  <Icon className="w-5 h-5" style={{ color }} />
+                </div>
+                <span className="text-[11px] font-semibold text-foreground text-center leading-tight">{label}</span>
+              </button>
+            ))}
+          </div>
+        </Section>
+
+        {/* Últimos Voos */}
+        <Section title="Últimos Voos" linkLabel="Ver todos" linkTo="/diario">
+          <div className="flex flex-col gap-2">
+            {flights.slice(0, 3).map(f => (
+              <button
+                key={f.id}
+                onClick={() => setLocation('/diario')}
+                data-testid={`flight-row-${f.id}`}
+                className="w-full flex items-center gap-3 rounded-2xl bg-card border border-border p-3 active:scale-[0.98] transition-transform text-left"
+              >
+                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <Plane className="w-4 h-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-foreground">
+                    {f.partida} <span className="text-muted-foreground font-normal">→</span> {f.chegada}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {format(parseISO(f.data), 'dd MMM', { locale: ptBR })} · {f.matricula} · {f.tempoVoo.toFixed(2)}h
+                  </p>
+                </div>
+                {f.assinado
+                  ? <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                  : <Clock className="w-4 h-4 text-[#D4A832] shrink-0" />}
+              </button>
+            ))}
+          </div>
+        </Section>
+
       </div>
     </div>
   );
 }
 
-function ActionBtn({ icon: Icon, label, onClick, active }: { icon: any, label: string, onClick: () => void, active?: boolean }) {
+/* ── helpers ── */
+
+function Section({
+  title,
+  linkLabel,
+  linkTo,
+  children,
+}: {
+  title: string;
+  linkLabel?: string;
+  linkTo?: string;
+  children: ReactNode;
+}) {
   return (
-    <button 
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-[15px] font-bold text-foreground">{title}</h2>
+        {linkLabel && linkTo && (
+          <Link href={linkTo} className="text-xs text-primary font-semibold flex items-center gap-0.5">
+            {linkLabel} <ChevronRight className="w-3.5 h-3.5" />
+          </Link>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function AlertRow({
+  color,
+  icon: Icon,
+  title,
+  desc,
+  onClick,
+}: {
+  color: string;
+  icon: React.ElementType;
+  title: string;
+  desc: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
       onClick={onClick}
-      className={cn(
-        "flex flex-col items-center justify-center gap-2 p-3 rounded-xl transition-all active:scale-95",
-        active ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" : "bg-card border border-border text-foreground hover:border-primary/50"
-      )}
+      className="w-full flex items-center gap-3 rounded-2xl bg-card border border-border p-3 active:scale-[0.98] transition-transform text-left"
+      style={{ borderLeftColor: color, borderLeftWidth: 4 }}
     >
-      <Icon className="w-5 h-5" />
-      <span className="text-[10px] font-bold uppercase tracking-wide">{label}</span>
+      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}18` }}>
+        <Icon className="w-4 h-4" style={{ color }} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-foreground leading-tight">{title}</p>
+        <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{desc}</p>
+      </div>
+      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
     </button>
   );
 }
 
-function AlertCard({ type, title, desc, onClick }: { type: 'destructive'|'warning'|'info'|'default', title: string, desc: string, onClick: () => void }) {
-  const styles = {
-    destructive: "border-red-500/30 bg-red-500/10 text-red-500",
-    warning: "border-orange-500/30 bg-orange-500/10 text-orange-500",
-    info: "border-amber-500/30 bg-amber-500/10 text-amber-500",
-    default: "border-border bg-card text-foreground"
-  };
-
-  return (
-    <div onClick={onClick} className={cn("border p-3 rounded-lg flex items-center justify-between cursor-pointer active:scale-[0.98] transition-transform", styles[type])}>
-      <div className="flex flex-col">
-        <span className="text-sm font-bold">{title}</span>
-        <span className="text-xs opacity-80">{desc}</span>
-      </div>
-      <ChevronRight className="w-4 h-4 opacity-50" />
-    </div>
-  );
-}
+// needed for Section
+import { ReactNode } from 'react';

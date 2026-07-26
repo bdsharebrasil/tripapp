@@ -126,7 +126,7 @@
   --app-font-serif: Georgia, serif;
   --app-font-mono: 'JetBrains Mono', monospace;
   
-  --radius: 0.5rem;
+  --radius: 0.875rem; /* 14px — native app feel */
   
   --shadow-2xs: 0px 2px 0px 0px hsl(222 54% 13% / 0.05);
   --shadow-xs: 0px 2px 0px 0px hsl(222 54% 13% / 0.05);
