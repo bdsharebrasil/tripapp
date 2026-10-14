@@ -291,7 +291,7 @@ function FlightDetailModal({ plan, visible, onClose, colors }: {
                 <Feather name="arrow-right" size={16} color={colors.mutedForeground} style={{ marginTop: 4 }} />
                 <View style={{ flex: 1, alignItems: "flex-end" }}>
                   <Text style={[dStyles.airportCode, { color: colors.secondary }]}>{fpData.destination.icao}</Text>
-                  <Text style={[dStyles.airportName, { color: colors.mutedForeground }]} numberOfLines={2} style={{ textAlign: "right" }}>{fpData.destination.name}</Text>
+                  <Text style={[dStyles.airportName, { color: colors.mutedForeground, textAlign: "right" }]} numberOfLines={2}>{fpData.destination.name}</Text>
                 </View>
               </View>
 

@@ -128,7 +128,7 @@ const vStyles = StyleSheet.create({
 function NewVacationModal({ visible, onClose, onSave, availableDays, colors }: {
   visible: boolean;
   onClose: () => void;
-  onSave: (r: Omit<VacationRequest, "id" | "solicitadoEm">) => void;
+  onSave: (r: Omit<VacationRequest, "id" | "criadoEm" | "solicitadoEm">) => void;
   availableDays: number;
   colors: ReturnType<typeof useColors>;
 }) {
