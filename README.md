@@ -36,8 +36,11 @@ pnpm --filter @workspace/share-brasil run build:web   # expo export --platform w
 - **Camada única**: `artifacts/share-brasil/src/lib/api.ts` (`apiFetch`). Nenhuma tela chama `fetch` diretamente.
 - **Versionamento**: as rotas do app vivem em `/api/v1/...`. Contrato documentado no repositório `backend-share` (`docs/api-v1.md`).
 - **Autenticação**: `Authorization: Bearer <jwt do Supabase>` quando existe sessão. O Worker valida o JWT (`src/lib/auth.ts`).
-- **Sessão**: `artifacts/share-brasil/src/lib/session.ts`, token no `expo-secure-store` (Keychain/Keystore). Na web o token fica só em memória, porque o SecureStore não existe no browser.
-- **401**: `apiFetch` limpa a sessão e chama o handler registrado em `setUnauthorizedHandler`. Quando existir tela de login, registre no layout raiz:
+- **Sessão**: Supabase Auth em `artifacts/share-brasil/src/lib/supabase.ts`. No iOS/Android, o objeto de sessão fica cifrado com AES-GCM no AsyncStorage e a chave AES fica no SecureStore; na web usa `localStorage` com fallback em memória.
+- **Login**: `artifacts/share-brasil/app/login.tsx`; exige usuário sem `@` e monta `usuario@share-brasil.com` para o Supabase.
+- **Configuração**: defina `EXPO_PUBLIC_SUPABASE_URL` e `EXPO_PUBLIC_SUPABASE_ANON_KEY` no `.env` conforme `.env.example`. A chave anon/publicável é pública; nunca use `service_role` no app.
+- **Renovação**: o Supabase renova tokens automaticamente; o app inicia/para o auto-refresh conforme o estado foreground/background.
+- **401**: `apiFetch` chama `supabase.auth.signOut()` e redireciona para `/login` pelo handler registrado no layout raiz.
 
   ```ts
   setUnauthorizedHandler(() => router.replace("/login"));
@@ -53,4 +56,4 @@ pnpm --filter @workspace/share-brasil run build:web   # expo export --platform w
 
 - Tudo com prefixo `EXPO_PUBLIC_` é embutido no bundle e é **público**. Não coloque segredo no app.
 - Segredos do backend ficam em `wrangler secret put <NOME>` no repositório do Worker.
-- O `.env` deste repositório é versionado de propósito e contém apenas a URL pública da API. Overrides pessoais usam `.env*.local` (ignorados).
+- O `.env` deste repositório é versionado de propósito. As variáveis Supabase também são públicas por natureza e devem corresponder ao projeto correto; overrides pessoais usam `.env*.local` (ignorados).
