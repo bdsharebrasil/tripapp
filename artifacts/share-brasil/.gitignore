@@ -38,4 +38,5 @@ yarn-error.*
 *.tsbuildinfo
 .vercel
 
-.env
+# .env é versionado de propósito: só contém EXPO_PUBLIC_* (valores públicos).
+# Segredos ficam no Worker (wrangler secret), nunca no app.
