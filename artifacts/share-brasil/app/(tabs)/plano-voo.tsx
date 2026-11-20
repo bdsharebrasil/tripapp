@@ -19,10 +19,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import type { FlightPlan } from "@/context/AppContext";
+import { apiFetch, ApiError } from "@/src/lib/api";
 
 // ─── API ───────────────────────────────────────────────────────────────────
-const API_BASE = "https://api.share-brasil.com";
-
 type WeatherData = { loc: string; metar: string; taf: string; error?: string };
 type FlightplanData = {
   flightplan: { adep: string; ades: string; route: string; distance_nm: number; estimated_time: string; cruise_speed: number };
@@ -34,14 +33,25 @@ type FlightplanData = {
   error?: string;
 };
 
+function mensagemDeErro(erro: unknown): string {
+  if (erro instanceof ApiError) return erro.message;
+  if (erro instanceof Error && erro.message) return erro.message;
+  return "Falha ao buscar";
+}
+
+// A tela mostra `data.error` no card de clima: em vez de rejeitar, devolvemos o
+// erro no mesmo formato para não mudar o comportamento visual.
 async function fetchWeather(icao: string): Promise<WeatherData> {
-  const r = await fetch(`${API_BASE}/api/weather/${icao}`);
-  return r.json();
+  try {
+    return await apiFetch<WeatherData>(`/api/v1/weather/${encodeURIComponent(icao)}`);
+  } catch (erro) {
+    return { loc: icao, metar: "", taf: "", error: mensagemDeErro(erro) };
+  }
 }
 
 async function fetchFlightplan(adep: string, ades: string): Promise<FlightplanData> {
-  const r = await fetch(`${API_BASE}/api/flightplan?adep=${adep}&ades=${ades}`);
-  return r.json();
+  const consulta = `adep=${encodeURIComponent(adep)}&ades=${encodeURIComponent(ades)}`;
+  return apiFetch<FlightplanData>(`/api/v1/flightplan?${consulta}`);
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
