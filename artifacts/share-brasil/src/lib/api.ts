@@ -1,4 +1,4 @@
-import { clearSession, getToken, notifyUnauthorized } from "./session";
+import { getToken, notifyUnauthorized } from "./session";
 
 /**
  * Camada única de acesso à API (Cloudflare Worker, Hono + D1).
@@ -7,7 +7,7 @@ import { clearSession, getToken, notifyUnauthorized } from "./session";
  * - base URL via `EXPO_PUBLIC_API_URL` (nunca `VITE_*`: isso é build web do Vite);
  * - `Authorization: Bearer <token>` quando existe sessão;
  * - timeout e erro de rede com mensagem em português;
- * - 401: limpa a sessão e avisa a navegação.
+ * - 401: encerra a sessão Supabase e devolve a navegação para /login.
  *
  * `EXPO_PUBLIC_*` vai dentro do bundle: é público por definição. Nenhum segredo
  * aqui.
@@ -123,8 +123,7 @@ export async function apiFetch<T>(caminho: string, init: ApiInit = {}): Promise<
   const corpo = await lerCorpo(resposta);
 
   if (resposta.status === 401) {
-    await clearSession();
-    notifyUnauthorized();
+    await notifyUnauthorized();
     throw new ApiError("Sua sessão expirou. Entre novamente.", 401, "unauthorized", corpo);
   }
 

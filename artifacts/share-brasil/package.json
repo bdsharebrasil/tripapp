@@ -60,7 +60,12 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
+    "@noble/ciphers": "^2.4.0",
+    "@supabase/supabase-js": "^2.119.2",
+    "base64-js": "^1.5.1",
+    "expo-crypto": "~57.0.4",
     "expo-secure-store": "~57.0.4",
+    "react-native-url-polyfill": "^4.0.0",
     "react-native-webview": "^13.16.1"
   }
 }
