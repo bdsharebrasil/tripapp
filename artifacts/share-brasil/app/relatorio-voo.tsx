@@ -57,6 +57,7 @@ export default function RelatorioVooScreen() {
           {(j.pernas||[]).map(leg=><View key={leg.id} style={s.leg}><Text style={s.label}>Perna {leg.numero}: {leg.origem} → {leg.destino}</Text><Text style={s.muted}>AC {time(leg.horario_ac)} · DEP {time(leg.horario_dep)} · POU {time(leg.horario_pouso)} · COR {time(leg.horario_corte)}</Text></View>)}
         </View>)}
         {!jornadas.length&&<View style={s.card}><Text style={s.muted}>Nenhuma jornada registrada neste voo.</Text></View>}
+        <Pressable style={s.action} onPress={()=>router.push({ pathname: "/diario-bordo", params: { vooId: detail.voo.id } })}><Feather name="book-open" color={BG} size={18}/><Text style={s.actionText}>Completar Diário e assinar como CMTE</Text></Pressable>
         <Pressable style={s.action} onPress={()=>router.push("/(tabs)/agenda")}><Feather name="edit-3" color={BG} size={18}/><Text style={s.actionText}>Abrir Agenda operacional</Text></Pressable>
       </>}
     </ScrollView>}
