@@ -4,7 +4,7 @@ Atualizado em 21/11/2026. A fonte de verdade é o Cloudflare Worker e o D1; nenh
 
 ## Despesas de viagem (implementado nesta branch)
 
-- **Criar relatório**: `POST /api/financeiro/relatorios-despesa-viagem/iniciar-do-voo`, a partir de um voo atribuído retornado por `GET .../meus-voos`. A criação é idempotente pela lógica atual do Worker, e o relatório criado é aberto automaticamente.
+- **Criar relatório**: `POST /api/financeiro/relatorios-despesa-viagem/iniciar-do-voo` com `numero_voo` + `solicitacao_id`, a partir de um voo atribuído retornado por `GET .../meus-voos`. A criação reutiliza relatório já existente para aquela combinação e abre o registro devolvido pelo Worker.
 - **Criar e editar despesas**: formulário por item, categoria, data, valor, pagador (Tripulante 1/2, Cliente, Share Brasil), descrição; grava `PUT .../:id/despesas-tripulante`. Anexos só podem ser associados após confirmação do salvamento para preservar o índice de despesa.
 - **Comprovantes**: câmera, galeria e PDF/imagem do seletor de arquivos. Upload privado `POST .../:id/anexos-tripulante`, exclusão autenticada e visualização `GET .../:id/anexos-tripulante/:anexoId/arquivo`. Limite 25 MB (Worker); formatos PDF, JPEG, PNG, WEBP.
 - **Histórico real**: `GET .../minhas` retorna status, valores, reembolso, histórico de ajustes, arquivos anexos. Exibe rascunhos e históricos; status finalizado/aprovado são somente leitura.
@@ -40,6 +40,10 @@ Atualizado em 21/11/2026. A fonte de verdade é o Cloudflare Worker e o D1; nenh
 3. Testar como PIC/SIC do voo, incluindo arquivo JPG, PNG, PDF, documento salarial e relatório de outro tripulante (deve receber 403).
 4. Verificar a devolução de relatório para ajuste, histórico de reembolso, concorrência ao editar e status de finalização no Worker.
 5. Nenhuma migração D1 necessária nesta etapa; banco de produção não foi alterado diretamente.
+
+## Limitação legada de números de voo repetidos
+
+A migração existente `20261028_relatorio_viagem_unicidade_numero_voo.sql` impõe `UNIQUE(numero_voo)` ao relatório. A nova API verifica a solicitação exata e a identidade do voo, mas **não altera o esquema histórico**. Se dois clientes/agendamentos diferentes tiverem o mesmo número e a restrição impedir criar outro relatório, o Worker responde 409 com mensagem de conciliação — nunca abre por engano o relatório de outro voo. Resolver estruturalmente essa duplicidade exigirá migração e revisão do esquema financeiro e da regra de identidade do relatório.
 
 ## Pendências deliberadamente não concluídas
 
