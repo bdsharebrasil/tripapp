@@ -138,7 +138,7 @@ export default function HomeScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>—</Text>
-            <Text style={styles.statLabel}>Horas no mês</Text>
+            <Text style={styles.statLabel}>Horas no mês · indisponível</Text>
           </View>
           <View style={[styles.statCard, styles.statCardMiddle]}>
             <Text style={styles.statValue}>{stats.monthFlights}</Text>
@@ -146,7 +146,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>—</Text>
-            <Text style={styles.statLabel}>Horas totais</Text>
+            <Text style={styles.statLabel}>Horas totais · indisponível</Text>
           </View>
         </View>
       </LinearGradient>
@@ -245,11 +245,11 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Ações Rápidas</Text>
           <View style={styles.actionsGrid}>
-            <Pressable style={[styles.actionBtn, { backgroundColor: colors.card }]} onPress={() => router.push("/novo-lancamento" as any)}>
+            <Pressable style={[styles.actionBtn, { backgroundColor: colors.card }]} onPress={() => router.push("/(tabs)/agenda" as any)}>
               <View style={[styles.actionIcon, { backgroundColor: "#EFF6FF" }]}>
                 <Feather name="book-open" size={22} color={colors.primary} />
               </View>
-              <Text style={[styles.actionLabel, { color: colors.foreground }]}>Novo Lançamento</Text>
+              <Text style={[styles.actionLabel, { color: colors.foreground }]}>Minha Agenda</Text>
             </Pressable>
             <Pressable style={[styles.actionBtn, { backgroundColor: colors.card }]} onPress={() => router.push("/plano-voo" as any)}>
               <View style={[styles.actionIcon, { backgroundColor: "#F0FDF4" }]}>
