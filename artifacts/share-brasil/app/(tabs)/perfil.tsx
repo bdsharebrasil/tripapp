@@ -4,15 +4,16 @@ import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-  ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet,
+  ActivityIndicator, Alert, Image, Pressable, RefreshControl, ScrollView, StyleSheet,
   Text, TextInput, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { apiFetch } from "@/src/lib/api";
+import { apiFetch, apiUrl } from "@/src/lib/api";
+import { getToken } from "@/src/lib/session";
 import { abrirArquivoPrivado } from "@/src/lib/arquivo-privado";
 
 type Profile = {
-  id: string; nome_completo?: string; nome_exibicao?: string; email?: string;
+  id: string; nome_completo?: string; nome_exibicao?: string; email?: string; foto_url?: string | null;
   telefone?: string; canac?: string; tipo_user?: string; departamento?: string;
   data_admissao?: string; data_nascimento?: string; cidade?: string; uf?: string;
 };
@@ -58,6 +59,8 @@ export default function PerfilScreen() {
   const [busy,setBusy]=useState(""),[error,setError]=useState("");
   const [editing,setEditing]=useState(false),[displayName,setDisplayName]=useState(""),[phone,setPhone]=useState("");
   const [docCategory,setDocCategory]=useState("Documentos pessoais");
+  const [imageToken,setImageToken]=useState<string | null>(null);
+  const [photoVersion,setPhotoVersion]=useState(0);
 
   const load=useCallback(async(refresh=false)=>{
     if(refresh)setRefreshing(true);else setLoading(true);
@@ -73,6 +76,7 @@ export default function PerfilScreen() {
       setSalaries(Array.isArray(s.pagamentos)?s.pagamentos:[]);
       setDisplayName(p.perfil?.nome_exibicao || p.perfil?.nome_completo || "");
       setPhone(p.perfil?.telefone || "");
+      setImageToken(await getToken().catch(() => null));
     } catch(e) {setError(e instanceof Error?e.message:"Não foi possível carregar o perfil.");}
     finally{setLoading(false);setRefreshing(false);}
   },[]);
@@ -102,6 +106,7 @@ export default function PerfilScreen() {
       const form=new FormData();
       form.append("foto",{uri:a.uri,name:a.fileName||"foto-perfil.jpg",type:a.mimeType||"image/jpeg"} as any);
       await apiFetch("/api/colaborador/foto",{method:"POST",body:form});
+      setPhotoVersion(v=>v+1);
       await load(true);
       Alert.alert("Foto atualizada","A foto do perfil foi salva.");
     }catch(e){Alert.alert("Não foi possível enviar",e instanceof Error?e.message:"Tente novamente.");}
@@ -154,7 +159,7 @@ export default function PerfilScreen() {
     <View style={styles.header}><View><Text style={styles.kicker}>TRIP SHARE · MINHA CONTA</Text><Text style={styles.title}>Meu perfil</Text></View><Pressable style={styles.iconBtn} onPress={()=>void load(true)}><Feather name="refresh-cw" color="#fff" size={20}/></Pressable></View>
     {!!error&&<Pressable style={styles.error} onPress={()=>void load(true)}><Text style={styles.secondary}>{error} · Tocar para tentar novamente</Text></Pressable>}
     {loading?<ActivityIndicator color={BLUE} style={{marginTop:36}}/>:<ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={()=>void load(true)} tintColor={BLUE}/>} keyboardShouldPersistTaps="handled" contentContainerStyle={{padding:17,paddingBottom:insets.bottom+110}}>
-      <View style={styles.hero}><View style={styles.avatar}><Text style={styles.avatarText}>{initials}</Text></View><View style={{flex:1}}><Text style={styles.name}>{fullName}</Text><Text style={styles.secondary}>{p?.departamento||p?.tipo_user||"Tripulação"}</Text><Text style={styles.kicker}>{p?.canac?`CANAC ${p.canac}`:"CANAC não informado"}</Text></View></View>
+      <View style={styles.hero}><View style={styles.avatar}>{p?.foto_url && imageToken ? <Image source={{ uri: `${apiUrl("/api/colaborador/foto")}?v=${photoVersion}`, headers: { Authorization: `Bearer ${imageToken}` } }} style={styles.avatarImage} /> : <Text style={styles.avatarText}>{initials}</Text>}</View><View style={{flex:1}}><Text style={styles.name}>{fullName}</Text><Text style={styles.secondary}>{p?.departamento||p?.tipo_user||"Tripulação"}</Text><Text style={styles.kicker}>{p?.canac?`CANAC ${p.canac}`:"CANAC não informado"}</Text></View></View>
       <View style={styles.stats}>
         <View style={styles.stat}><Text style={styles.statValue}>{Number(data?.metricas?.horas_totais||0).toLocaleString("pt-BR")}</Text><Text style={styles.statLabel}>Horas registradas</Text></View>
         <View style={styles.stat}><Text style={styles.statValue}>{data?.metricas?.voos_escalados??"—"}</Text><Text style={styles.statLabel}>Voos escalados</Text></View>
@@ -194,7 +199,7 @@ const styles=StyleSheet.create({
   root:{flex:1,backgroundColor:BG},header:{paddingHorizontal:18,paddingVertical:15,flexDirection:"row",justifyContent:"space-between",alignItems:"center"},
   kicker:{fontSize:10,color:BLUE,letterSpacing:1.65,fontWeight:"800"},title:{fontSize:26,fontWeight:"800",color:"#fff",marginTop:5},iconBtn:{height:44,width:44,borderRadius:13,alignItems:"center",justifyContent:"center",backgroundColor:CARD},
   hero:{backgroundColor:"#142c48",borderRadius:20,padding:17,flexDirection:"row",alignItems:"center",gap:15,borderWidth:1,borderColor:"#2e5474"},avatar:{width:66,height:66,borderRadius:20,backgroundColor:"#27618d",alignItems:"center",justifyContent:"center"},
-  avatarText:{color:"#fff",fontWeight:"800",fontSize:22},name:{fontSize:19,fontWeight:"800",color:"#fff"},secondary:{fontSize:13,color:"#c0d0df",marginTop:6,lineHeight:19},
+  avatarImage:{width:66,height:66,borderRadius:20},avatarText:{color:"#fff",fontWeight:"800",fontSize:22},name:{fontSize:19,fontWeight:"800",color:"#fff"},secondary:{fontSize:13,color:"#c0d0df",marginTop:6,lineHeight:19},
   stats:{flexDirection:"row",backgroundColor:CARD,marginVertical:13,borderRadius:16,overflow:"hidden",borderWidth:1,borderColor:BORDER},
   stat:{flex:1,alignItems:"center",paddingVertical:15,paddingHorizontal:3},statValue:{fontSize:20,fontWeight:"800",color:"#fff"},statLabel:{fontSize:10,color:MUTED,textAlign:"center",marginTop:5},
   tabs:{flexDirection:"row",padding:4,gap:4,backgroundColor:CARD,borderRadius:14,marginBottom:15},tab:{flex:1,minWidth:0,alignItems:"center",justifyContent:"center",minHeight:57,borderRadius:11,gap:4},tabActive:{backgroundColor:BLUE},tabText:{fontSize:11,fontWeight:"700",color:MUTED,textAlign:"center"},
