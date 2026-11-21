@@ -3,21 +3,24 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const root = new URL("../", import.meta.url);
-const [pdf, agenda, preparacao, packageFile, lockfile] = await Promise.all([
-  readFile(new URL("src/lib/briefing-pdf.ts", root), "utf8"),
-  readFile(new URL("app/(tabs)/agenda.tsx", root), "utf8"),
-  readFile(new URL("app/preparacao-voo.tsx", root), "utf8"),
-  readFile(new URL("package.json", root), "utf8"),
-  readFile(new URL("../../pnpm-lock.yaml", root), "utf8"),
-]);
+const [pdf, agenda, preparacao, packageFile, lockfile, files] =
+  await Promise.all([
+    readFile(new URL("src/lib/briefing-pdf.ts", root), "utf8"),
+    readFile(new URL("app/(tabs)/agenda.tsx", root), "utf8"),
+    readFile(new URL("app/preparacao-voo.tsx", root), "utf8"),
+    readFile(new URL("package.json", root), "utf8"),
+    readFile(new URL("../../pnpm-lock.yaml", root), "utf8"),
+    readFile(new URL("src/lib/arquivo-privado.ts", root), "utf8"),
+  ]);
 
 test("briefing usa download autenticado, valida PDF e limpa a cópia temporária", () => {
-  assert.match(pdf, /getToken\(\)/);
-  assert.match(pdf, /File\.downloadFileAsync\(apiUrl\(caminho\), arquivo, \{/);
-  assert.match(pdf, /Authorization: `Bearer \$\{token\}`/);
-  assert.match(pdf, /String\.fromCharCode\(\.\.\.assinatura\) !== "%PDF-"/);
-  assert.match(pdf, /Sharing\.shareAsync\(arquivo\.uri/);
-  assert.match(pdf, /arquivo\.delete\(\)/);
+  assert.match(pdf, /abrirArquivoPrivado\(/);
+  assert.match(pdf, /preparacao\/pdf\?versao/);
+  assert.match(files, /apiFetch<ApiBinary>/);
+  assert.match(files, /responseType:\s*['"]binary['"]/);
+  assert.match(files, /ascii\.startsWith\("%PDF-"\)/);
+  assert.match(files, /Sharing\.shareAsync\(file\.uri/);
+  assert.match(files, /file\.delete\(\)/);
   assert.doesNotMatch(pdf, /\?token=|\?access_token=|Linking\.openURL/);
 });
 
@@ -34,4 +37,3 @@ test("dependências Expo SDK 57 de PDF estão alinhadas ao lockfile", () => {
   assert.match(lockfile, /expo-sharing@57\.0\.26/);
   assert.match(lockfile, /expo-file-system@57\.0\.7/);
 });
-

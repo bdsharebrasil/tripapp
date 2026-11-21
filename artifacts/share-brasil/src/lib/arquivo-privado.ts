@@ -2,10 +2,10 @@ import { abrirDocumentoWeb } from "./documento-web";
 import { File, FileMode, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Platform } from "react-native";
-import { apiUrl } from "./api";
-import { getToken } from "./session";
+import { apiFetch, type ApiBinary } from "./api";
 
 const allowed = [
+  /^\/api\/interno\/agendamento\/[^/?]+\/preparacao\/pdf\?versao=\d+$/,
   /^\/api\/financeiro\/relatorios-despesa-viagem\/[^/?]+\/anexos-tripulante\/[^/?]+\/arquivo$/,
   /^\/api\/financeiro\/relatorios-despesa-viagem\/[^/?]+\/pdf$/,
   /^\/api\/colaborador\/documentos\/[^/?]+\/arquivo$/,
@@ -40,11 +40,6 @@ export async function abrirArquivoPrivado(
   if (!supported.includes(mime as TipoArquivo))
     throw new Error("Formato do documento não suportado.");
   if (Platform.OS === "web") return abrirDocumentoWeb(path, title, mime);
-  const token = await getToken();
-  if (!token)
-    throw new Error(
-      "Sessão expirada. Entre novamente para consultar o documento.",
-    );
   if (!(await Sharing.isAvailableAsync()))
     throw new Error("Não há aplicativo disponível para abrir documentos.");
   const extension =
@@ -62,9 +57,12 @@ export async function abrirArquivoPrivado(
     `${filename}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`,
   );
   try {
-    await File.downloadFileAsync(apiUrl(path), file, {
-      headers: { Authorization: `Bearer ${token}`, Accept: mime },
+    const { bytes: conteudo } = await apiFetch<ApiBinary>(path, {
+      responseType: "binary",
+      headers: { Accept: mime },
     });
+    file.create({ overwrite: true });
+    file.write(conteudo);
     if (!file.exists || (file.size ?? 0) < 8)
       throw new Error("Arquivo indisponível ou vazio.");
     const handle = file.open(FileMode.ReadOnly);

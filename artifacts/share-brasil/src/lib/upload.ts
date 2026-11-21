@@ -8,6 +8,7 @@ export async function anexarArquivo(
   mime: string,
 ) {
   if (Platform.OS === "web") {
+    if (!/^(blob:|data:)/.test(uri)) throw new Error("Arquivo local inválido.");
     const res = await fetch(uri);
     if (!res.ok) throw new Error("Não foi possível ler o arquivo selecionado.");
     form.append(

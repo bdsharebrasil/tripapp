@@ -1,5 +1,5 @@
 // Verificação do bundle de produção em DOM, com API isolada de teste.
-// Execute com QA_URL apontando para um servidor local de fixtures; não usa contas reais.
+// O servidor local de fixtures inicia no próprio teste; não usa contas reais.
 import { JSDOM, VirtualConsole } from "jsdom";
 import assert from "node:assert/strict";
 import { webcrypto } from "node:crypto";
@@ -50,9 +50,12 @@ const dom = await JSDOM.fromURL(url, {
     w.HTMLElement.prototype.scrollTo = () => {};
     w.alert = () => {};
     w.confirm = () => true;
-    const anchorClick=w.HTMLAnchorElement.prototype.click;
-    w.qaDownloads=[];
-    w.HTMLAnchorElement.prototype.click=function(){if(this.hasAttribute('download'))w.qaDownloads.push(this.download);else anchorClick.call(this)};
+    const anchorClick = w.HTMLAnchorElement.prototype.click;
+    w.qaDownloads = [];
+    w.HTMLAnchorElement.prototype.click = function () {
+      if (this.hasAttribute("download")) w.qaDownloads.push(this.download);
+      else anchorClick.call(this);
+    };
     w.URL.createObjectURL = () => "blob:qa";
     w.URL.revokeObjectURL = () => {};
     w.CSSFontFaceRule = class {};
@@ -84,12 +87,18 @@ const wait = async (fn, label) => {
 const text = () => doc.body.textContent;
 const click = async (label) => {
   let el;
-  await wait(()=>{
-    el=[...doc.querySelectorAll('[role="button"],[role="tab"],a,button')].find(x=>x.getAttribute('aria-label')===label||x.textContent.replace(/[\uE000-\uF8FF]/g,'').trim()===label);
+  await wait(() => {
+    el = [
+      ...doc.querySelectorAll('[role="button"],[role="tab"],a,button'),
+    ].find(
+      (x) =>
+        x.getAttribute("aria-label") === label ||
+        x.textContent.replace(/[\uE000-\uF8FF]/g, "").trim() === label,
+    );
     return Boolean(el);
-  },`controle ${label}`);
+  }, `controle ${label}`);
   el.click();
-  await new Promise(r=>setTimeout(r,250));
+  await new Promise((r) => setTimeout(r, 250));
 };
 
 try {
@@ -101,7 +110,10 @@ try {
   await click("Perfil");
   await wait(() => text().includes("30/06/2027"), "CMA atualizado");
   assert.ok(text().includes("MLTE") && text().includes("IFRA"));
-  await wait(()=>doc.querySelector('img[src^="data:image/"]'),"avatar autenticado");
+  await wait(
+    () => doc.querySelector('img[src^="data:image/"]'),
+    "avatar autenticado",
+  );
   await click("Dados");
   assert.ok(text().includes("piloto.teste@exemplo.com"));
   assert.ok(!text().includes("login-interno@share-brasil.com"));
@@ -157,26 +169,42 @@ try {
   assert.equal(saved.valor, 188.5);
   assert.equal(saved.descricao, "Refeição de teste");
   await wait(() => !text().includes("Salvando…"), "salvo");
-  await click('Voltar');
-  await wait(()=>text().includes('Continuar'),'rascunho disponível');
-  const draft=[...doc.querySelectorAll('[role="button"]')].find(el=>el.textContent.includes('REL-QA-001/26')&&el.textContent.includes('Continuar'));
-  assert.ok(draft);draft.click();
-  await wait(()=>text().includes('Finalizar relatório'),'continuar rascunho');
+  await click("Voltar");
+  await wait(() => text().includes("Continuar"), "rascunho disponível");
+  const draft = [...doc.querySelectorAll('[role="button"]')].find(
+    (el) =>
+      el.textContent.includes("REL-QA-001/26") &&
+      el.textContent.includes("Continuar"),
+  );
+  assert.ok(draft);
+  draft.click();
+  await wait(
+    () => text().includes("Finalizar relatório"),
+    "continuar rascunho",
+  );
   await click("Finalizar relatório");
   await wait(
     () => w.qaRequests.some((x) => x.path.endsWith("/finalizar")),
     "finalização",
   );
-  await wait(()=>text().includes('Abrir PDF do relatório'),'PDF disponível');
-  await click('Abrir PDF do relatório');
-  await wait(()=>w.qaDownloads.length===1,'download autenticado');
-  assert.ok(w.qaRequests.some(x=>x.path.endsWith('/pdf')));
-  await click('Voltar');
-  await wait(()=>text().includes('Ver relatório'),'relatório finalizado');
-  const finished=[...doc.querySelectorAll('[role="button"]')].find(el=>el.textContent.includes('QA-001/26')&&el.textContent.includes('Ver relatório'));
-  assert.ok(finished);finished.click();
-  await wait(()=>text().includes('Abrir PDF do relatório'),'consultar relatório finalizado');
-  assert.ok(!text().includes('Criar nova despesa'));
+  await wait(() => text().includes("Abrir PDF do relatório"), "PDF disponível");
+  await click("Abrir PDF do relatório");
+  await wait(() => w.qaDownloads.length === 1, "download autenticado");
+  assert.ok(w.qaRequests.some((x) => x.path.endsWith("/pdf")));
+  await click("Voltar");
+  await wait(() => text().includes("Ver relatório"), "relatório finalizado");
+  const finished = [...doc.querySelectorAll('[role="button"]')].find(
+    (el) =>
+      el.textContent.includes("QA-001/26") &&
+      el.textContent.includes("Ver relatório"),
+  );
+  assert.ok(finished);
+  finished.click();
+  await wait(
+    () => text().includes("Abrir PDF do relatório"),
+    "consultar relatório finalizado",
+  );
+  assert.ok(!text().includes("Criar nova despesa"));
   await click("Perfil");
   await wait(() => text().includes("Sair da conta"), "perfil");
   await click("Sair da conta");
@@ -185,12 +213,32 @@ try {
     "logout",
   );
   assert.ok(
-    !Object.keys(w.localStorage).some(
-      (k) => k.startsWith("sb-") && k.endsWith("-auth-token"),
-    ),
+    !Object.keys(w.localStorage).some((k) => k === "tripshare.auth.session.v1"),
   );
   console.log(
     "PASS: valor com vírgula, ID estável, salvar, finalizar e logout limpando sessão.",
+  );
+  change(doc.querySelector('input[aria-label="Usuário"]'), "piloto");
+  change(doc.querySelector('input[aria-label="Senha"]'), "senha-de-teste");
+  await new Promise((r) => setTimeout(r, 100));
+  await click("Entrar");
+  await wait(
+    () =>
+      text().includes("Sua operação, em dia.") &&
+      text().includes("Piloto de Teste"),
+    "login pelo Worker",
+  );
+  const loginRequest = w.qaRequests.find(
+    (x) => x.path === "/api/trip/auth/login",
+  );
+  assert.ok(loginRequest);
+  assert.deepEqual(JSON.parse(JSON.stringify(loginRequest.body)), {
+    usuario: "piloto",
+    senha: "senha-de-teste",
+  });
+  assert.ok(w.localStorage.getItem("tripshare.auth.session.v1"));
+  console.log(
+    "PASS: novo login e persistência de sessão exclusivamente pelo Worker.",
   );
   assert.equal(errors.length, 0);
 } finally {

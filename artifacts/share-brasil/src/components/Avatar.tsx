@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Image, Text, View } from "react-native";
 import { fromByteArray } from "base64-js";
-import { apiUrl } from "../lib/api";
-import { getToken } from "../lib/session";
+import { apiFetch, type ApiBinary } from "../lib/api";
 import { tema } from "./ui";
 
 /** A foto é carregada com autorização antes de renderizar, inclusive no navegador. */
@@ -23,22 +22,18 @@ export function Avatar({
     setUri(null);
     if (disponivel)
       void (async () => {
-        const token = await getToken();
-        if (!token) return;
-        const res = await fetch(
-          apiUrl("/api/colaborador/foto") + `?v=${versao}`,
+        const { bytes, mime } = await apiFetch<ApiBinary>(
+          `/api/colaborador/foto?v=${versao}`,
           {
-            headers: { Authorization: `Bearer ${token}` },
+            responseType: "binary",
             signal: controller.signal,
+            maxBytes: 10 * 1024 * 1024,
           },
         );
-        const mime = res.headers.get("content-type")?.split(";")[0] || "";
         if (
-          !res.ok ||
           !["image/png", "image/jpeg", "image/webp", "image/gif"].includes(mime)
         )
           return;
-        const bytes = new Uint8Array(await res.arrayBuffer());
         if (!controller.signal.aborted && bytes.length <= 10 * 1024 * 1024)
           setUri(`data:${mime};base64,${fromByteArray(bytes)}`);
       })().catch(() => undefined);
