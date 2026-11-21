@@ -12,7 +12,7 @@ type Lancamento = {
   perna_id: string; jornada_id: string; numero_perna: number;
   origem: string; destino: string; horario_ac?: string | null; horario_dep?: string | null;
   horario_pouso?: string | null; horario_corte?: string | null;
-  lancamento_id?: string | null; numero_sequencial?: number | null; numero_voo?: string;
+  lancamento_id?: string | null; numero_sequencial?: number | null; numero_voo?: string; diario_mes_id?: string | null;
   data_registro?: string; natureza_voo?: string | null;
   tempo_voo?: number; tempo_total?: number; tempo_ifr?: number;
   horas_diurnas?: number; horas_noturnas?: number; pousos_total?: number;
@@ -172,7 +172,7 @@ export default function DiarioBordoMobile() {
         <Text style={s.note}>Diário nº {selected.numero_sequencial||"—"} · {date(selected.data_registro)}</Text>
         <Text style={s.note}>AC {hhmm(selected.horario_ac)} · DEP {hhmm(selected.horario_dep)} · POU {hhmm(selected.horario_pouso)} · COR {hhmm(selected.horario_corte)} (UTC)</Text>
         <Text style={s.note}>Tempo de voo: {Number(selected.tempo_voo||0).toFixed(2)} h · Tempo total: {Number(selected.tempo_total||0).toFixed(2)} h</Text>
-        <Text style={s.note}>Horários, aeronave, data e cliente vêm da jornada e não podem ser alterados nesta tela.</Text>
+        <Text style={s.note}>Horários, aeronave, data e cliente vêm da jornada e não podem ser alterados nesta tela.</Text>{selected.diario_mes_id?.startsWith("auto-") ? <Text style={[s.note, { color: "#f0c583" }]}>Competência aberta automaticamente. Confirme o valor inicial de célula/horímetro com a operação antes do fechamento mensal.</Text> : null}
       </View>
       <Text style={s.section}>NATUREZA DO VOO</Text>
       <View style={s.chips}>{naturezas.map(n=><Pressable key={n} disabled={readonly} onPress={()=>set("natureza_voo",n)} style={[s.chip,draft.natureza_voo===n&&s.chipActive]}><Text style={{color:draft.natureza_voo===n?BG:MUTED,fontSize:11,fontWeight:"700"}}>{n}</Text></Pressable>)}</View>
