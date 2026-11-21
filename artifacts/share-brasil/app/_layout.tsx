@@ -52,6 +52,7 @@ function RootLayoutNav({ session, authReady }: { session: Session | null; authRe
       <Stack.Screen name="manutencao" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="ferias" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="relatorio-voo" options={{ presentation: "modal", headerShown: false }} />
+      <Stack.Screen name="diario-bordo" options={{ headerShown: false }} />
       <Stack.Screen name="notificacoes" options={{ headerShown: false }} />
     </Stack>
   );

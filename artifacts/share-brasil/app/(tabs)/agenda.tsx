@@ -7,7 +7,7 @@ import { apiFetch } from "@/src/lib/api";
 import { abrirBriefingPdf } from "@/src/lib/briefing-pdf";
 
 type Flight = { id: string; numero_voo?: string; origem?: string; destino?: string; data_agendada?: string; horario_previsto_agendamento?: string; matricula_registro?: string; modelo?: string; status?: string };
-type Leg = { id: string; numero: number; origem: string; destino: string; horario_ac?: string | null; horario_dep?: string | null; horario_pouso?: string | null; horario_corte?: string | null; lancamento_diario_id?: string | null };
+type Leg = { id: string; numero: number; origem: string; destino: string; horario_ac?: string | null; horario_dep?: string | null; horario_pouso?: string | null; horario_corte?: string | null; lancamento_diario_id?: string | null; diario_confirmado?: number; diario_assinado_pic?: string | null; diario_fechado?: number };
 type Journey = { id: string; status: string; pernas: Leg[]; funcao_tripulante?: string };
 type Detail = { voo: Flight & { mensagem?: string | null; cliente_razao_social?: string | null; piloto_nome?: string | null; copiloto_nome?: string | null }; jornadas: Journey[]; hospedagens: Record<string, unknown>[] };
 const navy = "#071323", card = "#102139", border = "#243a54", blue = "#27b9f5", muted = "#9aacc3";
@@ -52,13 +52,24 @@ export default function AgendaScreen() {
     if (!fields.length || fields.some(([, v]) => !/^\d{2}:\d{2}$/.test(v))) return Alert.alert("Horários", "Informe horários UTC no formato HH:MM.");
     setSaving(true);
     try {
-      await apiFetch(`/api/interno/jornadas/${encodeURIComponent(editing.journeyId)}/pernas/${encodeURIComponent(editing.leg.id)}`, {
+      const resultado = await apiFetch<{ diario_bordo?: { status: string; detalhe?: string; lancamento_id?: string } }>(`/api/interno/jornadas/${encodeURIComponent(editing.journeyId)}/pernas/${encodeURIComponent(editing.leg.id)}`, {
         method: "PATCH", body: JSON.stringify(Object.fromEntries(fields)),
       });
       const id = selected?.voo.id;
       if (id) setSelected(await apiFetch<Detail>(`/api/colaborador/meus-voos/${encodeURIComponent(id)}`));
       setEditing(null);
-      Alert.alert("Horários salvos", "Os horários foram registrados no Worker.");
+      const diario = resultado.diario_bordo;
+      const sincronizado = diario?.status === "rascunho" || diario?.status === "assinado";
+      Alert.alert(
+        sincronizado ? "Horários e Diário atualizados" : "Horários salvos",
+        sincronizado
+          ? "Os horários foram gravados no Worker e vinculados ao Diário de Bordo da aeronave. O lançamento permanece em rascunho até a assinatura do CMTE."
+          : `Horários gravados. ${diario?.detalhe || "O Diário será criado após registrar o AC."}`,
+        sincronizado && id ? [
+          { text: "Continuar na Agenda" },
+          { text: "Abrir Diário", onPress: () => router.push({ pathname: "/diario-bordo", params: { vooId: id } }) },
+        ] : [{ text: "OK" }],
+      );
     } catch (e) { Alert.alert("Não foi possível salvar", e instanceof Error ? e.message : "Verifique sua conexão e permissões."); }
     finally { setSaving(false); }
   };
@@ -108,10 +119,12 @@ export default function AgendaScreen() {
         {action("Checklist pré-voo", "check-square", () => router.push({ pathname: "/preparacao-voo", params: { id: detail.voo.id } }))}
         <View style={{ height: 10 }} />
         {action(openingBriefing ? "Abrindo briefing PDF…" : "Abrir briefing em PDF", "file-text", () => void openBriefing(detail.voo))}
+        <View style={{ height: 10 }} />
+        {action("Diário de Bordo · completar e assinar", "book-open", () => router.push({ pathname: "/diario-bordo", params: { vooId: detail.voo.id } }))}
         <Text style={s.section}>HOSPEDAGEM DA TRIPULAÇÃO</Text>
         {detail.hospedagens.length ? detail.hospedagens.map((h, i) => <View key={i} style={s.panel}>{Object.entries(h).filter(([, v]) => v != null && typeof v !== "object").map(([k, v]) => <Text key={k} style={s.secondary}>{k.replace(/_/g, " ")}: {String(v)}</Text>)}</View>) : <View style={s.panel}><Text style={s.secondary}>Nenhuma hospedagem vinculada a este voo.</Text></View>}
         <Text style={s.section}>HORÁRIOS · UTC</Text>
-        {detail.jornadas.length ? detail.jornadas.map(j => <View key={j.id} style={s.panel}><Text style={s.rowTitle}>Jornada · {j.status}</Text>{(j.pernas || []).map(leg => <View key={leg.id} style={s.leg}><Text style={s.rowTitle}>Perna {leg.numero} · {leg.origem} → {leg.destino}</Text><Text style={s.secondary}>AC {hhmm(leg.horario_ac) || "—"} · DEP {hhmm(leg.horario_dep) || "—"} · POU {hhmm(leg.horario_pouso) || "—"} · COR {hhmm(leg.horario_corte) || "—"}</Text>{!leg.lancamento_diario_id && j.status !== "encerrada" ? <Pressable onPress={() => { setEditing({ journeyId: j.id, leg }); setTimes({ horario_ac: hhmm(leg.horario_ac), horario_dep: hhmm(leg.horario_dep), horario_pouso: hhmm(leg.horario_pouso), horario_corte: hhmm(leg.horario_corte) }); }}><Text style={s.link}>Registrar / corrigir horários</Text></Pressable> : null}</View>)}</View>) : <View style={s.panel}><Text style={s.secondary}>Nenhuma jornada registrada para este voo.</Text></View>}
+        {detail.jornadas.length ? detail.jornadas.map(j => <View key={j.id} style={s.panel}><Text style={s.rowTitle}>Jornada · {j.status}</Text>{(j.pernas || []).map(leg => <View key={leg.id} style={s.leg}><Text style={s.rowTitle}>Perna {leg.numero} · {leg.origem} → {leg.destino}</Text><Text style={s.secondary}>AC {hhmm(leg.horario_ac) || "—"} · DEP {hhmm(leg.horario_dep) || "—"} · POU {hhmm(leg.horario_pouso) || "—"} · COR {hhmm(leg.horario_corte) || "—"}</Text><Text style={[s.secondary, { color: leg.diario_confirmado || leg.diario_assinado_pic ? "#79dbb5" : blue }]}>{leg.diario_confirmado || leg.diario_assinado_pic ? "DIÁRIO ASSINADO" : leg.lancamento_diario_id ? "DIÁRIO EM RASCUNHO" : "DIÁRIO AGUARDANDO SINCRONIZAÇÃO"}</Text>{!leg.diario_confirmado && !leg.diario_assinado_pic && !leg.diario_fechado ? <Pressable onPress={() => { setEditing({ journeyId: j.id, leg }); setTimes({ horario_ac: hhmm(leg.horario_ac), horario_dep: hhmm(leg.horario_dep), horario_pouso: hhmm(leg.horario_pouso), horario_corte: hhmm(leg.horario_corte) }); }}><Text style={s.link}>Registrar / corrigir horários</Text></Pressable> : null}</View>)}</View>) : <View style={s.panel}><Text style={s.secondary}>Nenhuma jornada registrada para este voo.</Text></View>}
       </>}
     </ScrollView>}
     {editing && <View style={[s.editor, { bottom: insets.bottom + 12 }]}><View style={s.between}><Text style={s.rowTitle}>Horários da perna {editing.leg.numero} · UTC</Text><Pressable onPress={() => setEditing(null)}><Feather name="x" size={23} color="#fff" /></Pressable></View><View style={s.timeGrid}>{(["horario_ac", "horario_dep", "horario_pouso", "horario_corte"] as const).map((key, i) => <View key={key} style={{ width: "47%" }}><Text style={s.secondary}>{["AC", "DEP", "POU", "COR"][i]}</Text><TextInput style={s.input} placeholder="HH:MM" placeholderTextColor={muted} keyboardType="numbers-and-punctuation" value={times[key]} onChangeText={v => setTimes(p => ({ ...p, [key]: v }))} /></View>)}</View><Pressable disabled={saving} onPress={() => void saveTimes()} style={s.primary}><Text style={s.primaryText}>{saving ? "Salvando…" : "Salvar horários"}</Text></Pressable></View>}
