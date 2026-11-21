@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
-import React, { useMemo } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Image,
   Platform,
@@ -14,6 +14,22 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { apiFetch } from "@/src/lib/api";
+
+type WorkerPlan = {
+  numero_voo?: string | null;
+  adep?: string | null;
+  ades?: string | null;
+  data_voo?: string | null;
+  eobt?: string | null;
+  payload?: { form?: Record<string, unknown> } | null;
+};
+type DashboardRemote = {
+  pendingReports: number;
+  devolvidos: number;
+  openMaintenance: number;
+  nextPlan: { partida: string; chegada: string; data: string; hora: string; identificacao: string } | null;
+};
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr + "T00:00:00");
@@ -28,7 +44,50 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { profile, flights, travelReports, maintenanceReports, financialEntries, flightPlans } = useApp();
+  const { profile, flights, financialEntries } = useApp();
+  const [remote, setRemote] = useState<DashboardRemote>({ pendingReports: 0, devolvidos: 0, openMaintenance: 0, nextPlan: null });
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    const load = async () => {
+      const [expenseResult, maintenanceResult, plansResult] = await Promise.allSettled([
+        apiFetch<{ relatorios: { status: string }[] }>("/api/financeiro/relatorios-despesa-viagem/minhas"),
+        apiFetch<{ data: { status: string }[] }>("/api/ctm/relatorios-manutencao"),
+        apiFetch<WorkerPlan[]>("/api/interno/planos-voo?mine=true"),
+      ]);
+      if (!active) return;
+      let pendingReports = 0;
+      let devolvidos = 0;
+      let openMaintenance = 0;
+      let nextPlan: DashboardRemote["nextPlan"] = null;
+      if (expenseResult.status === "fulfilled") {
+        for (const report of expenseResult.value.relatorios || []) {
+          if (["finalizado", "aguardando_aprovacao", "ajuste_concluido"].includes(report.status)) pendingReports += 1;
+          if (report.status === "ajuste_necessario") devolvidos += 1;
+        }
+      }
+      if (maintenanceResult.status === "fulfilled") {
+        openMaintenance = (maintenanceResult.value.data || []).filter((item) => item.status !== "resolved").length;
+      }
+      if (plansResult.status === "fulfilled") {
+        const today = new Date().toISOString().slice(0, 10);
+        const futurePlans = (plansResult.value || []).map((plan) => {
+          const form = plan.payload?.form || {};
+          return {
+            partida: String(plan.adep || form.adep || ""),
+            chegada: String(plan.ades || form.ades || ""),
+            data: String(plan.data_voo || form.dataVoo || ""),
+            hora: String(plan.eobt || form.eobt || ""),
+            identificacao: String(plan.numero_voo || form.identificacao || "Plano ICAO"),
+          };
+        }).filter((plan) => plan.data >= today && plan.partida && plan.chegada).sort((a, b) => a.data.localeCompare(b.data));
+        nextPlan = futurePlans[0] || null;
+      }
+      setRemote({ pendingReports, devolvidos, openMaintenance, nextPlan });
+    };
+    void load().catch(() => undefined);
+    return () => { active = false; };
+  }, []));
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -39,13 +98,9 @@ export default function HomeScreen() {
       return d.getMonth() === month && d.getFullYear() === year;
     });
     const monthHours = monthFlights.reduce((acc, f) => acc + f.tempoVoo, 0);
-    const pendingReports = travelReports.filter((r) => r.status === "enviado").length;
-    const devolvidos = travelReports.filter((r) => r.status === "devolvido").length;
-    const openMaintenance = maintenanceReports.filter((m) => m.status !== "resolvido").length;
     const pendingFinancial = financialEntries.filter((f) => f.status === "pendente").reduce((acc, f) => acc + f.valor, 0);
-    const nextPlan = flightPlans.filter((p) => p.status === "aprovado" && p.data >= now.toISOString().split("T")[0]).sort((a, b) => a.data.localeCompare(b.data))[0];
-    return { monthFlights: monthFlights.length, monthHours, pendingReports, devolvidos, openMaintenance, pendingFinancial, nextPlan };
-  }, [flights, travelReports, maintenanceReports, financialEntries, flightPlans]);
+    return { monthFlights: monthFlights.length, monthHours, ...remote, pendingFinancial };
+  }, [flights, financialEntries, remote]);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
@@ -63,11 +118,21 @@ export default function HomeScreen() {
             <Text style={styles.userName}>{profile.nome.split(" ")[0]} {profile.nome.split(" ")[1]}</Text>
             <Text style={styles.userRole}>{profile.cargo} · CANAC {profile.canac}</Text>
           </View>
-          <Image
-            source={require("../../assets/images/logo.png")}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+          <View style={styles.headerActions}>
+            <Pressable
+              style={styles.notificationButton}
+              onPress={() => router.push("/notificacoes" as any)}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir notificações"
+            >
+              <Feather name="bell" size={20} color="#FFFFFF" />
+            </Pressable>
+            <Image
+              source={require("../../assets/images/logo.png")}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
         </View>
 
         <View style={styles.statsRow}>
@@ -93,7 +158,7 @@ export default function HomeScreen() {
       >
         {stats.nextPlan && (
           <View style={[styles.section]}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Próximo Voo</Text>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Próximo plano ICAO salvo</Text>
             <Pressable
               style={[styles.nextFlightCard, { backgroundColor: colors.primary }]}
               onPress={() => router.push("/plano-voo" as any)}
@@ -114,9 +179,9 @@ export default function HomeScreen() {
                 </View>
               </View>
               <View style={styles.nextFlightDetails}>
-                <Text style={styles.nextFlightText}>{formatDate(stats.nextPlan.data)} · {stats.nextPlan.horaPrevista} · {stats.nextPlan.matricula}</Text>
+                <Text style={styles.nextFlightText}>{formatDate(stats.nextPlan.data)} · EOBT {stats.nextPlan.hora || "—"}Z · {stats.nextPlan.identificacao}</Text>
                 <View style={[styles.badge, { backgroundColor: colors.gold }]}>
-                  <Text style={[styles.badgeText, { color: "#1A1A2E" }]}>Aprovado</Text>
+                  <Text style={[styles.badgeText, { color: "#1A1A2E" }]}>Salvo no Worker</Text>
                 </View>
               </View>
             </Pressable>
@@ -262,6 +327,17 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
       marginBottom: 20,
     },
     logo: { width: 90, height: 40 },
+    headerActions: { flexDirection: "row", alignItems: "center", gap: 12 },
+    notificationButton: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      backgroundColor: "rgba(255,255,255,0.14)",
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.16)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
     greeting: { fontSize: 14, color: "rgba(255,255,255,0.7)", fontFamily: "Inter_400Regular" },
     userName: { fontSize: 22, color: "#FFFFFF", fontFamily: "Inter_700Bold", marginTop: 2 },
     userRole: { fontSize: 12, color: "rgba(255,255,255,0.6)", fontFamily: "Inter_400Regular", marginTop: 2 },
