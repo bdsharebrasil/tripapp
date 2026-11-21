@@ -6,9 +6,7 @@ export async function criarServidorQA() {
   const base = fileURLToPath(
     new URL("../../share-brasil-pwa/dist", import.meta.url),
   );
-  const env = await readFile(new URL("../.env", import.meta.url), "utf8");
-  const authUrl = env.match(/EXPO_PUBLIC_SUPABASE_URL=["']?([^\s"']+)/)[1];
-  const sessionKey = `sb-${new URL(authUrl).hostname.split(".")[0]}-auth-token`;
+  const sessionKey = "tripshare.auth.session.v1";
   const now = Math.floor(Date.now() / 1000);
   const user = {
     id: "qa-tripulante",
@@ -45,14 +43,11 @@ let reports=[],saved=[];let failPayments=false;window.qaRequests=[];
 const realFetch=window.fetch.bind(window);
 window.fetch=async(input,init={})=>{
 const url=new URL(typeof input==='string'?input:input.url,location.origin),path=url.pathname,method=init.method||'GET';
-if(url.hostname===new URL(${JSON.stringify(authUrl)}).hostname){
-if(path.includes('/logout'))return new Response('{}',{status:200,headers:{'content-type':'application/json'}});
-if(path.includes('/token'))return new Response(JSON.stringify(session),{status:200,headers:{'content-type':'application/json'}});
-return new Response(JSON.stringify(session.user),{status:200,headers:{'content-type':'application/json'}});
-}
 if(url.hostname!=='api.share-brasil.com')return realFetch(input,init);
 window.qaRequests.push({path,method,body:typeof init.body==='string'?JSON.parse(init.body):null});
 const json=(x,status=200)=>new Response(JSON.stringify(x),{status,headers:{'content-type':'application/json'}});
+if(path==='/api/trip/auth/login'||path==='/api/trip/auth/refresh')return json({...session,user:{id:session.user.id}});
+if(path==='/api/trip/auth/logout')return json({sucesso:true});
 if(path==='/api/colaborador/perfil')return json({perfil:{id:session.user.id,nome_completo:'Piloto de Teste',nome_exibicao:'Piloto de Teste',email:'piloto.teste@exemplo.com',canac:'QA123',departamento:'Tripulação',foto_url:'/api/colaborador/foto'},tripulante:{canac:'QA123',tipo_licenca:'PLA'},metricas:{horas_totais:42,voos_escalados:1},habilitacoes:[{id:'h1',tipo_habilitacao:'MLTE',data_validade:'2027-12-01'},{id:'h2',tipo_habilitacao:'IFRA',data_validade:'2027-11-01'}],cma:{id:'c1',classe:'1',validade:'2027-06-30'},resumo_ferias:{dias_direito:30,dias_utilizados:10,dias_disponiveis:20}});
 if(path==='/api/colaborador/foto')return realFetch('/icon.png');
 if(path==='/api/colaborador/documentos')return json([]);

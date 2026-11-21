@@ -29,8 +29,9 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
+import { signIn } from "@/src/lib/session";
 
+const EMAIL_DOMAIN = "share-brasil.com";
 const C = {
   bg: "#030814",
   bgMid: "#061225",
@@ -44,7 +45,6 @@ const C = {
   textMuted: "#b4c0d0",
   danger: "#ff9aaa",
 };
-const EMAIL_DOMAIN = "share-brasil.com";
 const REMEMBER_KEY = "sharebrasil.login.username";
 const FLIGHT_ROUTES = [
   { y: 0.23, duration: 19000, delay: 0, size: 22, opacity: 0.34 },
@@ -79,11 +79,17 @@ function FlightPlane({
     const fade = p < 0.15 ? p / 0.15 : p > 0.85 ? (1 - p) / 0.15 : 1;
     return {
       opacity: fade * opacity,
-      transform: [{ translateX: -40 + p * (screenW + 80) }, { rotate: "90deg" }],
+      transform: [
+        { translateX: -40 + p * (screenW + 80) },
+        { rotate: "90deg" },
+      ],
     };
   });
   return (
-    <Animated.View pointerEvents="none" style={[{ position: "absolute", left: 0, top: screenH * y }, style]}>
+    <Animated.View
+      pointerEvents="none"
+      style={[{ position: "absolute", left: 0, top: screenH * y }, style]}
+    >
       <MaterialCommunityIcons name="airplane" size={size} color={C.accent} />
     </Animated.View>
   );
@@ -107,12 +113,14 @@ export default function LoginScreen() {
 
   useEffect(() => {
     let active = true;
-    void AsyncStorage.getItem(REMEMBER_KEY).then((saved) => {
-      if (active && saved) {
-        setUsername(saved);
-        setRemember(true);
-      }
-    }).catch(() => undefined);
+    void AsyncStorage.getItem(REMEMBER_KEY)
+      .then((saved) => {
+        if (active && saved) {
+          setUsername(saved);
+          setRemember(true);
+        }
+      })
+      .catch(() => undefined);
     return () => {
       active = false;
     };
@@ -120,7 +128,9 @@ export default function LoginScreen() {
 
   const fail = (message: string) => {
     setError(message);
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
+    void Haptics.notificationAsync(
+      Haptics.NotificationFeedbackType.Error,
+    ).catch(() => undefined);
   };
   const submit = async () => {
     if (busyRef.current) return;
@@ -133,10 +143,6 @@ export default function LoginScreen() {
       fail("Informe apenas o usuário, sem espaços ou @.");
       return;
     }
-    if (!isSupabaseConfigured) {
-      fail("O acesso ainda não está configurado neste app. Fale com o suporte.");
-      return;
-    }
 
     busyRef.current = true;
     setSubmitting(true);
@@ -144,18 +150,20 @@ export default function LoginScreen() {
     try {
       if (remember) await AsyncStorage.setItem(REMEMBER_KEY, user);
       else await AsyncStorage.removeItem(REMEMBER_KEY);
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: `${user.toLowerCase()}@${EMAIL_DOMAIN}`,
-        password,
-      });
-      if (authError) throw authError;
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+      await signIn(user.toLowerCase(), password);
+      void Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Success,
+      ).catch(() => undefined);
       router.replace("/(tabs)");
     } catch (cause) {
       const message = cause instanceof Error ? cause.message.toLowerCase() : "";
       if (/network|fetch|timeout|failed to connect/.test(message)) {
         fail("Sem conexão. Verifique sua internet e tente de novo.");
-      } else if (/invalid login|invalid.*credential|wrong password|user not found/.test(message)) {
+      } else if (
+        /invalid login|invalid.*credential|wrong password|user not found|usuario_ou_senha/.test(
+          message,
+        )
+      ) {
         fail("Usuário ou senha incorretos.");
       } else {
         fail("Não foi possível entrar. Confira seus dados e tente novamente.");
@@ -166,21 +174,48 @@ export default function LoginScreen() {
     }
   };
 
-  const canSubmit = isValidUsername(username) && password.length > 0 && !submitting;
+  const canSubmit =
+    isValidUsername(username) && password.length > 0 && !submitting;
   return (
     <View style={styles.root}>
-      <LinearGradient colors={[C.bg, C.bgMid, C.bgEnd]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-      {!reduceMotion && FLIGHT_ROUTES.map((route, index) => (
-        <FlightPlane key={index} {...route} screenW={width} screenH={height} />
-      ))}
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <LinearGradient
+        colors={[C.bg, C.bgMid, C.bgEnd]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      {!reduceMotion &&
+        FLIGHT_ROUTES.map((route, index) => (
+          <FlightPlane
+            key={index}
+            {...route}
+            screenW={width}
+            screenH={height}
+          />
+        ))}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
         <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 18 }]}
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 18 },
+          ]}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          keyboardDismissMode={
+            Platform.OS === "ios" ? "interactive" : "on-drag"
+          }
           showsVerticalScrollIndicator={false}
         >
-          <Animated.View entering={reduceMotion ? undefined : FadeInDown.duration(600).springify().damping(18)} style={styles.card}>
+          <Animated.View
+            entering={
+              reduceMotion
+                ? undefined
+                : FadeInDown.duration(600).springify().damping(18)
+            }
+            style={styles.card}
+          >
             <Image
               source={require("../assets/images/logoshare.branco.png")}
               style={styles.logo}
@@ -188,11 +223,17 @@ export default function LoginScreen() {
               accessible
               accessibilityLabel="Logo Share Brasil"
             />
-            <Text style={styles.subtitle} maxFontSizeMultiplier={1.5}>Acesso ao Portal do Tripulante</Text>
+            <Text style={styles.subtitle} maxFontSizeMultiplier={1.5}>
+              Acesso ao Portal do Tripulante
+            </Text>
 
             <Text style={styles.label}>Usuário</Text>
             <View style={[styles.field, userFocused && styles.fieldFocused]}>
-              <Ionicons name="person-outline" size={20} color={userFocused ? C.accent : "rgba(255,255,255,0.55)"} />
+              <Ionicons
+                name="person-outline"
+                size={20}
+                color={userFocused ? C.accent : "rgba(255,255,255,0.55)"}
+              />
               <TextInput
                 value={username}
                 onChangeText={(value) => {
@@ -214,16 +255,29 @@ export default function LoginScreen() {
                 accessibilityHint={`Seu e-mail será ${username || "usuario"}@${EMAIL_DOMAIN}`}
                 style={styles.input}
               />
-              <Text style={styles.suffix} adjustsFontSizeToFit numberOfLines={1}>@{EMAIL_DOMAIN}</Text>
+              <Text
+                style={styles.suffix}
+                adjustsFontSizeToFit
+                numberOfLines={1}
+              >
+                @{EMAIL_DOMAIN}
+              </Text>
             </View>
 
             <Text style={[styles.label, styles.passwordLabel]}>Senha</Text>
             <View style={[styles.field, passFocused && styles.fieldFocused]}>
-              <Ionicons name="lock-closed-outline" size={20} color={passFocused ? C.accent : "rgba(255,255,255,0.55)"} />
+              <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color={passFocused ? C.accent : "rgba(255,255,255,0.55)"}
+              />
               <TextInput
                 ref={passwordRef}
                 value={password}
-                onChangeText={(value) => { setError(null); setPassword(value); }}
+                onChangeText={(value) => {
+                  setError(null);
+                  setPassword(value);
+                }}
                 onFocus={() => setPassFocused(true)}
                 onBlur={() => setPassFocused(false)}
                 placeholder="••••••••"
@@ -244,9 +298,15 @@ export default function LoginScreen() {
                 hitSlop={12}
                 disabled={submitting}
                 accessibilityRole="button"
-                accessibilityLabel={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                accessibilityLabel={
+                  showPassword ? "Ocultar senha" : "Mostrar senha"
+                }
               >
-                <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={21} color="rgba(255,255,255,0.7)" />
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={21}
+                  color="rgba(255,255,255,0.7)"
+                />
               </Pressable>
             </View>
 
@@ -259,24 +319,51 @@ export default function LoginScreen() {
               accessibilityLabel="Lembrar meu acesso"
             >
               <View style={[styles.checkbox, remember && styles.checkboxOn]}>
-                {remember && <Ionicons name="checkmark" size={15} color={C.onAccent} />}
+                {remember && (
+                  <Ionicons name="checkmark" size={15} color={C.onAccent} />
+                )}
               </View>
               <Text style={styles.rememberText}>Lembrar meu acesso</Text>
             </Pressable>
 
-            {error && <Text style={styles.error} accessibilityLiveRegion="polite" accessibilityRole="alert">{error}</Text>}
+            {error && (
+              <Text
+                style={styles.error}
+                accessibilityLiveRegion="polite"
+                accessibilityRole="alert"
+              >
+                {error}
+              </Text>
+            )}
             <Pressable
               onPress={() => void submit()}
               disabled={!canSubmit}
               accessibilityRole="button"
               accessibilityLabel="Entrar"
               accessibilityState={{ disabled: !canSubmit, busy: submitting }}
-              style={({ pressed }) => [styles.button, !canSubmit && styles.buttonDisabled, pressed && canSubmit && styles.buttonPressed]}
+              style={({ pressed }) => [
+                styles.button,
+                !canSubmit && styles.buttonDisabled,
+                pressed && canSubmit && styles.buttonPressed,
+              ]}
             >
-              {submitting ? <ActivityIndicator color={C.onAccent} /> : <Text style={[styles.buttonText, !canSubmit && styles.buttonTextDisabled]}>Entrar</Text>}
+              {submitting ? (
+                <ActivityIndicator color={C.onAccent} />
+              ) : (
+                <Text
+                  style={[
+                    styles.buttonText,
+                    !canSubmit && styles.buttonTextDisabled,
+                  ]}
+                >
+                  Entrar
+                </Text>
+              )}
             </Pressable>
           </Animated.View>
-          <Text style={styles.footer} maxFontSizeMultiplier={1.5}>Share Brasil · Portal do Tripulante</Text>
+          <Text style={styles.footer} maxFontSizeMultiplier={1.5}>
+            Share Brasil · Portal do Tripulante
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -286,7 +373,12 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   root: { flex: 1, backgroundColor: C.bg },
-  scroll: { flexGrow: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 20 },
+  scroll: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
   card: {
     width: "100%",
     maxWidth: 440,
@@ -298,8 +390,21 @@ const styles = StyleSheet.create({
     paddingVertical: 28,
   },
   logo: { alignSelf: "center", height: 82, width: 230, marginBottom: 4 },
-  subtitle: { textAlign: "center", color: C.textMuted, fontFamily: "Inter_400Regular", fontSize: 15, marginTop: 2, marginBottom: 28 },
-  label: { color: C.textSoft, fontFamily: "Inter_500Medium", fontSize: 15, marginBottom: 8, marginLeft: 4 },
+  subtitle: {
+    textAlign: "center",
+    color: C.textMuted,
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
+    marginTop: 2,
+    marginBottom: 28,
+  },
+  label: {
+    color: C.textSoft,
+    fontFamily: "Inter_500Medium",
+    fontSize: 15,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
   passwordLabel: { marginTop: 18 },
   field: {
     minHeight: 58,
@@ -312,18 +417,79 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.07)",
     paddingHorizontal: 16,
   },
-  fieldFocused: { borderColor: "rgba(56,215,255,0.8)", backgroundColor: "rgba(255,255,255,0.1)" },
-  input: { flex: 1, minWidth: 0, color: C.text, fontFamily: "Inter_400Regular", fontSize: 16, minHeight: 56, paddingVertical: 12 },
-  suffix: { color: "#b4c0d0", fontFamily: "Inter_400Regular", fontSize: 13, maxWidth: 140 },
-  rememberRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 16, paddingHorizontal: 4, minHeight: 48 },
-  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 1, borderColor: "rgba(255,255,255,0.45)", backgroundColor: "rgba(255,255,255,0.05)", alignItems: "center", justifyContent: "center" },
+  fieldFocused: {
+    borderColor: "rgba(56,215,255,0.8)",
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  input: {
+    flex: 1,
+    minWidth: 0,
+    color: C.text,
+    fontFamily: "Inter_400Regular",
+    fontSize: 16,
+    minHeight: 56,
+    paddingVertical: 12,
+  },
+  suffix: {
+    color: "#b4c0d0",
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    maxWidth: 140,
+  },
+  rememberRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 16,
+    paddingHorizontal: 4,
+    minHeight: 48,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.45)",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   checkboxOn: { backgroundColor: C.accent, borderColor: C.accent },
-  rememberText: { color: C.textMuted, fontFamily: "Inter_500Medium", fontSize: 14 },
-  error: { color: C.danger, fontFamily: "Inter_500Medium", fontSize: 14, lineHeight: 20, marginTop: 8, marginLeft: 4 },
-  button: { minHeight: 58, borderRadius: 16, backgroundColor: C.accent, alignItems: "center", justifyContent: "center", marginTop: 18, paddingHorizontal: 18 },
+  rememberText: {
+    color: C.textMuted,
+    fontFamily: "Inter_500Medium",
+    fontSize: 14,
+  },
+  error: {
+    color: C.danger,
+    fontFamily: "Inter_500Medium",
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 8,
+    marginLeft: 4,
+  },
+  button: {
+    minHeight: 58,
+    borderRadius: 16,
+    backgroundColor: C.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 18,
+    paddingHorizontal: 18,
+  },
   buttonDisabled: { backgroundColor: "rgba(255,255,255,0.17)" },
   buttonPressed: { backgroundColor: C.accentPressed },
-  buttonText: { color: C.onAccent, fontFamily: "Inter_600SemiBold", fontSize: 17 },
+  buttonText: {
+    color: C.onAccent,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 17,
+  },
   buttonTextDisabled: { color: "#c1ccd9" },
-  footer: { color: "#c0ccdb", fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "center", marginTop: 20 },
+  footer: {
+    color: "#c0ccdb",
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 20,
+  },
 });

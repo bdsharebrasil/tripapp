@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { apiFetch } from "@/src/lib/api";
-import { supabase } from "@/src/lib/supabase";
+import { signOut } from "@/src/lib/session";
 import { useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "@/src/components/Avatar";
 import {
@@ -104,7 +104,8 @@ export default function PerfilScreen() {
     [phone, setPhone] = useState("");
   const [docCategory, setDocCategory] = useState("Documentos pessoais");
   const [photoVersion, setPhotoVersion] = useState(0);
-  const [paymentsError,setPaymentsError]=useState(false),[documentsError,setDocumentsError]=useState(false);
+  const [paymentsError, setPaymentsError] = useState(false),
+    [documentsError, setDocumentsError] = useState(false);
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
@@ -136,8 +137,8 @@ export default function PerfilScreen() {
           ? s.value.pagamentos
           : [],
       );
-      setPaymentsError(s.status==="rejected");
-      setDocumentsError(d.status==="rejected");
+      setPaymentsError(s.status === "rejected");
+      setDocumentsError(d.status === "rejected");
       if (d.status === "rejected" || s.status === "rejected")
         setError(
           "Documentos ou pagamentos indisponíveis. Atualize para tentar novamente.",
@@ -312,8 +313,7 @@ export default function PerfilScreen() {
     if (busy) return;
     setBusy("logout");
     try {
-      const { error } = await supabase.auth.signOut({ scope: "local" });
-      if (error) throw error;
+      await signOut();
       queryClient.clear();
       router.replace("/login");
     } catch (e) {
@@ -558,7 +558,11 @@ export default function PerfilScreen() {
               <Text style={styles.section}>MEUS PAGAMENTOS</Text>
               {!salaries.length && (
                 <View style={styles.card}>
-                  <Text style={styles.muted}>{paymentsError?"Não foi possível consultar seus pagamentos.":"Nenhum pagamento registrado."}</Text>
+                  <Text style={styles.muted}>
+                    {paymentsError
+                      ? "Não foi possível consultar seus pagamentos."
+                      : "Nenhum pagamento registrado."}
+                  </Text>
                 </View>
               )}
               {salaries.map((x) => (
@@ -690,11 +694,15 @@ export default function PerfilScreen() {
                 </Pressable>
               </View>
               <Text style={styles.section}>
-                MEUS DOCUMENTOS · {documentsError?"—":docs.length}
+                MEUS DOCUMENTOS · {documentsError ? "—" : docs.length}
               </Text>
               {!docs.length && (
                 <View style={styles.card}>
-                  <Text style={styles.muted}>{documentsError?"Não foi possível consultar seus documentos.":"Nenhum documento registrado."}</Text>
+                  <Text style={styles.muted}>
+                    {documentsError
+                      ? "Não foi possível consultar seus documentos."
+                      : "Nenhum documento registrado."}
+                  </Text>
                 </View>
               )}
               {docs.map((d) => (

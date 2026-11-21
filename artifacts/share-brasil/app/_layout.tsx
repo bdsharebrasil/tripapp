@@ -14,16 +14,16 @@ import {
   type Href,
 } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { Platform, View } from "react-native";
+import { AppState, Platform, View } from "react-native";
 import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import type { Session } from "@supabase/supabase-js";
+import type { Session } from "@/src/lib/session";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { setUnauthorizedHandler } from "@/src/lib/session";
-import { supabase } from "@/src/lib/supabase";
+import { getSession, onSessionChange } from "@/src/lib/session";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -48,7 +48,6 @@ function RootLayoutNav({
 
   useEffect(() => {
     setUnauthorizedHandler(async () => {
-      await supabase.auth.signOut();
       router.replace("/login" as Href);
     });
     return () => setUnauthorizedHandler(null);
@@ -121,22 +120,33 @@ export default function RootLayout() {
       }
     }
     let active = true;
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => {
-        if (!active) return;
-        queryClient.clear();
-        setSession(nextSession);
-        setAuthReady(true);
-      },
-    );
-    void supabase.auth.getSession().then(({ data, error }) => {
+    const unsubscribe = onSessionChange((next) => {
       if (!active) return;
-      setSession(error ? null : data.session);
+      queryClient.clear();
+      setSession(next);
       setAuthReady(true);
+    });
+    const refresh = () =>
+      void getSession()
+        .then((next) => {
+          if (active) {
+            setSession(next);
+            setAuthReady(true);
+          }
+        })
+        .catch(() => {
+          if (active) setAuthReady(true);
+        });
+    refresh();
+    const timer = setInterval(refresh, 30000);
+    const listener = AppState.addEventListener("change", (state) => {
+      if (state === "active") refresh();
     });
     return () => {
       active = false;
-      listener.subscription.unsubscribe();
+      unsubscribe();
+      clearInterval(timer);
+      listener.remove();
     };
   }, []);
 

@@ -1,19 +1,14 @@
-import { apiUrl } from "./api";
-import { getToken } from "./session";
+import { apiFetch, type ApiBinary } from "./api";
 /** Download com Bearer, sem colocar credenciais na URL. */
 export async function abrirDocumentoWeb(
   path: string,
   nome: string,
   mime: string,
 ) {
-  const token = await getToken();
-  if (!token) throw new Error("Sessão expirada. Entre novamente.");
-  const res = await fetch(apiUrl(path), {
-    headers: { Authorization: `Bearer ${token}`, Accept: mime },
+  const { bytes } = await apiFetch<ApiBinary>(path, {
+    responseType: "binary",
+    headers: { Accept: mime },
   });
-  if (!res.ok)
-    throw new Error(`Não foi possível abrir o documento (HTTP ${res.status}).`);
-  const bytes = new Uint8Array(await res.arrayBuffer());
   const ascii = String.fromCharCode(...bytes.slice(0, 12));
   const valido =
     mime === "application/pdf"
@@ -24,7 +19,7 @@ export async function abrirDocumentoWeb(
           ? bytes[0] === 255 && bytes[1] === 216
           : ascii.startsWith("RIFF") && ascii.slice(8, 12) === "WEBP";
   if (!valido) throw new Error("O servidor não retornou um documento válido.");
-  const blob = new Blob([bytes], { type: mime });
+  const blob = new Blob([new Uint8Array(bytes).buffer], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

@@ -3,22 +3,32 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const app = new URL("../", import.meta.url);
-const sources = Object.fromEntries(await Promise.all([
-  ["despesas", "app/relatorio-viagem.tsx"],
-  ["perfil", "app/(tabs)/perfil.tsx"],
-  ["ferias", "app/ferias.tsx"],
-  ["history", "app/relatorio-voo.tsx"],
-  ["diario", "app/(tabs)/diario.tsx"],
-  ["novo", "app/novo-lancamento.tsx"],
-  ["home", "app/(tabs)/index.tsx"],
-  ["files", "src/lib/arquivo-privado.ts"],
-  ["package", "package.json"],
-  ["lock", "../../pnpm-lock.yaml"],
-].map(async ([name, file]) => [name, await readFile(new URL(file, app), "utf8")])));
+const sources = Object.fromEntries(
+  await Promise.all(
+    [
+      ["despesas", "app/relatorio-viagem.tsx"],
+      ["perfil", "app/(tabs)/perfil.tsx"],
+      ["ferias", "app/ferias.tsx"],
+      ["history", "app/relatorio-voo.tsx"],
+      ["diario", "app/(tabs)/diario.tsx"],
+      ["novo", "app/novo-lancamento.tsx"],
+      ["home", "app/(tabs)/index.tsx"],
+      ["files", "src/lib/arquivo-privado.ts"],
+      ["package", "package.json"],
+      ["lock", "../../pnpm-lock.yaml"],
+    ].map(async ([name, file]) => [
+      name,
+      await readFile(new URL(file, app), "utf8"),
+    ]),
+  ),
+);
 
 test("Despesas cria relatório pelo voo e seleciona o registro salvo", () => {
   assert.match(sources.despesas, /\/iniciar-do-voo/);
-  assert.match(sources.despesas, /setSelectedId\(String\(result\.relatorio\.id\)\)/);
+  assert.match(
+    sources.despesas,
+    /setSelectedId\(String\(result\.relatorio\.id\)\)/,
+  );
   assert.match(sources.despesas, /Criar nova despesa/);
   assert.match(sources.despesas, /despesas-tripulante/);
   assert.match(sources.despesas, /finalizar/);
@@ -31,8 +41,8 @@ test("Comprovantes podem ser enviados por fotos, câmera ou arquivo e abertos de
   assert.match(sources.despesas, /DocumentPicker\.getDocumentAsync/);
   assert.match(sources.despesas, /anexos-tripulante/);
   assert.match(sources.despesas, /abrirArquivoPrivado/);
-  assert.match(sources.files, /getToken\(\)/);
-  assert.match(sources.files, /Authorization: `Bearer \$\{token\}`/);
+  assert.match(sources.files, /apiFetch<ApiBinary>/);
+  assert.match(sources.files, /responseType:\s*['"]binary['"]/);
   assert.match(sources.files, /Sharing\.shareAsync/);
   assert.match(sources.files, /file\.delete\(\)/);
   assert.doesNotMatch(sources.files, /AsyncStorage|\?token=/);
@@ -55,7 +65,10 @@ test("Perfil, folha, documentos, férias e histórico deixam de usar operações
   assert.match(sources.ferias, /method: "POST"/);
   assert.match(sources.history, /\/api\/colaborador\/meus-voos/);
   for (const name of ["perfil", "ferias", "history", "diario", "novo"]) {
-    assert.doesNotMatch(sources[name], /addFlight\(|addVacationRequest\(|updateVacationRequest\(|AsyncStorage|DEMO_/);
+    assert.doesNotMatch(
+      sources[name],
+      /addFlight\(|addVacationRequest\(|updateVacationRequest\(|AsyncStorage|DEMO_/,
+    );
   }
 });
 

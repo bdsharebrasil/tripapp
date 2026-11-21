@@ -1,35 +1,27 @@
-import { supabase } from "./supabase";
-
-/**
- * Compatibilidade com a camada de API; o token é sempre lido da sessão Supabase.
- */
-
-let aoPerderSessao: (() => void | Promise<void>) | null = null;
-
-/** Token atual da sessão, ou `null` quando não há sessão. */
-export async function getToken(): Promise<string | null> {
-  const { data, error } = await supabase.auth.getSession();
-  if (error) return null;
-  return data.session?.access_token ?? null;
+import { apiFetch } from "./api";
+import { encryptedSessionStorage } from "./auth-storage";
+import { SessionManager } from "./session-core";
+export type { Session } from "./session-core";
+const manager = new SessionManager(encryptedSessionStorage, apiFetch);
+export const getSession = () => manager.getSession();
+export const signIn = (usuario: string, senha: string) =>
+  manager.login(usuario, senha);
+export const signOut = () => manager.logout();
+export const onSessionChange = (
+  listener: Parameters<SessionManager["subscribe"]>[0],
+) => manager.subscribe(listener);
+export async function getToken() {
+  return (await manager.getSession())?.access_token ?? null;
 }
-
-/**
- * Registra o que fazer quando a API responde 401 (sessão expirada/revogada).
- *
- * O app ainda não tem tela de login. Quando `app/login.tsx` existir, registre
- * o redirecionamento no layout raiz:
- *
- *   setUnauthorizedHandler(async () => { await supabase.auth.signOut(); router.replace("/login"); });
- */
-export function setUnauthorizedHandler(handler: (() => void | Promise<void>) | null): void {
+let aoPerderSessao: (() => void | Promise<void>) | null = null;
+export function setUnauthorizedHandler(handler: typeof aoPerderSessao) {
   aoPerderSessao = handler;
 }
-
-/** Avisa a camada de navegação que a sessão caiu. */
-export async function notifyUnauthorized(): Promise<void> {
+export async function notifyUnauthorized() {
+  await manager.clear();
   try {
     await aoPerderSessao?.();
   } catch {
-    // Um handler com defeito não pode esconder o erro original da API.
+    /* preserva o erro da requisição */
   }
 }
