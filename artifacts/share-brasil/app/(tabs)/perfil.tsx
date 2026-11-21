@@ -1,3 +1,5 @@
+import { useLocalSearchParams } from "expo-router";
+import { HorasVoo } from "@/src/components/HorasVoo";
 import { Feather } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
@@ -60,6 +62,7 @@ const BG = tema.fundo,
   BLUE = tema.azul,
   MUTED = tema.suave;
 const tabs = [
+  { id: "horas", label: "Minhas horas", icon: "bar-chart-2" },
   { id: "licencas", label: "Licenças", icon: "shield" },
   { id: "dados", label: "Dados", icon: "user" },
   { id: "salario", label: "Salário", icon: "credit-card" },
@@ -90,7 +93,8 @@ const mimeFromPath = (path: string): string => {
 export default function PerfilScreen() {
   const insets = useSafeAreaInsets(),
     router = useRouter();
-  const [tab, setTab] = useState<Tab>("licencas");
+  const { secao } = useLocalSearchParams<{ secao?: string }>();
+  const [tab, setTab] = useState<Tab>(secao === "horas" ? "horas" : "licencas");
   const queryClient = useQueryClient();
   const [data, setData] = useState<Info | null>(null);
   const [docs, setDocs] = useState<Document[]>([]),
@@ -434,6 +438,7 @@ export default function PerfilScreen() {
               </Pressable>
             ))}
           </ScrollView>
+          {tab === "horas" && <HorasVoo />}
           {tab === "licencas" && (
             <>
               <View style={styles.card}>
@@ -795,13 +800,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 15,
     borderWidth: 1,
-    borderColor: "#2e5474",
+    borderColor: "#444d59",
   },
   avatar: {
     width: 66,
     height: 66,
     borderRadius: 20,
-    backgroundColor: "#27618d",
+    backgroundColor: "#384652",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -839,7 +844,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: BORDER,
   },
-  tabActive: { backgroundColor: "#153752", borderColor: BLUE },
+  tabActive: { backgroundColor: "#303b46", borderColor: BLUE },
   tabText: {
     fontSize: 11,
     fontWeight: "700",
@@ -943,7 +948,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderWidth: 1,
     borderColor: BORDER,
-    backgroundColor: "#1a3249",
+    backgroundColor: "#272f39",
   },
   chipActive: { backgroundColor: BLUE, borderColor: BLUE },
   docRow: {

@@ -86,6 +86,7 @@ function RootLayoutNav({
         name="relatorio-voo"
         options={{ presentation: "modal", headerShown: false }}
       />
+      <Stack.Screen name="minhas-horas" options={{ headerShown: false }} />
       <Stack.Screen name="diario-bordo" options={{ headerShown: false }} />
       <Stack.Screen name="notificacoes" options={{ headerShown: false }} />
     </Stack>
@@ -161,7 +162,7 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView
-            style={{ flex: 1, backgroundColor: "#060e1c" }}
+            style={{ flex: 1, backgroundColor: "#0c0e12" }}
           >
             <View
               style={{

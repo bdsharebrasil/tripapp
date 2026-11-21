@@ -6,6 +6,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Modal,
   Pressable,
   RefreshControl,
@@ -165,7 +166,9 @@ function NewReportModal({
   saving,
   colors,
   insets,
+  selectedAircraftId,
 }: {
+  selectedAircraftId?: string;
   visible: boolean;
   aircraft: Aircraft[];
   onClose: () => void;
@@ -187,13 +190,13 @@ function NewReportModal({
 
   React.useEffect(() => {
     if (visible) {
-      setAircraftId(aircraft[0]?.id ?? "");
+      setAircraftId(selectedAircraftId || aircraft[0]?.id || "");
       setDescription("");
       setSeverity("medium");
       setReportDate(todayISO());
       setAttempted(false);
     }
-  }, [visible, aircraft]);
+  }, [visible, aircraft, selectedAircraftId]);
 
   const dateValid = validISODate(reportDate);
   const canSave = !!aircraftId && !!description.trim() && dateValid && !saving;
@@ -434,6 +437,12 @@ export default function ManutencaoScreen() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [showModal, setShowModal] = useState(false);
+  const [selectedAircraftId, setSelectedAircraftId] = useState("");
+  const selectedAircraft = aircraft.find((a) => a.id === selectedAircraftId);
+  const modalAircraft = useMemo(
+    () => (selectedAircraft ? [selectedAircraft] : aircraft),
+    [selectedAircraft, aircraft],
+  );
 
   const loadReports = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
@@ -539,18 +548,26 @@ export default function ManutencaoScreen() {
       ]}
     >
       <Cabecalho
-        titulo="Manutenção"
+        titulo={selectedAircraft?.registration || "Manutenção"}
         apoio="OCORRÊNCIAS DA AERONAVE"
-        voltar={() => router.back()}
+        voltar={() => {
+          if (selectedAircraftId) {
+            setSelectedAircraftId("");
+            setQuery("");
+            setStatusFilter("all");
+          } else router.back();
+        }}
       />
-      <View style={{ paddingHorizontal: 20, paddingBottom: 15 }}>
-        <Botao
-          texto="Reportar ocorrência"
-          icone="plus"
-          disabled={!aircraft.length}
-          onPress={() => setShowModal(true)}
-        />
-      </View>
+      {!!selectedAircraftId && (
+        <View style={{ paddingHorizontal: 20, paddingBottom: 15 }}>
+          <Botao
+            texto="Reportar ocorrência"
+            icone="plus"
+            disabled={!aircraft.length}
+            onPress={() => setShowModal(true)}
+          />
+        </View>
+      )}
 
       <View
         style={[
@@ -589,7 +606,11 @@ export default function ManutencaoScreen() {
           style={[styles.searchInput, { color: colors.foreground }]}
           value={query}
           onChangeText={setQuery}
-          placeholder="Buscar descrição ou aeronave"
+          placeholder={
+            selectedAircraftId
+              ? "Buscar descrição do report"
+              : "Buscar aeronave por matrícula ou modelo"
+          }
           placeholderTextColor={colors.mutedForeground}
           returnKeyType="search"
         />
@@ -602,39 +623,42 @@ export default function ManutencaoScreen() {
           </Pressable>
         )}
       </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filters}
-      >
-        {STATUSES.map((filter) => (
-          <Pressable
-            key={filter}
-            onPress={() => setStatusFilter(filter)}
-            style={[
-              styles.filterChip,
-              {
-                backgroundColor:
-                  statusFilter === filter ? colors.primary : colors.muted,
-              },
-            ]}
-          >
-            <Text
+      {!!selectedAircraftId && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flexGrow: 0 }}
+          contentContainerStyle={styles.filters}
+        >
+          {STATUSES.map((filter) => (
+            <Pressable
+              key={filter}
+              onPress={() => setStatusFilter(filter)}
               style={[
-                styles.filterText,
+                styles.filterChip,
                 {
-                  color:
-                    statusFilter === filter
-                      ? "#FFFFFF"
-                      : colors.mutedForeground,
+                  backgroundColor:
+                    statusFilter === filter ? colors.primary : colors.muted,
                 },
               ]}
             >
-              {filterLabels[filter]}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+              <Text
+                style={[
+                  styles.filterText,
+                  {
+                    color:
+                      statusFilter === filter
+                        ? "#FFFFFF"
+                        : colors.mutedForeground,
+                  },
+                ]}
+              >
+                {filterLabels[filter]}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
 
       {error ? (
         <View
@@ -665,7 +689,21 @@ export default function ManutencaoScreen() {
         </View>
       ) : (
         <FlatList
-          data={reportsByAircraft}
+          key={selectedAircraftId ? "reports" : "folders"}
+          numColumns={selectedAircraftId ? 1 : 2}
+          columnWrapperStyle={selectedAircraftId ? undefined : { gap: 12 }}
+          data={
+            selectedAircraftId
+              ? reportsByAircraft.filter(
+                  (g) => g.aircraft.id === selectedAircraftId,
+                )
+              : reportsByAircraft.filter((g) =>
+                  [g.aircraft.registration, g.aircraft.model]
+                    .join(" ")
+                    .toLowerCase()
+                    .includes(query.toLowerCase()),
+                )
+          }
           keyExtractor={(group) => group.aircraft.id}
           contentContainerStyle={
             reportsByAircraft.length ? styles.list : styles.emptyList
@@ -678,23 +716,66 @@ export default function ManutencaoScreen() {
             />
           }
           showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <View style={styles.aircraftGroup}>
-              <View
-                style={[
-                  styles.aircraftHeader,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
+          renderItem={({ item }) =>
+            !selectedAircraftId ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Abrir pasta ${item.aircraft.registration}`}
+                onPress={() => {
+                  setSelectedAircraftId(item.aircraft.id);
+                  setQuery("");
+                  setStatusFilter("all");
+                }}
+                style={{
+                  width: "48%",
+                  marginBottom: 14,
+                  borderRadius: 18,
+                  overflow: "hidden",
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.card,
+                }}
               >
                 <View
-                  style={[
-                    styles.aircraftIcon,
-                    { backgroundColor: colors.primary + "14" },
-                  ]}
+                  style={{
+                    height: 105,
+                    backgroundColor: colors.muted,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <Feather name="send" size={17} color={colors.primary} />
+                  {item.aircraft.image_url ? (
+                    <Image
+                      source={{ uri: item.aircraft.image_url }}
+                      style={{ width: "100%", height: "100%" }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Feather name="folder" size={36} color={colors.primary} />
+                  )}
+                  <View
+                    style={{
+                      position: "absolute",
+                      top: 8,
+                      right: 8,
+                      backgroundColor: colors.background,
+                      borderRadius: 10,
+                      padding: 5,
+                    }}
+                  >
+                    <Text style={{ color: colors.foreground, fontSize: 11 }}>
+                      {
+                        reports.filter(
+                          (r) =>
+                            r.aircraft_id === item.aircraft.id &&
+                            r.status !== "resolved",
+                        ).length
+                      }{" "}
+                      abertos
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.aircraftInfo}>
+                <View style={{ padding: 13 }}>
                   <Text
                     style={[styles.registration, { color: colors.foreground }]}
                   >
@@ -705,48 +786,95 @@ export default function ManutencaoScreen() {
                   >
                     {item.aircraft.model}
                   </Text>
+                  {item.aircraft.in_maintenance && (
+                    <Text
+                      style={{ color: "#d6b58c", fontSize: 11, marginTop: 7 }}
+                    >
+                      Em manutenção
+                    </Text>
+                  )}
                 </View>
-                {item.aircraft.in_maintenance ? (
-                  <Text
-                    style={[
-                      styles.maintenanceFlag,
-                      { color: "#B45309", backgroundColor: "#FEF3C7" },
-                    ]}
-                  >
-                    Em manutenção
-                  </Text>
-                ) : null}
-                <Text
+              </Pressable>
+            ) : (
+              <View style={styles.aircraftGroup}>
+                <View
                   style={[
-                    styles.reportCount,
-                    { color: colors.mutedForeground },
+                    styles.aircraftHeader,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
                   ]}
                 >
-                  {item.reports.length}
-                </Text>
-              </View>
-              {item.reports.length ? (
-                item.reports.map((report) => (
-                  <ReportCard key={report.id} report={report} colors={colors} />
-                ))
-              ) : (
-                <View
-                  style={[styles.noReports, { borderColor: colors.border }]}
-                >
+                  <View
+                    style={[
+                      styles.aircraftIcon,
+                      { backgroundColor: colors.primary + "14" },
+                    ]}
+                  >
+                    <Feather name="send" size={17} color={colors.primary} />
+                  </View>
+                  <View style={styles.aircraftInfo}>
+                    <Text
+                      style={[
+                        styles.registration,
+                        { color: colors.foreground },
+                      ]}
+                    >
+                      {item.aircraft.registration}
+                    </Text>
+                    <Text
+                      style={[styles.model, { color: colors.mutedForeground }]}
+                    >
+                      {item.aircraft.model}
+                    </Text>
+                  </View>
+                  {item.aircraft.in_maintenance ? (
+                    <Text
+                      style={[
+                        styles.maintenanceFlag,
+                        { color: "#B45309", backgroundColor: "#FEF3C7" },
+                      ]}
+                    >
+                      Em manutenção
+                    </Text>
+                  ) : null}
                   <Text
                     style={[
-                      styles.noReportsText,
+                      styles.reportCount,
                       { color: colors.mutedForeground },
                     ]}
                   >
-                    {query || statusFilter !== "all"
-                      ? "Nenhum report corresponde aos filtros."
-                      : "Nenhum report registrado."}
+                    {item.reports.length}
                   </Text>
                 </View>
-              )}
-            </View>
-          )}
+                {item.reports.length ? (
+                  item.reports.map((report) => (
+                    <ReportCard
+                      key={report.id}
+                      report={report}
+                      colors={colors}
+                    />
+                  ))
+                ) : (
+                  <View
+                    style={[styles.noReports, { borderColor: colors.border }]}
+                  >
+                    <Text
+                      style={[
+                        styles.noReportsText,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      {query || statusFilter !== "all"
+                        ? "Nenhum report corresponde aos filtros."
+                        : "Nenhum report registrado."}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )
+          }
           ListEmptyComponent={
             <View
               style={[
@@ -773,7 +901,8 @@ export default function ManutencaoScreen() {
       )}
       <NewReportModal
         visible={showModal}
-        aircraft={aircraft}
+        selectedAircraftId={selectedAircraftId}
+        aircraft={modalAircraft}
         onClose={() => setShowModal(false)}
         onSave={createReport}
         saving={saving}

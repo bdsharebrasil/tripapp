@@ -44,7 +44,7 @@ const realFetch=window.fetch.bind(window);
 window.fetch=async(input,init={})=>{
 const url=new URL(typeof input==='string'?input:input.url,location.origin),path=url.pathname,method=init.method||'GET';
 if(url.hostname!=='api.share-brasil.com')return realFetch(input,init);
-window.qaRequests.push({path,method,body:typeof init.body==='string'?JSON.parse(init.body):null});
+window.qaRequests.push({path,search:url.search,method,body:typeof init.body==='string'?JSON.parse(init.body):null});
 const json=(x,status=200)=>new Response(JSON.stringify(x),{status,headers:{'content-type':'application/json'}});
 if(path==='/api/trip/auth/login'||path==='/api/trip/auth/refresh')return json({...session,user:{id:session.user.id}});
 if(path==='/api/trip/auth/logout')return json({sucesso:true});
@@ -54,6 +54,12 @@ if(path==='/api/colaborador/documentos')return json([]);
 if(path==='/api/colaborador/folha-pagamento')return failPayments?json({error:'Folha temporariamente indisponível'},503):json({pagamentos:[{id:'qa-folha',competencia_ano:2026,competencia_mes:11,rotulo:'Pagamento de teste',valor_centavos:123456,status:'PENDENTE'}]});
 if(path==='/api/colaborador/meus-voos'||path.endsWith('/meus-voos'))return json({voos:[flight]});
 if(path==='/api/colaborador/meus-voos/qa-voo')return json({voo:{...flight,cliente_razao_social:'Cliente de teste'},jornadas:[],hospedagens:[]});
+if(path==='/api/colaborador/diario-bordo/voos/qa-voo')return json({pode_assinar:true,lancamentos:[{perna_id:'qa-perna',jornada_id:'qa-jornada',numero_perna:1,origem:'SBCY',destino:'SBBR',horario_ac:today+'T10:00:00Z',horario_dep:today+'T10:15:00Z',horario_pouso:today+'T11:45:00Z',horario_corte:today+'T12:00:00Z',lancamento_id:'qa-perna',numero_sequencial:1,data_registro:today,tempo_voo:1.5,tempo_total:2,status_lancamento:'RASCUNHO'}]});
+if(path==='/api/ctm/relatorios-manutencao')return json({aeronaves:[{id:'qa-aviao',registration:'QA-TESTE',model:'Cheyenne II',in_maintenance:false},{id:'qa-aviao2',registration:'QA-OUTRO',model:'Seneca V',in_maintenance:false}],data:[{id:'qa-report',aircraft_id:'qa-aviao',report_date:today,description:'Discrepância de teste restrita à pasta',severity:'medium',status:'open',aircraft:{id:'qa-aviao',registration:'QA-TESTE',model:'Cheyenne II',in_maintenance:false}}]});
+if(path==='/api/colaborador/minhas-horas'){
+const specific=url.searchParams.get('aeronave_id')==='qa-aviao';
+return json({filtros:{inicio:url.searchParams.get('inicio'),fim:url.searchParams.get('fim'),aeronave_id:url.searchParams.get('aeronave_id')},resumo:{minutos_voo:specific?90:150,minutos_totais:specific?120:180,lancamentos:specific?1:2,rascunhos:1},aeronaves:[{id:'qa-aviao',matricula:'QA-TESTE'},{id:'qa-aviao2',matricula:'QA-OUTRO'}],por_aeronave:[{id:'qa-aviao',rotulo:'QA-TESTE',minutos_voo:90,minutos_totais:120,lancamentos:1},...specific?[]:[{id:'qa-aviao2',rotulo:'QA-OUTRO',minutos_voo:60,minutos_totais:60,lancamentos:1}]],por_mes:[{id:'2026-11',rotulo:'2026-11',minutos_voo:specific?90:150,minutos_totais:specific?120:180,lancamentos:specific?1:2}]});
+}
 if(path.endsWith('/minhas'))return json({relatorios:reports});
 if(path.endsWith('/iniciar-do-voo')){const report={id:'qa-relatorio',numero_relatorio:'REL-QA-001/26',numero_voo:flight.numero_voo,status:'rascunho',aeronave_id:'qa-aviao',cliente_id:'qa-cliente',rota:'SBCY → SBBR',data_inicio:today,data_fim:today,tripulante_pos:1,despesas:[],total_valor:0};reports=[report];return json({relatorio:report},201)}
 if(path.endsWith('/despesas-tripulante')){saved=JSON.parse(init.body).despesas;reports[0].despesas=saved;reports[0].total_valor=saved.reduce((n,x)=>n+x.valor,0);return json({ok:true})}
@@ -82,9 +88,10 @@ return json({error:'Rota não prevista no teste: '+path},404);
       }
       const ext = extname(filename);
       const types = {
-        ".html": "text/html",
+        ".html": "text/html; charset=utf-8",
         ".js": "text/javascript",
         ".png": "image/png",
+        ".jpg": "image/jpeg",
         ".ttf": "font/ttf",
         ".ico": "image/x-icon",
         ".json": "application/json",
