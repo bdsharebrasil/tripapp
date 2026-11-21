@@ -42,6 +42,13 @@ O PR é uma **primeira etapa funcional**, não a conclusão da refatoração de 
 - Consulta `GET /api/interno/agendamento/:id/preparacao`, usa seções/itens devolvidos pelo Worker e exibe estados/observações de aeronave e tripulação.
 - Grava com versão otimista via `POST /api/interno/agendamento/:id/preparacao` e conclui via `POST /api/interno/agendamento/:id/preparacao/concluir`. Não marca itens pendentes como resolvidos automaticamente.
 - Preserva trechos, escalas e dados dos serviços no payload para não apagar a preparação existente; reserva de hotel e abastecimento financeiro continuam em fluxos próprios.
-- **Restrição de autorização identificada:** `PATCH /api/interno/jornadas/:id` e `PATCH /api/interno/jornadas/:jornadaId/pernas/:pernaId` exigem `requireShareInternal`, diferentemente da consulta do colaborador. Validar o perfil de tripulante antes de afirmar que os horários funcionam no Expo; pode exigir rota específica com autorização operacional no Worker.
-- Briefing PDF está disponível em `GET /api/interno/agendamento/:id/preparacao/pdf?versao=N`, mas abrir/baixar documento autenticado no Expo ainda exige implementação segura.
+- **Autorização de escrita corrigida no backend (PR separado):** início/encerramento de jornada, nova perna e PATCH dos horários agora verificam piloto/copiloto efetivamente vinculado ao número de voo, ou equipe de Operações/CTM/gestores autorizados. O antigo `requireShareInternal` continua validando a sessão, e o novo helper acrescenta vínculo/perfil. A correção só estará ativa após deploy do Worker.
+- **Briefing PDF integrado:** Agenda e Checklist consultam a versão atual, baixam o PDF com Bearer da sessão usando `expo-file-system` (SDK 57), verificam a assinatura `%PDF-` e oferecem abertura/compartilhamento nativo com `expo-sharing`. O arquivo temporário é apagado após a interação. O endpoint PDF no Worker foi restringido à tripulação vinculada ou à equipe operacional (PR do backend). Não há URL pública nem token em query string.
 - Ainda sem execução de compilação, Expo Go ou teste autenticado de produção.
+
+## Ordem de publicação da correção de autorização e PDF
+1. Fazer merge e publicar o PR `backend-share` de autorização da tripulação e PDF restrito (nenhuma migração D1 necessária).
+2. Fazer merge do PR #3 do `tripapp` (inclui `expo-file-system@~57.0.7`, `expo-sharing@~57.0.26` e lockfile atualizado), instalar dependências com `pnpm install --frozen-lockfile`.
+3. Executar `pnpm --filter @workspace/share-brasil typecheck` e `node --test artifacts/share-brasil/tests/briefing-pdf.test.mjs`.
+4. Em Expo Go autenticar como piloto PIC/SIC do voo, salvar horários, abrir PDF da versão mais recente; autenticar com usuário não escalado e verificar HTTP 403 na mutação/PDF. Confirmar visualização e opções de compartilhamento no iPhone e Android.
+5. O PDF é privado. Ao compartilhar com outro aplicativo, o usuário controla a cópia; o compartilhamento não transforma o endpoint em público.
