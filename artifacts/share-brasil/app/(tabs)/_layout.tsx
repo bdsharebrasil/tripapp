@@ -1,42 +1,29 @@
-import { BlurView } from "expo-blur";
 import { Tabs } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import React from "react";
-import { Platform, StyleSheet, View, useColorScheme } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
 
 export default function TabLayout() {
   const colors = useColors();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.mutedForeground,
+        tabBarActiveTintColor: "#27b9f5",
+        tabBarInactiveTintColor: "#9aacc3",
         headerShown: false,
         tabBarStyle: {
           position: "absolute",
-          backgroundColor: isIOS ? "transparent" : colors.card,
+          backgroundColor: "#0c1b30",
           borderTopWidth: 1,
-          borderTopColor: colors.border,
+          borderTopColor: "#25405c",
           elevation: 0,
-          height: isWeb ? 84 : 60,
-          paddingBottom: isWeb ? 34 : 8,
+          height: isWeb ? 84 : 68,
+          paddingBottom: isWeb ? 34 : 12,
         },
-        tabBarBackground: () =>
-          isIOS ? (
-            <BlurView
-              intensity={100}
-              tint={isDark ? "dark" : "light"}
-              style={StyleSheet.absoluteFill}
-            />
-          ) : (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.card }]} />
-          ),
+        tabBarBackground: () => <View style={[StyleSheet.absoluteFill, { backgroundColor: "#0c1b30" }]} />,
         tabBarLabelStyle: {
           fontSize: 11,
         },
@@ -52,17 +39,18 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="diario"
+        name="agenda"
         options={{
-          title: "Diário",
+          title: "Agenda",
           tabBarIcon: ({ color, size }) => (
-            <Feather name="book-open" size={size ?? 22} color={color} />
+            <Feather name="send" size={size ?? 22} color={color} />
           ),
         }}
       />
+      <Tabs.Screen name="diario" options={{ href: null }} />
       <Tabs.Screen
         name="plano-voo"
-        options={{
+        options={{ href: null,
           title: "Plano",
           tabBarIcon: ({ color, size }) => (
             <Feather name="navigation" size={size ?? 22} color={color} />
@@ -72,9 +60,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="financeiro"
         options={{
-          title: "Financeiro",
+          title: "Despesas",
           tabBarIcon: ({ color, size }) => (
-            <Feather name="dollar-sign" size={size ?? 22} color={color} />
+            <Feather name="file-text" size={size ?? 22} color={color} />
           ),
         }}
       />
