@@ -41,6 +41,13 @@ const tabs = [
 type Tab = typeof tabs[number]["id"];
 const date = (d?: string | null) => d ? d.slice(0,10).split("-").reverse().join("/") : "—";
 const money = (c?: number) => (Number(c || 0)/100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const mimeFromPath = (path: string): string => {
+  const value = decodeURIComponent(path.split("?key=").pop() || path).toLowerCase();
+  return /\.jpe?g$/.test(value) ? "image/jpeg"
+    : /\.png$/.test(value) ? "image/png"
+    : /\.webp$/.test(value) ? "image/webp"
+    : "application/pdf";
+};
 
 export default function PerfilScreen() {
   const insets=useSafeAreaInsets(), router=useRouter();
@@ -168,7 +175,7 @@ export default function PerfilScreen() {
         {!salaries.length&&<View style={styles.card}><Text style={styles.muted}>Nenhum pagamento disponível no Worker.</Text></View>}
         {salaries.map(x=><View key={x.id} style={styles.card}><View style={styles.between}><Text style={styles.heading}>{x.rotulo||x.tipo_pagamento||"Pagamento"}</Text><Text style={styles.status}>{x.status}</Text></View><Text style={styles.amount}>{money(x.valor_centavos)}</Text><Text style={styles.secondary}>Competência {String(x.competencia_mes).padStart(2,"0")}/{x.competencia_ano}</Text><Text style={styles.muted}>Pagamento: {date(x.data_pagamento||x.data_prevista)}</Text>
           {x.holerite_url&&<Pressable style={styles.outline} onPress={()=>void openPrivate(x.holerite_url||undefined,"Holerite", "application/pdf")}><Feather name="file-text" color={BLUE} size={16}/><Text style={styles.link}>Abrir holerite</Text></Pressable>}
-          {x.comprovante_url&&<Pressable style={styles.outline} onPress={()=>void openPrivate(x.comprovante_url||undefined,"Comprovante de pagamento",/\.pdf/i.test(x.comprovante_url||"")?"application/pdf":"application/pdf")}><Feather name="paperclip" color={BLUE} size={16}/><Text style={styles.link}>Comprovante</Text></Pressable>}
+          {x.comprovante_url&&<Pressable style={styles.outline} onPress={()=>void openPrivate(x.comprovante_url||undefined,"Comprovante de pagamento",mimeFromPath(x.comprovante_url||""))}><Feather name="paperclip" color={BLUE} size={16}/><Text style={styles.link}>Comprovante</Text></Pressable>}
         </View>)}
       </>}
       {tab==="ferias"&&<View style={styles.card}><Text style={styles.heading}>Férias</Text><Text style={styles.secondary}>Referência de 30 dias · {data?.resumo_ferias?.dias_utilizados??"—"} dias aprovados</Text><Text style={styles.muted}>*O saldo depende do fechamento do RH.</Text><Pressable style={styles.primary} onPress={()=>router.push("/ferias")}><Feather name="calendar" color={BG} size={17}/><Text style={styles.primaryText}>Consultar e solicitar férias</Text></Pressable>{(data?.ferias||[]).slice(0,3).map(f=><View key={f.id} style={styles.infoRow}><Text style={styles.muted}>{date(f.data_inicio)} — {date(f.data_fim)}</Text><Text style={styles.infoValue}>{f.status}</Text></View>)}</View>}
