@@ -1,15 +1,11 @@
-import { BlurView } from "expo-blur";
 import { Tabs } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import React from "react";
-import { Platform, StyleSheet, View, useColorScheme } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
 
 export default function TabLayout() {
   const colors = useColors();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
 
   return (
@@ -27,16 +23,7 @@ export default function TabLayout() {
           height: isWeb ? 84 : 68,
           paddingBottom: isWeb ? 34 : 12,
         },
-        tabBarBackground: () =>
-          false ? (
-            <BlurView
-              intensity={100}
-              tint={isDark ? "dark" : "light"}
-              style={StyleSheet.absoluteFill}
-            />
-          ) : (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.card }]} />
-          ),
+        tabBarBackground: () => <View style={[StyleSheet.absoluteFill, { backgroundColor: "#0c1b30" }]} />,
         tabBarLabelStyle: {
           fontSize: 11,
         },
