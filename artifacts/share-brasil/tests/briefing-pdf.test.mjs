@@ -8,7 +8,7 @@ const [pdf, agenda, preparacao, packageFile, lockfile] = await Promise.all([
   readFile(new URL("app/(tabs)/agenda.tsx", root), "utf8"),
   readFile(new URL("app/preparacao-voo.tsx", root), "utf8"),
   readFile(new URL("package.json", root), "utf8"),
-  readFile(new URL("../../../pnpm-lock.yaml", root), "utf8"),
+  readFile(new URL("../../pnpm-lock.yaml", root), "utf8"),
 ]);
 
 test("briefing usa download autenticado, valida PDF e limpa a cópia temporária", () => {
