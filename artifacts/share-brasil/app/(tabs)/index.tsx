@@ -46,28 +46,41 @@ export default function HomeScreen() {
   const router = useRouter();
   const { profile } = useApp();
   const [assignedFlights, setAssignedFlights] = useState<{ id: string; data_agendada?: string; numero_voo?: string }[]>([]);
+  const [employee, setEmployee] = useState<{ nome?: string; cargo?: string; canac?: string; horasTotais: number | null } | null>(null);
+  const [pendingReimbursements, setPendingReimbursements] = useState<number | null>(null);
   const [remote, setRemote] = useState<DashboardRemote>({ pendingReports: 0, devolvidos: 0, openMaintenance: 0, nextPlan: null });
 
   useFocusEffect(useCallback(() => {
     let active = true;
     const load = async () => {
-      const [expenseResult, maintenanceResult, plansResult, flightsResult] = await Promise.allSettled([
-        apiFetch<{ relatorios: { status: string }[] }>("/api/financeiro/relatorios-despesa-viagem/minhas"),
+      const [expenseResult, maintenanceResult, plansResult, flightsResult, employeeResult] = await Promise.allSettled([
+        apiFetch<{ relatorios: { status: string; pagamento_status?: string; pagamento_total?: number; pagamento_valor?: number }[] }>("/api/financeiro/relatorios-despesa-viagem/minhas"),
         apiFetch<{ data: { status: string }[] }>("/api/ctm/relatorios-manutencao"),
         apiFetch<WorkerPlan[]>("/api/interno/planos-voo?mine=true"),
         apiFetch<{ voos: { id: string; data_agendada?: string; numero_voo?: string }[] }>("/api/colaborador/meus-voos"),
+        apiFetch<{ perfil: { nome_completo?: string; nome_exibicao?: string; departamento?: string; canac?: string }; metricas: { horas_totais?: number } }>("/api/colaborador/perfil"),
       ]);
       if (!active) return;
       if (flightsResult.status === "fulfilled") setAssignedFlights(flightsResult.value.voos || []);
+      if (employeeResult.status === "fulfilled") {
+        const p = employeeResult.value.perfil;
+        setEmployee({ nome: p.nome_exibicao || p.nome_completo, cargo: p.departamento, canac: p.canac,
+          horasTotais: Number.isFinite(Number(employeeResult.value.metricas?.horas_totais)) ? Number(employeeResult.value.metricas.horas_totais) : null });
+      }
       let pendingReports = 0;
       let devolvidos = 0;
       let openMaintenance = 0;
       let nextPlan: DashboardRemote["nextPlan"] = null;
       if (expenseResult.status === "fulfilled") {
+        let outstanding = 0;
         for (const report of expenseResult.value.relatorios || []) {
+          if (report.pagamento_status === "PENDENTE") {
+            outstanding += Math.max(0, Number(report.pagamento_total || 0) - Number(report.pagamento_valor || 0));
+          }
           if (["finalizado", "aguardando_aprovacao", "ajuste_concluido"].includes(report.status)) pendingReports += 1;
           if (report.status === "ajuste_necessario") devolvidos += 1;
         }
+        setPendingReimbursements(outstanding);
       }
       if (maintenanceResult.status === "fulfilled") {
         openMaintenance = (maintenanceResult.value.data || []).filter((item) => item.status !== "resolved").length;
@@ -99,8 +112,8 @@ export default function HomeScreen() {
       const d = new Date(f.data_agendada.slice(0, 10) + "T00:00:00");
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
-    return { ...remote, monthFlights: monthFlights.length, monthHours: null as number | null, pendingFinancial: null as number | null };
-  }, [assignedFlights, remote]);
+    return { ...remote, monthFlights: monthFlights.length, pendingFinancial: pendingReimbursements };
+  }, [assignedFlights, remote, pendingReimbursements]);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
@@ -115,8 +128,8 @@ export default function HomeScreen() {
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.greeting}>Bem-vindo,</Text>
-            <Text style={styles.userName}>{profile.nome || "Tripulante"}</Text>
-            <Text style={styles.userRole}>{[profile.cargo, profile.canac ? `CANAC ${profile.canac}` : ""].filter(Boolean).join(" · ")}</Text>
+            <Text style={styles.userName}>{employee?.nome || profile.nome || "Tripulante"}</Text>
+            <Text style={styles.userRole}>{[employee?.cargo || profile.cargo, (employee?.canac || profile.canac) ? `CANAC ${employee?.canac || profile.canac}` : ""].filter(Boolean).join(" · ")}</Text>
           </View>
           <View style={styles.headerActions}>
             <Pressable
@@ -145,8 +158,8 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>Voos no mês</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>—</Text>
-            <Text style={styles.statLabel}>Horas totais · indisponível</Text>
+            <Text style={styles.statValue}>{employee?.horasTotais == null ? "—" : employee.horasTotais.toLocaleString("pt-BR")}</Text>
+            <Text style={styles.statLabel}>Horas totais no D1</Text>
           </View>
         </View>
       </LinearGradient>
