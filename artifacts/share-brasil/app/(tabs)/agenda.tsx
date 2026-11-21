@@ -4,6 +4,7 @@ import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { apiFetch } from "@/src/lib/api";
+import { abrirBriefingPdf } from "@/src/lib/briefing-pdf";
 
 type Flight = { id: string; numero_voo?: string; origem?: string; destino?: string; data_agendada?: string; horario_previsto_agendamento?: string; matricula_registro?: string; modelo?: string; status?: string };
 type Leg = { id: string; numero: number; origem: string; destino: string; horario_ac?: string | null; horario_dep?: string | null; horario_pouso?: string | null; horario_corte?: string | null; lancamento_diario_id?: string | null };
@@ -19,6 +20,7 @@ export default function AgendaScreen() {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [selected, setSelected] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(true), [saving, setSaving] = useState(false);
+  const [openingBriefing, setOpeningBriefing] = useState(false);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<{ journeyId: string; leg: Leg } | null>(null);
   const [times, setTimes] = useState({ horario_ac: "", horario_dep: "", horario_pouso: "", horario_corte: "" });
@@ -61,6 +63,21 @@ export default function AgendaScreen() {
     finally { setSaving(false); }
   };
 
+  const openBriefing = async (voo: Flight) => {
+    if (openingBriefing) return;
+    setOpeningBriefing(true);
+    try {
+      const snapshot = await apiFetch<{ versao: number }>(
+        `/api/interno/agendamento/${encodeURIComponent(voo.id)}/preparacao`,
+      );
+      await abrirBriefingPdf(voo.id, snapshot.versao, voo.numero_voo || "");
+    } catch (error) {
+      Alert.alert("Briefing indisponível", error instanceof Error ? error.message : "Não foi possível abrir o PDF.");
+    } finally {
+      setOpeningBriefing(false);
+    }
+  };
+
   const action = (label: string, icon: React.ComponentProps<typeof Feather>["name"], onPress: () => void) =>
     <Pressable accessibilityRole="button" onPress={onPress} style={s.action}><Feather name={icon} size={19} color={blue} /><Text style={s.actionText}>{label}</Text><Feather name="chevron-right" size={16} color={muted} /></Pressable>;
   const detail = selected;
@@ -88,7 +105,9 @@ export default function AgendaScreen() {
           <Text style={[s.secondary, { marginTop: 8 }]}>{detail.voo.mensagem || "Nenhuma observação operacional cadastrada."}</Text>
           <Text style={[s.secondary, { marginTop: 8 }]}>Piloto: {detail.voo.piloto_nome || "—"} · Copiloto: {detail.voo.copiloto_nome || "—"}</Text>
         </View>
-        {action("Checklist pré-voo", "check-square", () => Alert.alert("Checklist pré-voo", "A consulta operacional está conectada. A edição do checklist precisa da integração com a rota oficial de checklist do Worker."))}
+        {action("Checklist pré-voo", "check-square", () => router.push({ pathname: "/preparacao-voo", params: { id: detail.voo.id } }))}
+        <View style={{ height: 10 }} />
+        {action(openingBriefing ? "Abrindo briefing PDF…" : "Abrir briefing em PDF", "file-text", () => void openBriefing(detail.voo))}
         <Text style={s.section}>HOSPEDAGEM DA TRIPULAÇÃO</Text>
         {detail.hospedagens.length ? detail.hospedagens.map((h, i) => <View key={i} style={s.panel}>{Object.entries(h).filter(([, v]) => v != null && typeof v !== "object").map(([k, v]) => <Text key={k} style={s.secondary}>{k.replace(/_/g, " ")}: {String(v)}</Text>)}</View>) : <View style={s.panel}><Text style={s.secondary}>Nenhuma hospedagem vinculada a este voo.</Text></View>}
         <Text style={s.section}>HORÁRIOS · UTC</Text>
