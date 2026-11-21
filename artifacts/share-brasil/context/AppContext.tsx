@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { supabase } from "@/src/lib/supabase";
 
 export interface UserProfile {
   id: string;
@@ -148,8 +149,6 @@ interface AppContextType extends AppState {
   addVacationRequest: (req: Omit<VacationRequest, "id" | "criadoEm" | "solicitadoEm">) => Promise<void>;
   updateVacationRequest: (id: string, req: Partial<VacationRequest>) => Promise<void>;
 }
-
-import { supabase } from "@/src/lib/supabase";
 
 /** Sem dados fictícios: a identidade é obtida da sessão autenticada. */
 const EMPTY_PROFILE: UserProfile = {
