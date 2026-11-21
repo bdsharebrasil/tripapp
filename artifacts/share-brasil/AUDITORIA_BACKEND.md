@@ -22,10 +22,17 @@
 1. **Checklist pré-voo:** a Agenda exibe a ação, mas ainda não possui formulário nem fluxo de leitura/gravação. Não é correto declarar o checklist como concluído sem consultar e gravar no Worker.
 2. **Briefing:** a Agenda mostra observações operacionais da solicitação e tripulação. O briefing formal, anexos e PDF ainda não foram conectados.
 3. **Hospedagem:** consulta real, porém os campos retornados precisam de apresentação específica e validação com registros de produção.
-4. **Home:** o dashboard ainda utiliza `useApp()` para horas/voos e o contexto ainda possui `DEMO_*` com persistência AsyncStorage. **Não usar esses números para decisões operacionais.** Migrar para endpoints reais antes de remover os dados de demonstração.
-5. **Diário, perfil, férias, plano ICAO, financeiro e manutenção:** revisar cada operação de leitura e escrita para remover dependência de `AppContext` e validar contratos reais; não foram totalmente refatorados nesta branch.
+4. **Home:** removidos os números de demonstração; contagem mensal de voos atribuídos vem de `/api/colaborador/meus-voos`. Horas ainda indisponíveis são exibidas como `—`, não como valores inventados.
+5. **Diário, perfil, férias, plano ICAO, financeiro e manutenção:** o contexto agora inicia sem dados fictícios. Operações legadas que dependiam de gravação local são bloqueadas com erro explícito até serem migradas para endpoints reais. Essas telas ainda precisam de revisão de UX, tratamento de erros e contratos.
 6. **Testes:** não houve execução local de Expo, teste de compilação nem teste autenticado contra produção. Verificar permissões de tripulante para PATCH de horários e fluxo de despesas.
 7. **Segurança:** nunca gravar dados de voo, manutenção, checklist ou despesas somente em AsyncStorage como fonte definitiva; o Worker/D1 é a fonte de verdade.
 
 ## Publicação
 O PR é uma **primeira etapa funcional**, não a conclusão da refatoração de todo o monorepo. Validar em Expo Go (iOS e Android), confirmar chamadas e erros 401/403, e seguir com a integração do checklist/briefing e migração do contexto de demonstração.
+
+## Atualização autorizada: exclusão de demonstração
+- Excluídos todos os arrays `DEMO_*` do contexto Expo.
+- Desativada leitura/gravação dos registros locais `@sharebrasil:*` como fonte operacional. Não foi executada limpeza física dos dados locais antigos do aparelho.
+- Identidade básica obtida da sessão Supabase, sem usar nome/CANAC de usuário de teste. Metadados ausentes aparecem vazios até existir consulta de perfil validada.
+- Métodos antigos de gravação no contexto agora falham explicitamente; **não há falso sucesso de salvamento**.
+- Não foram apagados registros reais do D1 nem modificados dados do Worker.
