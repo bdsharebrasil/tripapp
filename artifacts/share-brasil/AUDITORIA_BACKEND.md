@@ -36,3 +36,12 @@ O PR é uma **primeira etapa funcional**, não a conclusão da refatoração de 
 - Identidade básica obtida da sessão Supabase, sem usar nome/CANAC de usuário de teste. Metadados ausentes aparecem vazios até existir consulta de perfil validada.
 - Métodos antigos de gravação no contexto agora falham explicitamente; **não há falso sucesso de salvamento**.
 - Não foram apagados registros reais do D1 nem modificados dados do Worker.
+
+## Etapa 2 — Preparação e checklist
+- Nova tela Expo `app/preparacao-voo.tsx`, acessível a partir do detalhe da Agenda.
+- Consulta `GET /api/interno/agendamento/:id/preparacao`, usa seções/itens devolvidos pelo Worker e exibe estados/observações de aeronave e tripulação.
+- Grava com versão otimista via `POST /api/interno/agendamento/:id/preparacao` e conclui via `POST /api/interno/agendamento/:id/preparacao/concluir`. Não marca itens pendentes como resolvidos automaticamente.
+- Preserva trechos, escalas e dados dos serviços no payload para não apagar a preparação existente; reserva de hotel e abastecimento financeiro continuam em fluxos próprios.
+- **Restrição de autorização identificada:** `PATCH /api/interno/jornadas/:id` e `PATCH /api/interno/jornadas/:jornadaId/pernas/:pernaId` exigem `requireShareInternal`, diferentemente da consulta do colaborador. Validar o perfil de tripulante antes de afirmar que os horários funcionam no Expo; pode exigir rota específica com autorização operacional no Worker.
+- Briefing PDF está disponível em `GET /api/interno/agendamento/:id/preparacao/pdf?versao=N`, mas abrir/baixar documento autenticado no Expo ainda exige implementação segura.
+- Ainda sem execução de compilação, Expo Go ou teste autenticado de produção.
