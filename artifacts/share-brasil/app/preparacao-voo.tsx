@@ -50,13 +50,10 @@ export default function PreparacaoVoo() {
   });
   const save = async (finish = false) => {
     if (!snapshot || !draft || busy || snapshot.somente_leitura) return;
-    if (finish && !draft.nivel_oleo.trim()) {
-      // Nível de óleo ausente é pendência, não bloqueio; o Worker aceita concluir.
-    }
     const run = async () => {
       setBusy(true);
       try {
-        const result = await apiFetch<Snapshot>(base + (finish ? "/concluir" : ""), {
+        await apiFetch<Snapshot>(base + (finish ? "/concluir" : ""), {
           method: "POST", body: JSON.stringify({ versao: snapshot.versao, dados: draft }),
         });
         // Recarrega as seções e a versão do servidor para evitar sobrescrever mudanças de outro colaborador.
