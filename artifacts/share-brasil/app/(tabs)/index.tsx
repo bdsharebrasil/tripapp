@@ -5,6 +5,7 @@ import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  ImageBackground,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -112,6 +113,18 @@ export default function HomeScreen() {
     path: string;
   }[] = [
     {
+      nome: "Agenda de voos",
+      texto: "Horários e checklist",
+      icone: "send",
+      path: "/(tabs)/agenda",
+    },
+    {
+      nome: "Documentos",
+      texto: "Licenças e arquivos",
+      icone: "shield",
+      path: "/(tabs)/perfil",
+    },
+    {
       nome: "Diário de bordo",
       texto: "Completar e assinar",
       icone: "book-open",
@@ -124,10 +137,10 @@ export default function HomeScreen() {
       path: "/(tabs)/financeiro",
     },
     {
-      nome: "Plano de voo",
-      texto: "Consultar planejamento",
-      icone: "navigation",
-      path: "/(tabs)/plano-voo",
+      nome: "Minhas horas",
+      texto: "Consultar e exportar PDF",
+      icone: "bar-chart-2",
+      path: "/minhas-horas",
     },
     {
       nome: "Manutenção",
@@ -138,12 +151,6 @@ export default function HomeScreen() {
   ];
   return (
     <View style={[u.root, { paddingTop: insets.top + 4 }]}>
-      <Cabecalho
-        titulo="Sua operação, em dia."
-        apoio="TRIP SHARE · TRIPULAÇÃO"
-        icone="bell"
-        acao={() => router.push("/notificacoes")}
-      />
       {!!error && (
         <ErroConsulta mensagem={error} atualizar={() => void load()} />
       )}
@@ -161,18 +168,45 @@ export default function HomeScreen() {
           }
           contentContainerStyle={s.content}
         >
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push("/(tabs)/perfil")}
-            style={s.identity}
+          <ImageBackground
+            source={require("../../assets/images/ceu-asa.jpg")}
+            style={s.hero}
+            imageStyle={{ opacity: 0.8 }}
           >
-            <Avatar nome={nome} disponivel={!!p?.foto_url} tamanho={46} />
-            <View style={{ flex: 1 }}>
-              <Text style={s.hello}>Bem-vindo a bordo</Text>
-              <Text style={s.name}>{nome}</Text>
-            </View>
-            <Feather name="chevron-right" color={tema.suave} size={20} />
-          </Pressable>
+            <LinearGradient
+              colors={["rgba(12,14,18,0.25)", "rgba(12,14,18,0.35)", "#0c0e12"]}
+              style={s.heroShade}
+            >
+              <View style={s.between}>
+                <View style={{ flex: 1 }}>
+                  <Image
+                    source={require("../../assets/images/logoshare.branco.png")}
+                    resizeMode="contain"
+                    style={{ width: 110, height: 36 }}
+                  />
+                  <Text style={s.brand}>TRIP SHARE</Text>
+                  <Text style={s.hello}>ÁREA DA TRIPULAÇÃO</Text>
+                </View>
+                <Pressable
+                  accessibilityLabel="Abrir notificações"
+                  onPress={() => router.push("/notificacoes")}
+                  style={u.icon}
+                >
+                  <Feather name="bell" size={21} color={tema.texto} />
+                </Pressable>
+                <Pressable
+                  accessibilityLabel="Abrir perfil"
+                  onPress={() => router.push("/(tabs)/perfil")}
+                >
+                  <Avatar nome={nome} disponivel={!!p?.foto_url} tamanho={46} />
+                </Pressable>
+              </View>
+              <Text style={s.greeting}>Olá, {nome.split(" ")[0]}</Text>
+              <Text style={s.tagline}>
+                Sua operação de hoje, em um só lugar.
+              </Text>
+            </LinearGradient>
+          </ImageBackground>
           <Secao
             titulo={
               atual?.data_agendada?.slice(0, 10) === hoje()
@@ -193,7 +227,7 @@ export default function HomeScreen() {
               }
             >
               <LinearGradient
-                colors={["#123f69", "#10253e", "#101e32"]}
+                colors={["#292e37", "#202630", "#191d24"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={s.flight}
@@ -248,6 +282,7 @@ export default function HomeScreen() {
             {shortcuts.map((x) => (
               <Pressable
                 key={x.nome}
+                accessibilityLabel={x.nome}
                 accessibilityRole="button"
                 onPress={() => router.push(x.path as any)}
                 style={({ pressed }) => [
@@ -259,10 +294,49 @@ export default function HomeScreen() {
                   <Feather name={x.icone} size={21} color={tema.azul} />
                 </View>
                 <Text style={s.shortcutTitle}>{x.nome}</Text>
-                <Text style={s.shortcutNote}>{x.texto}</Text>
               </Pressable>
             ))}
           </View>
+          {ordenados.length > 1 && (
+            <>
+              <Secao
+                titulo="Próximas escalas"
+                acao="Ver todas"
+                onPress={() => router.push("/(tabs)/agenda")}
+              />
+              <View style={s.upcoming}>
+                {ordenados.slice(1, 4).map((v) => (
+                  <Pressable
+                    key={v.id}
+                    accessibilityRole="button"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/(tabs)/agenda",
+                        params: { vooId: v.id },
+                      })
+                    }
+                    style={s.nextFlight}
+                  >
+                    <Feather name="calendar" size={20} color={tema.azul} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.flightNo}>
+                        {v.numero_voo || "Voo programado"}
+                      </Text>
+                      <Text style={s.hello}>
+                        {v.origem || "—"} → {v.destino || "—"}
+                      </Text>
+                    </View>
+                    <Text style={s.hello}>{dataBr(v.data_agendada)}</Text>
+                    <Feather
+                      name="chevron-right"
+                      color={tema.suave}
+                      size={18}
+                    />
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          )}
           <Secao
             titulo="Suas despesas de viagem"
             acao="Abrir"
@@ -304,6 +378,28 @@ export default function HomeScreen() {
 }
 const s = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingBottom: 120 },
+  hero: { marginHorizontal: -20, minHeight: 250 },
+  heroShade: { padding: 22, paddingTop: 12, paddingBottom: 28, flex: 1 },
+  brand: {
+    color: tema.texto,
+    fontFamily: "Inter_700Bold",
+    fontSize: 18,
+    letterSpacing: 1.5,
+    marginTop: 4,
+  },
+  greeting: {
+    color: tema.texto,
+    fontFamily: "Inter_700Bold",
+    fontSize: 30,
+    marginTop: 38,
+  },
+  tagline: {
+    color: "#d7d9de",
+    fontSize: 14,
+    marginTop: 7,
+    maxWidth: 240,
+    lineHeight: 21,
+  },
   identity: {
     flexDirection: "row",
     alignItems: "center",
@@ -326,7 +422,7 @@ const s = StyleSheet.create({
   flight: {
     padding: 20,
     borderRadius: 24,
-    borderColor: "#2b6490",
+    borderColor: "#4b5663",
     borderWidth: 1,
   },
   flightNo: {
@@ -349,11 +445,11 @@ const s = StyleSheet.create({
     color: tema.texto,
   },
   track: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
-  line: { height: 1, backgroundColor: "#407292", flex: 1 },
+  line: { height: 1, backgroundColor: "#53606d", flex: 1 },
   meta: { fontSize: 11, lineHeight: 18, color: "#bfd1e3" },
   flightFooter: {
     borderTopWidth: 1,
-    borderTopColor: "#294764",
+    borderTopColor: "#3b4550",
     marginTop: 17,
     paddingTop: 16,
     flexDirection: "row",
@@ -363,31 +459,47 @@ const s = StyleSheet.create({
   cta: { color: tema.azul, fontSize: 12, fontFamily: "Inter_600SemiBold" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   shortcut: {
-    width: "48%",
+    width: "30%",
     flexGrow: 1,
-    padding: 16,
+    padding: 12,
+    alignItems: "center",
+    minHeight: 112,
     borderRadius: 20,
     backgroundColor: tema.superficie,
     borderWidth: 1,
     borderColor: tema.borda,
   },
   shortcutIcon: {
-    alignSelf: "flex-start",
+    alignSelf: "center",
     padding: 10,
     backgroundColor: tema.elevado,
     borderRadius: 13,
-    marginBottom: 14,
+    marginBottom: 8,
   },
   shortcutTitle: {
     color: tema.texto,
     fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
+    fontSize: 12,
+    textAlign: "center",
   },
   shortcutNote: {
     color: tema.suave,
     fontSize: 10,
     lineHeight: 16,
     marginTop: 4,
+  },
+  upcoming: {
+    borderWidth: 1,
+    borderColor: tema.borda,
+    backgroundColor: tema.superficie,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+  },
+  nextFlight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 15,
   },
   summary: {
     backgroundColor: tema.superficie,

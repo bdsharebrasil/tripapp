@@ -12,7 +12,7 @@ export default function TabLayout() {
         width: 43,
         height: 29,
         borderRadius: 10,
-        backgroundColor: focused ? "#173c59" : "transparent",
+        backgroundColor: focused ? "#303b46" : "transparent",
         alignItems: "center",
         justifyContent: "center",
       }}
@@ -35,7 +35,7 @@ export default function TabLayout() {
           height: 70,
           paddingTop: 7,
           paddingBottom: 9,
-          backgroundColor: "#101f34",
+          backgroundColor: "#191d24",
           borderWidth: 1,
           borderTopWidth: 1,
           borderColor: tema.borda,

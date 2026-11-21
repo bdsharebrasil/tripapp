@@ -5,6 +5,7 @@ import { Platform } from "react-native";
 import { apiFetch, type ApiBinary } from "./api";
 
 const allowed = [
+  /^\/api\/colaborador\/minhas-horas\/pdf(?:\?(?:inicio|fim|aeronave_id)=[^#&]*(?:&(?:inicio|fim|aeronave_id)=[^#&]*)*)?$/,
   /^\/api\/interno\/agendamento\/[^/?]+\/preparacao\/pdf\?versao=\d+$/,
   /^\/api\/financeiro\/relatorios-despesa-viagem\/[^/?]+\/anexos-tripulante\/[^/?]+\/arquivo$/,
   /^\/api\/financeiro\/relatorios-despesa-viagem\/[^/?]+\/pdf$/,

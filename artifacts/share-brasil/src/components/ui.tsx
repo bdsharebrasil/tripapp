@@ -10,13 +10,13 @@ import {
 } from "react-native";
 
 export const tema = {
-  fundo: "#060e1c",
-  superficie: "#101e32",
-  elevado: "#162a43",
-  borda: "#233b55",
-  azul: "#35baff",
+  fundo: "#0c0e12",
+  superficie: "#191d24",
+  elevado: "#252b34",
+  borda: "#343c47",
+  azul: "#a9bdce",
   texto: "#f4f8ff",
-  suave: "#91a8c2",
+  suave: "#9ba5b2",
   verde: "#74dcb3",
   perigo: "#ff9da6",
 };

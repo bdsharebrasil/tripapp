@@ -8,6 +8,8 @@ Todas as chamadas abaixo usam `apiFetch` no domínio `EXPO_PUBLIC_API_URL`. D1 e
 | Renovação | POST | `/api/trip/auth/refresh` |
 | Logout | POST | `/api/trip/auth/logout` |
 | Perfil | GET, PATCH | `/api/colaborador/perfil` |
+| Minhas horas | GET | `/api/colaborador/minhas-horas?inicio=AAAA-MM-DD&fim=AAAA-MM-DD&aeronave_id=...` |
+| PDF de horas | GET | `/api/colaborador/minhas-horas/pdf?inicio=AAAA-MM-DD&fim=AAAA-MM-DD&aeronave_id=...` |
 | Avatar | GET, POST | `/api/colaborador/foto` |
 | Documentos | GET, POST | `/api/colaborador/documentos` |
 | Documento | DELETE | `/api/colaborador/documentos/:id` |
@@ -43,3 +45,11 @@ Todas as chamadas abaixo usam `apiFetch` no domínio `EXPO_PUBLIC_API_URL`. D1 e
 | Marcar aviso lido | PATCH | `/api/sharebrasil/notificacoes/:id/lida?origem=geral` |
 
 O endpoint de saúde do servidor de exemplo não era usado pelo aplicativo e foi eliminado junto com esse servidor. Os antigos pacotes de cliente gerado também não eram importados por nenhuma tela. Não há servidor local de dados nem banco paralelo.
+
+## Diário, manutenção e horas
+
+- `/diario-bordo` sem `vooId` abre a seleção de voos; com `vooId`, consulta os rascunhos por perna. Os horários continuam vindo de Meus voos, a partir do AC, sem confirmação ou assinatura automática.
+- Manutenção abre as pastas por matrícula. Dentro da pasta ficam os filtros de status, reports e o formulário já vinculado à aeronave.
+- Perfil > Minhas horas e o atalho do início consultam o mesmo componente. Voo = DEP–POU; total = AC–COR. As somas são apresentadas em horas:minutos, incluindo rascunhos identificados como sujeitos à conferência.
+- Os filtros são aplicados ao tocar em Aplicar filtros. O PDF usa o período e a aeronave da última consulta aplicada. Publicar as novas rotas do Worker antes de distribuir o app atualizado; nenhuma migração adicional é necessária para horas.
+- A imagem `artifacts/share-brasil/assets/images/ceu-asa.jpg` é um fundo gerado para o início: asa de aeronave sobre nuvens ao pôr do sol, tons grafite e pêssego, sem texto ou azul neon. As demais páginas usam superfícies lisas.

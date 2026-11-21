@@ -157,6 +157,8 @@ export default function DiarioBordoMobile() {
   const { vooId } = useLocalSearchParams<{ vooId: string }>();
   const router = useRouter(),
     insets = useSafeAreaInsets();
+  const [voos, setVoos] = useState<FlightDetail["voo"][]>([]);
+  const [busca, setBusca] = useState("");
   const [detail, setDetail] = useState<FlightDetail | null>(null),
     [response, setResponse] = useState<Response | null>(null);
   const [loading, setLoading] = useState(true),
@@ -172,11 +174,23 @@ export default function DiarioBordoMobile() {
     Boolean(selected?.diario_fechado);
   const fetchData = useCallback(
     async (refresh = false) => {
-      if (!vooId) return;
       if (refresh) setRefreshing(true);
       else setLoading(true);
       setError("");
       try {
+        if (!vooId) {
+          const result = await apiFetch<{ voos: FlightDetail["voo"][] }>(
+            "/api/colaborador/meus-voos",
+          );
+          setVoos(
+            result.voos
+              .slice()
+              .sort((a, b) =>
+                String(b.data_agendada).localeCompare(String(a.data_agendada)),
+              ),
+          );
+          return;
+        }
         const [data, flight] = await Promise.all([
           apiFetch<Response>(`${API}/voos/${encodeURIComponent(vooId)}`),
           apiFetch<FlightDetail>(
@@ -355,7 +369,13 @@ export default function DiarioBordoMobile() {
   return (
     <View style={[s.root, { paddingTop: insets.top + 10 }]}>
       <Cabecalho
-        titulo={active ? "Complementar lançamento" : "Diário do voo"}
+        titulo={
+          !vooId
+            ? "Diário de bordo"
+            : active
+              ? "Complementar lançamento"
+              : "Diário do voo"
+        }
         apoio="Diário de bordo"
         voltar={() => (active ? close() : router.back())}
       />
@@ -381,242 +401,328 @@ export default function DiarioBordoMobile() {
             paddingBottom: insets.bottom + 110,
           }}
         >
-          <View style={s.summary}>
-            <Text style={s.kicker}>{voo?.numero_voo || "VOO"}</Text>
-            <Text style={s.big}>
-              {voo?.matricula_registro || "Aeronave não informada"}
-            </Text>
-            <Text style={s.route}>
-              {voo?.origem || "—"} → {voo?.destino || "—"}
-            </Text>
-            <Text style={s.note}>
-              {voo?.cliente_razao_social || "Cliente/holding do agendamento"} ·{" "}
-              {date(voo?.data_agendada)}
-            </Text>
-          </View>
-          {!active ? (
+          {!vooId ? (
             <>
-              <Text style={s.section}>LANÇAMENTOS POR PERNA</Text>
-              {response?.lancamentos.map((r) => (
-                <View key={r.perna_id} style={s.card}>
-                  <View style={s.between}>
-                    <Text style={s.heading}>
-                      Perna {r.numero_perna} · {r.origem} → {r.destino}
-                    </Text>
-                    <Text
-                      style={[
-                        s.badge,
-                        {
-                          color:
-                            r.status_lancamento === "ASSINADO" ? GREEN : BLUE,
-                        },
-                      ]}
-                    >
-                      {r.status_lancamento.replace(/_/g, " ")}
-                    </Text>
-                  </View>
-                  <Text style={s.note}>
-                    {date(r.data_registro || r.horario_ac || undefined)} ·{" "}
-                    {r.lancamento_id
-                      ? `Lançamento nº ${r.numero_sequencial || "—"}`
-                      : "Ainda sem lançamento"}
-                  </Text>
-                  <View style={s.hours}>
-                    <Text style={s.hour}>AC {hhmm(r.horario_ac)}</Text>
-                    <Text style={s.hour}>DEP {hhmm(r.horario_dep)}</Text>
-                    <Text style={s.hour}>POU {hhmm(r.horario_pouso)}</Text>
-                    <Text style={s.hour}>COR {hhmm(r.horario_corte)}</Text>
-                  </View>
-                  <View style={s.between}>
-                    <Text style={s.note}>
-                      Voo {Number(r.tempo_voo || 0).toFixed(2)} h · Total{" "}
-                      {Number(r.tempo_total || 0).toFixed(2)} h
-                    </Text>
-                    {r.status_lancamento === "ASSINADO" ? (
-                      <Feather name="check-circle" size={21} color={GREEN} />
-                    ) : null}
-                  </View>
-                  {r.lancamento_id ? (
-                    <Pressable style={s.action} onPress={() => open(r)}>
-                      <Feather
-                        name={
-                          r.status_lancamento === "ASSINADO" ? "eye" : "edit-3"
-                        }
-                        size={17}
-                        color={BLUE}
-                      />
-                      <Text style={s.link}>
-                        {r.status_lancamento === "ASSINADO"
-                          ? "Visualizar assinatura"
-                          : "Complementar lançamento"}
-                      </Text>
-                      <Feather name="chevron-right" color={MUTED} />
-                    </Pressable>
-                  ) : (
-                    <Text style={s.note}>
-                      Registre AC em Minha Agenda ou sincronize os horários
-                      existentes.
-                    </Text>
-                  )}
-                </View>
-              ))}
-              {!response?.lancamentos.length ? (
-                <View style={s.card}>
-                  <Text style={s.note}>
-                    Não há pernas registradas neste voo.
-                  </Text>
-                </View>
-              ) : null}
-              <Pressable
-                disabled={!!busy}
-                style={s.primary}
-                onPress={() => void sync()}
-              >
-                <Feather name="refresh-cw" size={18} color={BG} />
-                <Text style={s.primaryText}>
-                  {busy === "sync"
-                    ? "Sincronizando…"
-                    : "Sincronizar rascunhos existentes"}
-                </Text>
-              </Pressable>
-            </>
-          ) : selected ? (
-            <>
-              <View style={s.card}>
-                <View style={s.between}>
-                  <Text style={s.heading}>
-                    {selected.origem} → {selected.destino}
-                  </Text>
-                  <Text style={[s.badge, { color: readonly ? GREEN : BLUE }]}>
-                    {selected.status_lancamento}
-                  </Text>
-                </View>
-                <Text style={s.note}>
-                  Diário nº {selected.numero_sequencial || "—"} ·{" "}
-                  {date(selected.data_registro)}
-                </Text>
-                <Text style={s.note}>
-                  AC {hhmm(selected.horario_ac)} · DEP{" "}
-                  {hhmm(selected.horario_dep)} · POU{" "}
-                  {hhmm(selected.horario_pouso)} · COR{" "}
-                  {hhmm(selected.horario_corte)} (UTC)
-                </Text>
-                <Text style={s.note}>
-                  Tempo de voo: {Number(selected.tempo_voo || 0).toFixed(2)} h ·
-                  Tempo total: {Number(selected.tempo_total || 0).toFixed(2)} h
-                </Text>
-                <Text style={s.note}>
-                  Horários, aeronave, data e cliente vêm da jornada e não podem
-                  ser alterados nesta tela.
-                </Text>
-                {selected.diario_mes_id?.startsWith("auto-") ? (
-                  <Text style={[s.note, { color: "#f0c583" }]}>
-                    Competência aberta automaticamente. Confirme o valor inicial
-                    de célula/horímetro com a operação antes do fechamento
-                    mensal.
-                  </Text>
-                ) : null}
-              </View>
-              <Text style={s.section}>NATUREZA DO VOO</Text>
-              <View style={s.chips}>
-                {naturezas.map((n) => (
+              <Text style={s.section}>SELECIONE O VOO</Text>
+              <Text style={s.note}>
+                Os horários registrados em Meus voos preenchem o rascunho
+                automaticamente, a partir do acionamento (AC).
+              </Text>
+              <TextInput
+                accessibilityLabel="Buscar voo no diário"
+                placeholder="Número, matrícula ou rota"
+                placeholderTextColor={MUTED}
+                style={[s.input, { marginVertical: 14 }]}
+                value={busca}
+                onChangeText={setBusca}
+              />
+              {voos
+                .filter((v) =>
+                  [v.numero_voo, v.matricula_registro, v.origem, v.destino]
+                    .join(" ")
+                    .toLowerCase()
+                    .includes(busca.toLowerCase()),
+                )
+                .map((v) => (
                   <Pressable
-                    key={n}
-                    disabled={readonly}
-                    onPress={() => set("natureza_voo", n)}
-                    style={[s.chip, draft.natureza_voo === n && s.chipActive]}
+                    key={v.id}
+                    style={s.card}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Abrir diário do voo ${v.numero_voo || v.id}`}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/diario-bordo",
+                        params: { vooId: v.id },
+                      })
+                    }
                   >
-                    <Text
-                      style={{
-                        color: draft.natureza_voo === n ? BG : MUTED,
-                        fontSize: 11,
-                        fontWeight: "700",
-                      }}
-                    >
-                      {n}
+                    <View style={s.between}>
+                      <Text style={s.heading}>
+                        {v.numero_voo || "Voo"} · {v.matricula_registro || "—"}
+                      </Text>
+                      <Feather name="chevron-right" size={20} color={MUTED} />
+                    </View>
+                    <Text style={s.note}>
+                      {v.origem || "—"} → {v.destino || "—"} ·{" "}
+                      {date(v.data_agendada)}
                     </Text>
+                    <Text style={s.note}>{v.cliente_razao_social || ""}</Text>
                   </Pressable>
                 ))}
-              </View>
-              {grupos.map((g) => (
-                <View key={g.titulo}>
-                  <Text style={s.section}>{g.titulo}</Text>
-                  <View style={s.card}>
-                    {g.campos.map((c) => (
-                      <View key={c.key} style={{ marginBottom: 12 }}>
-                        <Text style={s.fieldLabel}>{c.label}</Text>
-                        <TextInput
-                          style={[
-                            s.input,
-                            c.multiline && {
-                              minHeight: 85,
-                              textAlignVertical: "top",
-                            },
-                          ]}
-                          value={draft[c.key] ?? ""}
-                          editable={!readonly}
-                          onChangeText={(v) => set(c.key, v)}
-                          keyboardType={c.keyboard || "default"}
-                          placeholder={
-                            c.keyboard ? "0,00" : "Informe quando aplicável"
-                          }
-                          placeholderTextColor={MUTED}
-                          multiline={c.multiline}
-                        />
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              ))}
-              {selected.status_lancamento === "ASSINADO" ? (
-                <View style={s.signed}>
-                  <Feather name="check-circle" size={23} color={GREEN} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.heading}>Assinado pelo comandante</Text>
-                    <Text style={s.note}>
-                      {selected.assinado_pic || "Piloto comandante"} ·{" "}
-                      {selected.data_assinatura || "Data registrada no D1"}
-                    </Text>
-                  </View>
-                </View>
-              ) : (
-                <>
-                  <Pressable
-                    disabled={!!busy || readonly || !changed.length}
-                    onPress={() => void save()}
-                    style={[
-                      s.primary,
-                      (!changed.length || readonly) && { opacity: 0.48 },
-                    ]}
-                  >
-                    <Feather name="save" size={18} color={BG} />
-                    <Text style={s.primaryText}>
-                      {busy === "save" ? "Salvando…" : "Salvar complementos"}
-                    </Text>
-                  </Pressable>
-                  {response?.pode_assinar ? (
-                    <Pressable
-                      disabled={!!busy || readonly}
-                      onPress={sign}
-                      style={s.sign}
-                    >
-                      <Feather name="check-circle" size={19} color={GREEN} />
-                      <Text style={s.signText}>
-                        {busy === "sign"
-                          ? "Assinando…"
-                          : "Conferir e assinar como CMTE"}
-                      </Text>
-                    </Pressable>
-                  ) : (
-                    <Text style={s.note}>
-                      A assinatura eletrônica fica disponível somente para o
-                      comandante (PIC) escalado.
-                    </Text>
-                  )}
-                </>
+              {!voos.length && !error && (
+                <Text style={s.note}>Nenhum voo disponível no seu diário.</Text>
               )}
             </>
-          ) : null}
+          ) : (
+            <>
+              <View style={s.summary}>
+                <Text style={s.kicker}>{voo?.numero_voo || "VOO"}</Text>
+                <Text style={s.big}>
+                  {voo?.matricula_registro || "Aeronave não informada"}
+                </Text>
+                <Text style={s.route}>
+                  {voo?.origem || "—"} → {voo?.destino || "—"}
+                </Text>
+                <Text style={s.note}>
+                  {voo?.cliente_razao_social ||
+                    "Cliente/holding do agendamento"}{" "}
+                  · {date(voo?.data_agendada)}
+                </Text>
+              </View>
+              {!active ? (
+                <>
+                  <Text style={s.section}>LANÇAMENTOS POR PERNA</Text>
+                  {response?.lancamentos.map((r) => (
+                    <View key={r.perna_id} style={s.card}>
+                      <View style={s.between}>
+                        <Text style={s.heading}>
+                          Perna {r.numero_perna} · {r.origem} → {r.destino}
+                        </Text>
+                        <Text
+                          style={[
+                            s.badge,
+                            {
+                              color:
+                                r.status_lancamento === "ASSINADO"
+                                  ? GREEN
+                                  : BLUE,
+                            },
+                          ]}
+                        >
+                          {r.status_lancamento.replace(/_/g, " ")}
+                        </Text>
+                      </View>
+                      <Text style={s.note}>
+                        {date(r.data_registro || r.horario_ac || undefined)} ·{" "}
+                        {r.lancamento_id
+                          ? `Lançamento nº ${r.numero_sequencial || "—"}`
+                          : "Ainda sem lançamento"}
+                      </Text>
+                      <View style={s.hours}>
+                        <Text style={s.hour}>AC {hhmm(r.horario_ac)}</Text>
+                        <Text style={s.hour}>DEP {hhmm(r.horario_dep)}</Text>
+                        <Text style={s.hour}>POU {hhmm(r.horario_pouso)}</Text>
+                        <Text style={s.hour}>COR {hhmm(r.horario_corte)}</Text>
+                      </View>
+                      <View style={s.between}>
+                        <Text style={s.note}>
+                          Voo {Number(r.tempo_voo || 0).toFixed(2)} h · Total{" "}
+                          {Number(r.tempo_total || 0).toFixed(2)} h
+                        </Text>
+                        {r.status_lancamento === "ASSINADO" ? (
+                          <Feather
+                            name="check-circle"
+                            size={21}
+                            color={GREEN}
+                          />
+                        ) : null}
+                      </View>
+                      {r.lancamento_id ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={
+                            r.status_lancamento === "ASSINADO"
+                              ? "Visualizar assinatura"
+                              : "Complementar lançamento"
+                          }
+                          style={s.action}
+                          onPress={() => open(r)}
+                        >
+                          <Feather
+                            name={
+                              r.status_lancamento === "ASSINADO"
+                                ? "eye"
+                                : "edit-3"
+                            }
+                            size={17}
+                            color={BLUE}
+                          />
+                          <Text style={s.link}>
+                            {r.status_lancamento === "ASSINADO"
+                              ? "Visualizar assinatura"
+                              : "Complementar lançamento"}
+                          </Text>
+                          <Feather name="chevron-right" color={MUTED} />
+                        </Pressable>
+                      ) : (
+                        <Text style={s.note}>
+                          Registre AC em Minha Agenda ou sincronize os horários
+                          existentes.
+                        </Text>
+                      )}
+                    </View>
+                  ))}
+                  {!response?.lancamentos.length ? (
+                    <View style={s.card}>
+                      <Text style={s.note}>
+                        Não há pernas registradas neste voo.
+                      </Text>
+                    </View>
+                  ) : null}
+                  <Pressable
+                    disabled={!!busy}
+                    style={s.primary}
+                    onPress={() => void sync()}
+                  >
+                    <Feather name="refresh-cw" size={18} color={BG} />
+                    <Text style={s.primaryText}>
+                      {busy === "sync"
+                        ? "Sincronizando…"
+                        : "Sincronizar rascunhos existentes"}
+                    </Text>
+                  </Pressable>
+                </>
+              ) : selected ? (
+                <>
+                  <View style={s.card}>
+                    <View style={s.between}>
+                      <Text style={s.heading}>
+                        {selected.origem} → {selected.destino}
+                      </Text>
+                      <Text
+                        style={[s.badge, { color: readonly ? GREEN : BLUE }]}
+                      >
+                        {selected.status_lancamento}
+                      </Text>
+                    </View>
+                    <Text style={s.note}>
+                      Diário nº {selected.numero_sequencial || "—"} ·{" "}
+                      {date(selected.data_registro)}
+                    </Text>
+                    <Text style={s.note}>
+                      AC {hhmm(selected.horario_ac)} · DEP{" "}
+                      {hhmm(selected.horario_dep)} · POU{" "}
+                      {hhmm(selected.horario_pouso)} · COR{" "}
+                      {hhmm(selected.horario_corte)} (UTC)
+                    </Text>
+                    <Text style={s.note}>
+                      Tempo de voo: {Number(selected.tempo_voo || 0).toFixed(2)}{" "}
+                      h · Tempo total:{" "}
+                      {Number(selected.tempo_total || 0).toFixed(2)} h
+                    </Text>
+                    <Text style={s.note}>
+                      Horários, aeronave, data e cliente vêm da jornada e não
+                      podem ser alterados nesta tela.
+                    </Text>
+                    {selected.diario_mes_id?.startsWith("auto-") ? (
+                      <Text style={[s.note, { color: "#f0c583" }]}>
+                        Competência aberta automaticamente. Confirme o valor
+                        inicial de célula/horímetro com a operação antes do
+                        fechamento mensal.
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={s.section}>NATUREZA DO VOO</Text>
+                  <View style={s.chips}>
+                    {naturezas.map((n) => (
+                      <Pressable
+                        key={n}
+                        disabled={readonly}
+                        onPress={() => set("natureza_voo", n)}
+                        style={[
+                          s.chip,
+                          draft.natureza_voo === n && s.chipActive,
+                        ]}
+                      >
+                        <Text
+                          style={{
+                            color: draft.natureza_voo === n ? BG : MUTED,
+                            fontSize: 11,
+                            fontWeight: "700",
+                          }}
+                        >
+                          {n}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  {grupos.map((g) => (
+                    <View key={g.titulo}>
+                      <Text style={s.section}>{g.titulo}</Text>
+                      <View style={s.card}>
+                        {g.campos.map((c) => (
+                          <View key={c.key} style={{ marginBottom: 12 }}>
+                            <Text style={s.fieldLabel}>{c.label}</Text>
+                            <TextInput
+                              style={[
+                                s.input,
+                                c.multiline && {
+                                  minHeight: 85,
+                                  textAlignVertical: "top",
+                                },
+                              ]}
+                              value={draft[c.key] ?? ""}
+                              editable={!readonly}
+                              onChangeText={(v) => set(c.key, v)}
+                              keyboardType={c.keyboard || "default"}
+                              placeholder={
+                                c.keyboard ? "0,00" : "Informe quando aplicável"
+                              }
+                              placeholderTextColor={MUTED}
+                              multiline={c.multiline}
+                            />
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+                  {selected.status_lancamento === "ASSINADO" ? (
+                    <View style={s.signed}>
+                      <Feather name="check-circle" size={23} color={GREEN} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.heading}>Assinado pelo comandante</Text>
+                        <Text style={s.note}>
+                          {selected.assinado_pic || "Piloto comandante"} ·{" "}
+                          {selected.data_assinatura || "Data registrada no D1"}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <>
+                      <Pressable
+                        disabled={!!busy || readonly || !changed.length}
+                        onPress={() => void save()}
+                        style={[
+                          s.primary,
+                          (!changed.length || readonly) && { opacity: 0.48 },
+                        ]}
+                      >
+                        <Feather name="save" size={18} color={BG} />
+                        <Text style={s.primaryText}>
+                          {busy === "save"
+                            ? "Salvando…"
+                            : "Salvar complementos"}
+                        </Text>
+                      </Pressable>
+                      {response?.pode_assinar ? (
+                        <Pressable
+                          disabled={!!busy || readonly}
+                          onPress={sign}
+                          style={s.sign}
+                        >
+                          <Feather
+                            name="check-circle"
+                            size={19}
+                            color={GREEN}
+                          />
+                          <Text style={s.signText}>
+                            {busy === "sign"
+                              ? "Assinando…"
+                              : "Conferir e assinar como CMTE"}
+                          </Text>
+                        </Pressable>
+                      ) : (
+                        <Text style={s.note}>
+                          A assinatura eletrônica fica disponível somente para o
+                          comandante (PIC) escalado.
+                        </Text>
+                      )}
+                    </>
+                  )}
+                </>
+              ) : null}
+            </>
+          )}
         </ScrollView>
       )}
     </View>
