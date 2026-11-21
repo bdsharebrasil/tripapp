@@ -118,8 +118,12 @@ export default function DiarioBordoMobile() {
     try{
       const payload:Record<string,unknown>={};
       for(const key of changed) {
-        const value=draft[key];
+        const value=draft[key] || "";
         const numeric=grupos.some(g=>g.campos.some(c=>c.key===key&&Boolean(c.keyboard)));
+        if (numeric && value.trim() && !/^\\d+(?:[.,]\\d+)?$/.test(value.trim())) {
+          Alert.alert("Valor inválido", `Confira o campo ${key.replace(/_/g," ")}. Use apenas números positivos.`);
+          return;
+        }
         payload[key]=numeric ? Number((value||"0").replace(",",".")) : value;
       }
       await apiFetch(`${API}/pernas/${encodeURIComponent(selected.perna_id)}`,{method:"PATCH",body:JSON.stringify(payload)});
