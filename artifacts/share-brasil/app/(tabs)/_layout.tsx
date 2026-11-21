@@ -1,80 +1,80 @@
 import { Tabs } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import React from "react";
-import { Platform, StyleSheet, View } from "react-native";
-import { useColors } from "@/hooks/useColors";
-
+import { View, type ColorValue } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { tema, type Icone } from "@/src/components/ui";
 export default function TabLayout() {
-  const colors = useColors();
-  const isWeb = Platform.OS === "web";
-
+  const insets = useSafeAreaInsets();
+  const icon = (name: Icone, color: ColorValue, focused: boolean) => (
+    <View
+      style={{
+        width: 43,
+        height: 29,
+        borderRadius: 10,
+        backgroundColor: focused ? "#173c59" : "transparent",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Feather name={name} size={19} color={color} />
+    </View>
+  );
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: "#27b9f5",
-        tabBarInactiveTintColor: "#9aacc3",
         headerShown: false,
+        tabBarActiveTintColor: tema.azul,
+        tabBarInactiveTintColor: tema.suave,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           position: "absolute",
-          backgroundColor: "#0c1b30",
+          bottom: Math.max(10, insets.bottom),
+          left: 15,
+          right: 15,
+          height: 70,
+          paddingTop: 7,
+          paddingBottom: 9,
+          backgroundColor: "#101f34",
+          borderWidth: 1,
           borderTopWidth: 1,
-          borderTopColor: "#25405c",
+          borderColor: tema.borda,
+          borderRadius: 24,
           elevation: 0,
-          height: isWeb ? 84 : 68,
-          paddingBottom: isWeb ? 34 : 12,
         },
-        tabBarBackground: () => <View style={[StyleSheet.absoluteFill, { backgroundColor: "#0c1b30" }]} />,
-        tabBarLabelStyle: {
-          fontSize: 11,
-        },
+        tabBarLabelStyle: { fontFamily: "Inter_600SemiBold", fontSize: 10 },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: "Início",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="home" size={size ?? 22} color={color} />
-          ),
+          tabBarIcon: ({ color, focused }) => icon("home", color, focused),
         }}
       />
       <Tabs.Screen
         name="agenda"
         options={{
-          title: "Agenda",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="send" size={size ?? 22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen name="diario" options={{ href: null }} />
-      <Tabs.Screen
-        name="plano-voo"
-        options={{ href: null,
-          title: "Plano",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="navigation" size={size ?? 22} color={color} />
-          ),
+          title: "Meus voos",
+          tabBarIcon: ({ color, focused }) => icon("send", color, focused),
         }}
       />
       <Tabs.Screen
         name="financeiro"
         options={{
           title: "Despesas",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="file-text" size={size ?? 22} color={color} />
-          ),
+          tabBarIcon: ({ color, focused }) => icon("file-text", color, focused),
         }}
       />
       <Tabs.Screen
         name="perfil"
         options={{
           title: "Perfil",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="user" size={size ?? 22} color={color} />
-          ),
+          tabBarIcon: ({ color, focused }) => icon("user", color, focused),
         }}
       />
+      <Tabs.Screen name="diario" options={{ href: null }} />
+      <Tabs.Screen name="plano-voo" options={{ href: null }} />
     </Tabs>
   );
 }
