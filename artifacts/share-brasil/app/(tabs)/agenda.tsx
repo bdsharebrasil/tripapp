@@ -88,7 +88,7 @@ export default function AgendaScreen() {
           <Text style={[s.secondary, { marginTop: 8 }]}>{detail.voo.mensagem || "Nenhuma observação operacional cadastrada."}</Text>
           <Text style={[s.secondary, { marginTop: 8 }]}>Piloto: {detail.voo.piloto_nome || "—"} · Copiloto: {detail.voo.copiloto_nome || "—"}</Text>
         </View>
-        {action("Checklist pré-voo", "check-square", () => Alert.alert("Checklist pré-voo", "A consulta operacional está conectada. A edição do checklist precisa da integração com a rota oficial de checklist do Worker."))}
+        {action("Checklist pré-voo", "check-square", () => router.push({ pathname: "/preparacao-voo", params: { id: detail.voo.id } }))}
         <Text style={s.section}>HOSPEDAGEM DA TRIPULAÇÃO</Text>
         {detail.hospedagens.length ? detail.hospedagens.map((h, i) => <View key={i} style={s.panel}>{Object.entries(h).filter(([, v]) => v != null && typeof v !== "object").map(([k, v]) => <Text key={k} style={s.secondary}>{k.replace(/_/g, " ")}: {String(v)}</Text>)}</View>) : <View style={s.panel}><Text style={s.secondary}>Nenhuma hospedagem vinculada a este voo.</Text></View>}
         <Text style={s.section}>HORÁRIOS · UTC</Text>
