@@ -44,18 +44,21 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { profile, flights, financialEntries } = useApp();
+  const { profile } = useApp();
+  const [assignedFlights, setAssignedFlights] = useState<{ id: string; data_agendada?: string; numero_voo?: string }[]>([]);
   const [remote, setRemote] = useState<DashboardRemote>({ pendingReports: 0, devolvidos: 0, openMaintenance: 0, nextPlan: null });
 
   useFocusEffect(useCallback(() => {
     let active = true;
     const load = async () => {
-      const [expenseResult, maintenanceResult, plansResult] = await Promise.allSettled([
+      const [expenseResult, maintenanceResult, plansResult, flightsResult] = await Promise.allSettled([
         apiFetch<{ relatorios: { status: string }[] }>("/api/financeiro/relatorios-despesa-viagem/minhas"),
         apiFetch<{ data: { status: string }[] }>("/api/ctm/relatorios-manutencao"),
         apiFetch<WorkerPlan[]>("/api/interno/planos-voo?mine=true"),
+        apiFetch<{ voos: { id: string; data_agendada?: string; numero_voo?: string }[] }>("/api/colaborador/meus-voos"),
       ]);
       if (!active) return;
+      if (flightsResult.status === "fulfilled") setAssignedFlights(flightsResult.value.voos || []);
       let pendingReports = 0;
       let devolvidos = 0;
       let openMaintenance = 0;
@@ -91,16 +94,13 @@ export default function HomeScreen() {
 
   const stats = useMemo(() => {
     const now = new Date();
-    const month = now.getMonth();
-    const year = now.getFullYear();
-    const monthFlights = flights.filter((f) => {
-      const d = new Date(f.data + "T00:00:00");
-      return d.getMonth() === month && d.getFullYear() === year;
+    const monthFlights = assignedFlights.filter(f => {
+      if (!f.data_agendada) return false;
+      const d = new Date(f.data_agendada.slice(0, 10) + "T00:00:00");
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
-    const monthHours = monthFlights.reduce((acc, f) => acc + f.tempoVoo, 0);
-    const pendingFinancial = financialEntries.filter((f) => f.status === "pendente").reduce((acc, f) => acc + f.valor, 0);
-    return { monthFlights: monthFlights.length, monthHours, ...remote, pendingFinancial };
-  }, [flights, financialEntries, remote]);
+    return { ...remote, monthFlights: monthFlights.length, monthHours: null as number | null, pendingFinancial: null as number | null };
+  }, [assignedFlights, remote]);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
@@ -115,8 +115,8 @@ export default function HomeScreen() {
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.greeting}>Bem-vindo,</Text>
-            <Text style={styles.userName}>{profile.nome.split(" ")[0]} {profile.nome.split(" ")[1]}</Text>
-            <Text style={styles.userRole}>{profile.cargo} · CANAC {profile.canac}</Text>
+            <Text style={styles.userName}>{profile.nome || "Tripulante"}</Text>
+            <Text style={styles.userRole}>{[profile.cargo, profile.canac ? `CANAC ${profile.canac}` : ""].filter(Boolean).join(" · ")}</Text>
           </View>
           <View style={styles.headerActions}>
             <Pressable
@@ -137,7 +137,7 @@ export default function HomeScreen() {
 
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{stats.monthHours.toFixed(1)}h</Text>
+            <Text style={styles.statValue}>—</Text>
             <Text style={styles.statLabel}>Horas no mês</Text>
           </View>
           <View style={[styles.statCard, styles.statCardMiddle]}>
@@ -145,7 +145,7 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>Voos no mês</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{profile.horasAcumuladas.toLocaleString()}</Text>
+            <Text style={styles.statValue}>—</Text>
             <Text style={styles.statLabel}>Horas totais</Text>
           </View>
         </View>
@@ -188,7 +188,7 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {(stats.pendingReports > 0 || stats.devolvidos > 0 || stats.openMaintenance > 0 || stats.pendingFinancial > 0) && (
+        {(stats.pendingReports > 0 || stats.devolvidos > 0 || stats.openMaintenance > 0 || (stats.pendingFinancial ?? 0) > 0) && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Pendências</Text>
             {stats.devolvidos > 0 && (
@@ -234,7 +234,7 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.alertContent}>
                   <Text style={[styles.alertTitle, { color: colors.foreground }]}>Pagamentos pendentes</Text>
-                  <Text style={[styles.alertSub, { color: colors.mutedForeground }]}>{formatCurrency(stats.pendingFinancial)} a receber</Text>
+                  <Text style={[styles.alertSub, { color: colors.mutedForeground }]}>{formatCurrency(stats.pendingFinancial ?? 0)} a receber</Text>
                 </View>
                 <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
               </Pressable>
