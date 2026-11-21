@@ -101,7 +101,7 @@ export default function RelatorioViagemScreen() {
     setBusy(`start-${voo}`);
     try {
       const result = await apiFetch<{ relatorio?: Obj }>(`${BASE}/iniciar-do-voo`, {
-        method: "POST", body: JSON.stringify({ numero_voo: voo }),
+        method: "POST", body: JSON.stringify({ numero_voo: voo, solicitacao_id: flight.solicitacao_id || flight.id }),
       });
       if (!result.relatorio?.id) throw new Error("Servidor não retornou o relatório criado.");
       await load(true);
@@ -257,7 +257,11 @@ export default function RelatorioViagemScreen() {
             <Text style={styles.sectionTitle}>CRIAR RELATÓRIO DE VIAGEM</Text>
             <Text style={[styles.muted, { marginBottom: 10 }]}>Selecione o voo para iniciar os lançamentos de despesas.</Text>
             {flights.map(f => {
-              const existing = reports.find(r => flightNo(r) === flightNo(f));
+              const existing = reports.find(r =>
+                (f.relatorio_id && reportId(r) === String(f.relatorio_id)) ||
+                (flightNo(r) === flightNo(f) && r.aeronave_id === f.aeronave_id &&
+                  r.cliente_id === f.cliente_id && String(r.socio_id || "") === String(f.socio_id || "")),
+              );
               return <Pressable key={String(f.solicitacao_id || f.id || flightNo(f))} onPress={() => existing ? open(reportId(existing)) : void startReport(f)} disabled={!!busy} style={styles.flightCard}>
                 <View style={{ flex: 1 }}><Text style={styles.flightNo}>{flightNo(f)}</Text><Text style={styles.secondary}>{f.rota_nome || [f.origem, f.destino].filter(Boolean).join(" → ")} · {date(f.data_agendada)}</Text><Text style={styles.muted}>{f.matricula || ""}</Text></View>
                 <View style={styles.actionIcon}><Feather name={existing ? "file-text" : "plus"} size={21} color={BLUE} /></View>
