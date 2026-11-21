@@ -1,7 +1,8 @@
 {
   "expo": {
     "name": "Trip Share",
-    "slug": "share-brasil",
+    "slug": "trip-share",
+    "owner": "ssharebrasil",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -10,7 +11,9 @@
     "ios": {
       "supportsTablet": false
     },
-    "android": {},
+    "android": {
+      "package": "com.sharebrasil.tripshare"
+    },
     "web": {
       "favicon": "./assets/images/icon.png",
       "bundler": "metro",
@@ -32,6 +35,11 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "4243aca3-c157-4e2d-9670-c7782534999a"
+      }
     }
   }
 }

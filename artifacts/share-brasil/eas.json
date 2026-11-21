@@ -1,0 +1,31 @@
+{
+  "cli": {
+    "version": ">= 13.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "preview": {
+      "node": "22.22.2",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.share-brasil.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://jilmlmdgeyzubylncpjy.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_7xFUuqzVjAb5LA22UN0S"
+      }
+    },
+    "production": {
+      "node": "22.22.2",
+      "android": {
+        "buildType": "app-bundle",
+        "autoIncrement": true
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.share-brasil.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://jilmlmdgeyzubylncpjy.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_7xFUuqzVjAb5LA22UN0S"
+      }
+    }
+  }
+}
