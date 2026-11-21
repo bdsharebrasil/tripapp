@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { apiFetch } from "@/src/lib/api";
+import { abrirBriefingPdf } from "@/src/lib/briefing-pdf";
 
 type Estado = "PENDENTE" | "EM_ANDAMENTO" | "CONCLUIDO" | "NAO_REALIZADO" | "NAO_APLICAVEL";
 type Resposta = { estado: Estado; observacao: string; responsavel?: string; atualizado_em?: string };
@@ -25,6 +26,7 @@ export default function PreparacaoVoo() {
   const [busy, setBusy] = useState(false), [loading, setLoading] = useState(true), [error, setError] = useState("");
   const [tab, setTab] = useState<"aeronave" | "tripulacao">("aeronave");
   const [dirty, setDirty] = useState(false);
+  const [openingPdf, setOpeningPdf] = useState(false);
   const base = `/api/interno/agendamento/${encodeURIComponent(id || "")}/preparacao`;
   const load = useCallback(async () => {
     if (!id) return;
@@ -70,6 +72,21 @@ export default function PreparacaoVoo() {
     if (finish) Alert.alert("Concluir preparação?", "A conclusão registra o checklist, mas pode manter pendências no briefing. Não certifica a aeronave.", [{ text: "Cancelar" }, { text: "Confirmar", onPress: () => void run() }]);
     else await run();
   };
+  const openPdf = async () => {
+    if (!snapshot || !id || openingPdf || busy) return;
+    if (dirty) {
+      Alert.alert("Alterações não salvas", "Salve o checklist para gerar um briefing com os dados mais recentes.");
+      return;
+    }
+    setOpeningPdf(true);
+    try {
+      await abrirBriefingPdf(id, snapshot.versao, snapshot.voo?.numero_voo || "");
+    } catch (e) {
+      Alert.alert("Briefing indisponível", e instanceof Error ? e.message : "Não foi possível abrir o PDF.");
+    } finally {
+      setOpeningPdf(false);
+    }
+  };
   const readonly = Boolean(snapshot?.somente_leitura);
   const sections = useMemo(() => (snapshot?.secoes || []).filter(s => s.segmento === tab), [snapshot?.secoes, tab]);
   const statePicker = (value: Estado, change: (v: Estado) => void) =>
@@ -79,7 +96,7 @@ export default function PreparacaoVoo() {
     <View style={styles.header}><Pressable accessibilityRole="button" onPress={() => dirty ? Alert.alert("Alterações não salvas", "Deseja sair sem salvar?", [{ text: "Continuar editando" }, { text: "Sair", onPress: () => router.back() }]) : router.back()} style={styles.back}><Feather name="arrow-left" color="#fff" size={22} /></Pressable><View style={{ flex: 1 }}><Text style={styles.eyebrow}>TRIP SHARE · OPERAÇÕES</Text><Text style={styles.heading}>Preparação do voo</Text></View></View>
     {loading ? <ActivityIndicator color={accent} style={{ marginTop: 35 }} /> : error ? <View style={styles.card}><Text style={styles.description}>{error}</Text><Pressable onPress={() => void load()} style={styles.button}><Text style={styles.buttonText}>Tentar novamente</Text></Pressable></View> : snapshot && draft ? <>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 180 }} keyboardShouldPersistTaps="handled">
-        <View style={styles.card}><Text style={styles.flight}>{snapshot.voo?.numero_voo || "Voo"} · {snapshot.voo?.matricula_registro || "Aeronave"}</Text><Text style={styles.description}>Versão {snapshot.versao} · {snapshot.resumo.resolvidos}/{snapshot.resumo.total} resolvidos</Text><Text style={styles.pending}>{snapshot.resumo.pendencias} pendência(s) no último salvamento</Text>{readonly ? <Text style={styles.pending}>Voo encerrado: somente leitura</Text> : null}</View>
+        <View style={styles.card}><Text style={styles.flight}>{snapshot.voo?.numero_voo || "Voo"} · {snapshot.voo?.matricula_registro || "Aeronave"}</Text><Text style={styles.description}>Versão {snapshot.versao} · {snapshot.resumo.resolvidos}/{snapshot.resumo.total} resolvidos</Text><Text style={styles.pending}>{snapshot.resumo.pendencias} pendência(s) no último salvamento</Text>{readonly ? <Text style={styles.pending}>Voo encerrado: somente leitura</Text> : null}<Pressable accessibilityRole="button" disabled={openingPdf || busy} onPress={() => void openPdf()} style={styles.pdfButton}><Feather name="file-text" size={18} color={accent} /><Text style={styles.pdfText}>{openingPdf ? "Abrindo briefing…" : "Abrir briefing em PDF"}</Text><Feather name="external-link" size={16} color={accent} /></Pressable></View>
         <View style={styles.tabs}>{(["aeronave", "tripulacao"] as const).map(t => <Pressable key={t} onPress={() => setTab(t)} style={[styles.tab, tab === t && styles.tabActive]}><Feather name={t === "aeronave" ? "send" : "users"} color={tab === t ? bg : muted} size={17} /><Text style={[styles.tabText, tab === t && { color: bg }]}>{t === "aeronave" ? "Aeronave" : "Tripulação"}</Text></Pressable>)}</View>
         {sections.map(sec => <View key={sec.id}><Text style={styles.section}>{sec.titulo}</Text>{sec.itens.map(item => <View key={item.id} style={styles.card}><Text style={styles.itemTitle}>{item.label}</Text>{statePicker(draft.itens[item.id]?.estado || "PENDENTE", v => setItem(item.id, { estado: v }))}<TextInput editable={!readonly} placeholder="Observação (opcional)" placeholderTextColor={muted} multiline value={draft.itens[item.id]?.observacao || ""} onChangeText={v => setItem(item.id, { observacao: v })} style={styles.input} /></View>)}</View>)}
         {tab === "aeronave" ? <View style={styles.card}><Text style={styles.itemTitle}>Nível de óleo</Text><TextInput editable={!readonly} placeholder="Informe o nível de óleo" placeholderTextColor={muted} value={draft.nivel_oleo} onChangeText={v => update(d => { d.nivel_oleo = v; return d; })} style={styles.input} /></View> : draft.escalas.map(escala => <View key={escala.id}><Text style={styles.section}>SERVIÇOS · {escala.icao || "ESCALA"}</Text>{escala.servicos.map(serv => <View key={serv.id} style={styles.card}><Text style={styles.itemTitle}>{snapshot.tipos_servico.find(t => t.id === serv.tipo)?.nome || serv.tipo}</Text>{statePicker(serv.estado, v => setService(escala.id, serv.tipo, { estado: v }))}<TextInput editable={!readonly} placeholder="Observação do serviço" placeholderTextColor={muted} multiline value={serv.observacao} onChangeText={v => setService(escala.id, serv.tipo, { observacao: v })} style={styles.input} />{Object.entries(serv.dados || {}).filter(([, v]) => v).map(([key, val]) => <Text key={key} style={styles.description}>{key.replace(/_/g, " ")}: {val}</Text>)}</View>)}</View>)}
@@ -91,5 +108,6 @@ export default function PreparacaoVoo() {
   </View>;
 }
 const styles = StyleSheet.create({
+  pdfButton: { flexDirection: "row", alignItems: "center", gap: 10, padding: 13, marginTop: 14, borderWidth: 1, borderColor: "#316083", backgroundColor: "#142b42", borderRadius: 12 }, pdfText: { flex: 1, fontSize: 13, fontWeight: "800", color: "#fff" },
   root: { flex: 1, backgroundColor: bg }, header: { flexDirection: "row", alignItems: "center", padding: 18, gap: 12 }, back: { width: 42, height: 42, borderRadius: 13, backgroundColor: panel, alignItems: "center", justifyContent: "center" }, eyebrow: { color: accent, fontSize: 10, fontWeight: "800", letterSpacing: 2 }, heading: { color: "#fff", fontSize: 23, fontWeight: "800", marginTop: 4 }, card: { backgroundColor: panel, borderColor: line, borderWidth: 1, borderRadius: 16, padding: 15, marginBottom: 11, marginHorizontal: 0 }, flight: { color: "#fff", fontSize: 19, fontWeight: "800" }, description: { color: muted, fontSize: 12, lineHeight: 19, marginTop: 6 }, pending: { color: "#f0c47d", fontSize: 12, marginTop: 8 }, tabs: { flexDirection: "row", backgroundColor: panel, padding: 5, borderRadius: 16, marginVertical: 15 }, tab: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 14, gap: 8, borderRadius: 12 }, tabActive: { backgroundColor: accent }, tabText: { color: muted, fontSize: 13, fontWeight: "800" }, section: { color: accent, fontSize: 11, letterSpacing: 1.6, fontWeight: "800", marginTop: 20, marginBottom: 12 }, itemTitle: { color: "#fff", fontSize: 15, fontWeight: "700", marginBottom: 12 }, states: { flexDirection: "row", flexWrap: "wrap", gap: 6 }, state: { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 9, borderWidth: 1, borderColor: line }, stateActive: { borderColor: accent, backgroundColor: "#15415c" }, stateText: { color: muted, fontSize: 11, fontWeight: "600" }, stateTextActive: { color: "#fff" }, input: { backgroundColor: bg, borderWidth: 1, borderColor: line, color: "#fff", padding: 12, borderRadius: 10, marginTop: 12, minHeight: 43 }, footer: { flexDirection: "row", paddingHorizontal: 18, paddingTop: 12, gap: 10, borderTopWidth: 1, borderColor: line, backgroundColor: bg }, button: { flex: 1, backgroundColor: accent, borderRadius: 13, minHeight: 51, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 }, outline: { backgroundColor: panel, borderWidth: 1, borderColor: line }, buttonText: { color: "#fff", fontWeight: "800", fontSize: 14 },
 });
