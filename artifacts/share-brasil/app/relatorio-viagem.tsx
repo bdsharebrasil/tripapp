@@ -280,7 +280,7 @@ export default function RelatorioViagemScreen() {
           </View>
           <View style={styles.between}><Text style={styles.sectionTitle}>DESPESAS LANÇADAS · {items.length}</Text></View>
           {editable && <Pressable accessibilityRole="button" onPress={add} disabled={!!busy} style={styles.primary}><Feather name="plus-circle" size={21} color={BG}/><Text style={styles.primaryText}>Criar nova despesa</Text></Pressable>}
-          {!items.length && <View style={styles.empty}><Feather name="receipt" size={28} color={BLUE}/><Text style={styles.secondary}>Nenhuma despesa registrada neste voo.</Text></View>}
+          {!items.length && <View style={styles.empty}><Feather name="file-text" size={28} color={BLUE}/><Text style={styles.secondary}>Nenhuma despesa registrada neste voo.</Text></View>}
           {items.map((item, i) => <View key={item.id} style={styles.itemCard}>
             <View style={styles.between}><Text style={styles.itemTitle}>Despesa {i + 1}</Text><View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><Text style={styles.amount}>{money(item.valor)}</Text>{editable && <Pressable accessibilityRole="button" accessibilityLabel="Remover despesa" onPress={() => { setItems(prev => prev.filter((_, idx) => idx !== i)); setDirty(true); }}><Feather name="trash-2" size={18} color="#fb8d8d"/></Pressable>}</View></View>
             {label("Categoria")}
