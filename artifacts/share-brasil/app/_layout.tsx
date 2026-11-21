@@ -6,8 +6,15 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack, useRouter, useSegments, type Href } from "expo-router";
+import {
+  Redirect,
+  Stack,
+  useRouter,
+  useSegments,
+  type Href,
+} from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import { Platform, View } from "react-native";
 import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -15,7 +22,6 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import type { Session } from "@supabase/supabase-js";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { AppProvider } from "@/context/AppContext";
 import { setUnauthorizedHandler } from "@/src/lib/session";
 import { supabase } from "@/src/lib/supabase";
 
@@ -23,7 +29,13 @@ SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
-function RootLayoutNav({ session, authReady }: { session: Session | null; authReady: boolean }) {
+function RootLayoutNav({
+  session,
+  authReady,
+}: {
+  session: Session | null;
+  authReady: boolean;
+}) {
   const router = useRouter();
   const segments = useSegments();
   const currentRoot = segments[0] as string | undefined;
@@ -42,16 +54,39 @@ function RootLayoutNav({ session, authReady }: { session: Session | null; authRe
     return () => setUnauthorizedHandler(null);
   }, [router]);
 
+  if (!session && currentRoot !== "login") return <Redirect href="/login" />;
+
   return (
-    <Stack screenOptions={{ headerBackTitle: "Voltar" }}>
-      <Stack.Screen name="login" options={{ headerShown: false, gestureEnabled: false }} />
+    <Stack
+      key={session?.user.id || "login"}
+      screenOptions={{ headerBackTitle: "Voltar" }}
+    >
+      <Stack.Screen
+        name="login"
+        options={{ headerShown: false, gestureEnabled: false }}
+      />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="novo-lancamento" options={{ presentation: "modal", headerShown: false }} />
+      <Stack.Screen
+        name="novo-lancamento"
+        options={{ presentation: "modal", headerShown: false }}
+      />
       <Stack.Screen name="preparacao-voo" options={{ headerShown: false }} />
-      <Stack.Screen name="relatorio-viagem" options={{ presentation: "modal", headerShown: false }} />
-      <Stack.Screen name="manutencao" options={{ presentation: "modal", headerShown: false }} />
-      <Stack.Screen name="ferias" options={{ presentation: "modal", headerShown: false }} />
-      <Stack.Screen name="relatorio-voo" options={{ presentation: "modal", headerShown: false }} />
+      <Stack.Screen
+        name="relatorio-viagem"
+        options={{ presentation: "modal", headerShown: false }}
+      />
+      <Stack.Screen
+        name="manutencao"
+        options={{ presentation: "modal", headerShown: false }}
+      />
+      <Stack.Screen
+        name="ferias"
+        options={{ presentation: "modal", headerShown: false }}
+      />
+      <Stack.Screen
+        name="relatorio-voo"
+        options={{ presentation: "modal", headerShown: false }}
+      />
       <Stack.Screen name="diario-bordo" options={{ headerShown: false }} />
       <Stack.Screen name="notificacoes" options={{ headerShown: false }} />
     </Stack>
@@ -69,12 +104,31 @@ export default function RootLayout() {
   const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
+    if (Platform.OS === "web") {
+      try {
+        for (const key of [
+          "profile",
+          "flights",
+          "flightPlans",
+          "travelReports",
+          "maintenance",
+          "vacations",
+          "financial",
+        ])
+          globalThis.localStorage?.removeItem(`sb:${key}`);
+      } catch {
+        /* storage opcional */
+      }
+    }
     let active = true;
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (!active) return;
-      setSession(nextSession);
-      setAuthReady(true);
-    });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, nextSession) => {
+        if (!active) return;
+        queryClient.clear();
+        setSession(nextSession);
+        setAuthReady(true);
+      },
+    );
     void supabase.auth.getSession().then(({ data, error }) => {
       if (!active) return;
       setSession(error ? null : data.session);
@@ -96,13 +150,22 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <AppProvider>
-            <GestureHandlerRootView>
+          <GestureHandlerRootView
+            style={{ flex: 1, backgroundColor: "#060e1c" }}
+          >
+            <View
+              style={{
+                flex: 1,
+                width: "100%",
+                maxWidth: 720,
+                alignSelf: "center",
+              }}
+            >
               <KeyboardProvider>
                 <RootLayoutNav session={session} authReady={authReady} />
               </KeyboardProvider>
-            </GestureHandlerRootView>
-          </AppProvider>
+            </View>
+          </GestureHandlerRootView>
         </QueryClientProvider>
       </ErrorBoundary>
     </SafeAreaProvider>

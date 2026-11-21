@@ -1,9 +1,10 @@
+import { avisar } from "@/src/lib/confirmar";
+import { Cabecalho, Botao } from "@/src/components/ui";
 import { Feather } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Modal,
   Pressable,
@@ -42,26 +43,48 @@ type StatusFilter = "all" | ReportStatus;
 
 const API_PATH = "/api/ctm/relatorios-manutencao";
 const SEVERITIES: Severity[] = ["low", "medium", "high", "critical"];
-const STATUSES: StatusFilter[] = ["all", "open", "in_analysis", "in_maintenance", "resolved"];
-const severityInfo: Record<Severity, { label: string; color: string; bg: string }> = {
+const STATUSES: StatusFilter[] = [
+  "all",
+  "open",
+  "in_analysis",
+  "in_maintenance",
+  "resolved",
+];
+const severityInfo: Record<
+  Severity,
+  { label: string; color: string; bg: string }
+> = {
   low: { label: "Baixa", color: "#15803D", bg: "#DCFCE7" },
   medium: { label: "Média", color: "#B45309", bg: "#FEF3C7" },
   high: { label: "Alta", color: "#C2410C", bg: "#FFEDD5" },
   critical: { label: "Crítica", color: "#B91C1C", bg: "#FEE2E2" },
 };
-const statusInfo: Record<ReportStatus, { label: string; color: string; bg: string }> = {
+const statusInfo: Record<
+  ReportStatus,
+  { label: string; color: string; bg: string }
+> = {
   open: { label: "Aberto", color: "#B91C1C", bg: "#FEE2E2" },
   in_analysis: { label: "Em análise", color: "#1D4ED8", bg: "#DBEAFE" },
   in_maintenance: { label: "Em manutenção", color: "#B45309", bg: "#FEF3C7" },
   resolved: { label: "Resolvido", color: "#15803D", bg: "#DCFCE7" },
 };
 const filterLabels: Record<StatusFilter, string> = {
-  all: "Todos", open: "Abertos", in_analysis: "Em análise", in_maintenance: "Em manutenção", resolved: "Resolvidos",
+  all: "Todos",
+  open: "Abertos",
+  in_analysis: "Em análise",
+  in_maintenance: "Em manutenção",
+  resolved: "Resolvidos",
 };
 
 function formatDate(value: string) {
   const date = new Date(`${value.slice(0, 10)}T00:00:00`);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
 }
 function todayISO() {
   const now = new Date();
@@ -70,37 +93,88 @@ function todayISO() {
 function validISODate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const parsed = new Date(`${value}T00:00:00`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value
+  );
 }
 
-function ReportCard({ report, colors }: { report: MaintenanceReport; colors: ReturnType<typeof useColors> }) {
+function ReportCard({
+  report,
+  colors,
+}: {
+  report: MaintenanceReport;
+  colors: ReturnType<typeof useColors>;
+}) {
   const severity = severityInfo[report.severity];
   const status = statusInfo[report.status];
   return (
-    <View style={[styles.reportCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: severity.color }]}>
+    <View
+      style={[
+        styles.reportCard,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          borderLeftColor: severity.color,
+        },
+      ]}
+    >
       <View style={styles.reportTop}>
         <View style={styles.badges}>
-          <Text style={[styles.badge, { color: severity.color, backgroundColor: severity.bg }]}>{severity.label}</Text>
-          <Text style={[styles.badge, { color: status.color, backgroundColor: status.bg }]}>{status.label}</Text>
+          <Text
+            style={[
+              styles.badge,
+              { color: severity.color, backgroundColor: severity.bg },
+            ]}
+          >
+            {severity.label}
+          </Text>
+          <Text
+            style={[
+              styles.badge,
+              { color: status.color, backgroundColor: status.bg },
+            ]}
+          >
+            {status.label}
+          </Text>
         </View>
-        <Text style={[styles.date, { color: colors.mutedForeground }]}>{formatDate(report.report_date)}</Text>
+        <Text style={[styles.date, { color: colors.mutedForeground }]}>
+          {formatDate(report.report_date)}
+        </Text>
       </View>
-      <Text style={[styles.description, { color: colors.foreground }]}>{report.description}</Text>
+      <Text style={[styles.description, { color: colors.foreground }]}>
+        {report.description}
+      </Text>
       {report.reporter?.full_name ? (
         <View style={styles.reporter}>
           <Feather name="user" size={13} color={colors.mutedForeground} />
-          <Text style={[styles.metaText, { color: colors.mutedForeground }]}>{report.reporter.full_name}</Text>
+          <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
+            {report.reporter.full_name}
+          </Text>
         </View>
       ) : null}
     </View>
   );
 }
 
-function NewReportModal({ visible, aircraft, onClose, onSave, saving, colors, insets }: {
+function NewReportModal({
+  visible,
+  aircraft,
+  onClose,
+  onSave,
+  saving,
+  colors,
+  insets,
+}: {
   visible: boolean;
   aircraft: Aircraft[];
   onClose: () => void;
-  onSave: (payload: { aeronave_id: string; descricao: string; severidade: Severity; data_relatorio: string }) => Promise<void>;
+  onSave: (payload: {
+    aeronave_id: string;
+    descricao: string;
+    severidade: Severity;
+    data_relatorio: string;
+  }) => Promise<void>;
   saving: boolean;
   colors: ReturnType<typeof useColors>;
   insets: ReturnType<typeof useSafeAreaInsets>;
@@ -123,58 +197,223 @@ function NewReportModal({ visible, aircraft, onClose, onSave, saving, colors, in
 
   const dateValid = validISODate(reportDate);
   const canSave = !!aircraftId && !!description.trim() && dateValid && !saving;
-  const inputStyle = [styles.input, { backgroundColor: colors.background, color: colors.foreground, borderColor: colors.border }];
+  const inputStyle = [
+    styles.input,
+    {
+      backgroundColor: colors.background,
+      color: colors.foreground,
+      borderColor: colors.border,
+    },
+  ];
   const labelStyle = [styles.label, { color: colors.foreground }];
 
   const submit = async () => {
     setAttempted(true);
-    if (!aircraft.length) { Alert.alert("Sem aeronaves", "Não há aeronaves disponíveis para registrar um report."); return; }
-    if (!aircraftId || !description.trim() || !dateValid) {
-      Alert.alert("Revise os dados", !aircraftId ? "Selecione uma aeronave." : !description.trim() ? "Informe a descrição da ocorrência." : "Informe uma data válida no formato AAAA-MM-DD.");
+    if (!aircraft.length) {
+      avisar(
+        "Sem aeronaves",
+        "Não há aeronaves disponíveis para registrar um report.",
+      );
       return;
     }
-    await onSave({ aeronave_id: aircraftId, descricao: description.trim(), severidade: severity, data_relatorio: reportDate });
+    if (!aircraftId || !description.trim() || !dateValid) {
+      avisar(
+        "Revise os dados",
+        !aircraftId
+          ? "Selecione uma aeronave."
+          : !description.trim()
+            ? "Informe a descrição da ocorrência."
+            : "Informe uma data válida no formato AAAA-MM-DD.",
+      );
+      return;
+    }
+    await onSave({
+      aeronave_id: aircraftId,
+      descricao: description.trim(),
+      severidade: severity,
+      data_relatorio: reportDate,
+    });
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={[styles.modal, { backgroundColor: colors.background, paddingTop: insets.top + 8, paddingBottom: Math.max(insets.bottom, 16) }]}>
-        <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-          <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Fechar formulário"><Feather name="x" size={23} color={colors.foreground} /></Pressable>
-          <Text style={[styles.modalTitle, { color: colors.foreground }]}>Novo report</Text>
-          <Pressable onPress={() => void submit()} disabled={saving} accessibilityRole="button"><Text style={[styles.saveText, { color: colors.primary }]}>{saving ? "Salvando…" : "Salvar"}</Text></Pressable>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <View
+        style={[
+          styles.modal,
+          {
+            backgroundColor: colors.background,
+            paddingTop: insets.top + 8,
+            paddingBottom: Math.max(insets.bottom, 16),
+          },
+        ]}
+      >
+        <View
+          style={[styles.modalHeader, { borderBottomColor: colors.border }]}
+        >
+          <Pressable
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Fechar formulário"
+          >
+            <Feather name="x" size={23} color={colors.foreground} />
+          </Pressable>
+          <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+            Novo report
+          </Text>
+          <Pressable
+            onPress={() => void submit()}
+            disabled={saving}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.saveText, { color: colors.primary }]}>
+              {saving ? "Salvando…" : "Salvar"}
+            </Text>
+          </Pressable>
         </View>
-        <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.form}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <Text style={labelStyle}>Aeronave *</Text>
           {aircraft.length ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.aircraftPicker}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.aircraftPicker}
+            >
               {aircraft.map((plane) => {
                 const selected = aircraftId === plane.id;
-                return <Pressable key={plane.id} onPress={() => setAircraftId(plane.id)} style={[styles.aircraftOption, { borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primary + "14" : colors.card }]}>
-                  <Text style={[styles.optionRegistration, { color: selected ? colors.primary : colors.foreground }]}>{plane.registration}</Text>
-                  <Text style={[styles.optionModel, { color: colors.mutedForeground }]}>{plane.model}</Text>
-                </Pressable>;
+                return (
+                  <Pressable
+                    key={plane.id}
+                    onPress={() => setAircraftId(plane.id)}
+                    style={[
+                      styles.aircraftOption,
+                      {
+                        borderColor: selected ? colors.primary : colors.border,
+                        backgroundColor: selected
+                          ? colors.primary + "14"
+                          : colors.card,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.optionRegistration,
+                        {
+                          color: selected ? colors.primary : colors.foreground,
+                        },
+                      ]}
+                    >
+                      {plane.registration}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.optionModel,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      {plane.model}
+                    </Text>
+                  </Pressable>
+                );
               })}
             </ScrollView>
-          ) : <Text style={[styles.helperText, { color: colors.mutedForeground }]}>Nenhuma aeronave disponível.</Text>}
-          {attempted && !aircraftId ? <Text style={[styles.validation, { color: colors.destructive }]}>Selecione uma aeronave.</Text> : null}
+          ) : (
+            <Text
+              style={[styles.helperText, { color: colors.mutedForeground }]}
+            >
+              Nenhuma aeronave disponível.
+            </Text>
+          )}
+          {attempted && !aircraftId ? (
+            <Text style={[styles.validation, { color: colors.destructive }]}>
+              Selecione uma aeronave.
+            </Text>
+          ) : null}
 
           <Text style={labelStyle}>Data do report *</Text>
-          <TextInput style={inputStyle} value={reportDate} onChangeText={setReportDate} placeholder="AAAA-MM-DD" placeholderTextColor={colors.mutedForeground} autoCapitalize="none" accessibilityLabel="Data do report no formato ano-mês-dia" />
-          {attempted && !dateValid ? <Text style={[styles.validation, { color: colors.destructive }]}>Use uma data válida no formato AAAA-MM-DD.</Text> : null}
+          <TextInput
+            style={inputStyle}
+            value={reportDate}
+            onChangeText={setReportDate}
+            placeholder="AAAA-MM-DD"
+            placeholderTextColor={colors.mutedForeground}
+            autoCapitalize="none"
+            accessibilityLabel="Data do report no formato ano-mês-dia"
+          />
+          {attempted && !dateValid ? (
+            <Text style={[styles.validation, { color: colors.destructive }]}>
+              Use uma data válida no formato AAAA-MM-DD.
+            </Text>
+          ) : null}
 
           <Text style={labelStyle}>Severidade *</Text>
-          <View style={styles.chipRow}>{SEVERITIES.map((value) => {
-            const option = severityInfo[value]; const selected = severity === value;
-            return <Pressable key={value} onPress={() => setSeverity(value)} style={[styles.choiceChip, { backgroundColor: selected ? option.color : colors.muted }]}><Text style={[styles.choiceText, { color: selected ? "#FFFFFF" : colors.mutedForeground }]}>{option.label}</Text></Pressable>;
-          })}</View>
+          <View style={styles.chipRow}>
+            {SEVERITIES.map((value) => {
+              const option = severityInfo[value];
+              const selected = severity === value;
+              return (
+                <Pressable
+                  key={value}
+                  onPress={() => setSeverity(value)}
+                  style={[
+                    styles.choiceChip,
+                    { backgroundColor: selected ? option.color : colors.muted },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.choiceText,
+                      { color: selected ? "#FFFFFF" : colors.mutedForeground },
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
           <Text style={labelStyle}>Descrição *</Text>
-          <TextInput style={[inputStyle, styles.textarea]} value={description} onChangeText={setDescription} multiline numberOfLines={5} maxLength={4000} textAlignVertical="top" placeholder="Descreva a ocorrência ou necessidade de manutenção…" placeholderTextColor={colors.mutedForeground} />
-          <Text style={[styles.helperText, { color: colors.mutedForeground }]}>{description.trim().length}/4000 caracteres</Text>
-          {attempted && !description.trim() ? <Text style={[styles.validation, { color: colors.destructive }]}>A descrição é obrigatória.</Text> : null}
-          <Pressable onPress={() => void submit()} disabled={!canSave} style={[styles.submitButton, { backgroundColor: colors.primary, opacity: canSave ? 1 : 0.55 }]}>
-            {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitText}>Enviar report</Text>}
+          <TextInput
+            style={[inputStyle, styles.textarea]}
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            numberOfLines={5}
+            maxLength={4000}
+            textAlignVertical="top"
+            placeholder="Descreva a ocorrência ou necessidade de manutenção…"
+            placeholderTextColor={colors.mutedForeground}
+          />
+          <Text style={[styles.helperText, { color: colors.mutedForeground }]}>
+            {description.trim().length}/4000 caracteres
+          </Text>
+          {attempted && !description.trim() ? (
+            <Text style={[styles.validation, { color: colors.destructive }]}>
+              A descrição é obrigatória.
+            </Text>
+          ) : null}
+          <Pressable
+            onPress={() => void submit()}
+            disabled={!canSave}
+            style={[
+              styles.submitButton,
+              { backgroundColor: colors.primary, opacity: canSave ? 1 : 0.55 },
+            ]}
+          >
+            {saving ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.submitText}>Enviar report</Text>
+            )}
           </Pressable>
         </ScrollView>
       </View>
@@ -183,6 +422,7 @@ function NewReportModal({ visible, aircraft, onClose, onSave, saving, colors, in
 }
 
 export default function ManutencaoScreen() {
+  const router = useRouter();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [reports, setReports] = useState<MaintenanceReport[]>([]);
@@ -196,32 +436,53 @@ export default function ManutencaoScreen() {
   const [showModal, setShowModal] = useState(false);
 
   const loadReports = useCallback(async (refresh = false) => {
-    if (refresh) setRefreshing(true); else setLoading(true);
+    if (refresh) setRefreshing(true);
+    else setLoading(true);
     setError("");
     try {
       const response = await apiFetch<ReportsResponse>(API_PATH);
       setReports(Array.isArray(response?.data) ? response.data : []);
       setAircraft(Array.isArray(response?.aeronaves) ? response.aeronaves : []);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : "Não foi possível carregar os reports de manutenção.");
+      setError(
+        cause instanceof ApiError
+          ? cause.message
+          : "Não foi possível carregar os reports de manutenção.",
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { void loadReports(); }, [loadReports]));
+  useFocusEffect(
+    useCallback(() => {
+      void loadReports();
+    }, [loadReports]),
+  );
 
-  const filteredReports = useMemo(() => reports.filter((report) => {
-    if (statusFilter !== "all" && report.status !== statusFilter) return false;
-    const needle = query.trim().toLocaleLowerCase("pt-BR");
-    if (!needle) return true;
-    return [report.description, report.aircraft?.registration, report.aircraft?.model, report.reporter?.full_name]
-      .some((value) => value?.toLocaleLowerCase("pt-BR").includes(needle));
-  }), [reports, query, statusFilter]);
+  const filteredReports = useMemo(
+    () =>
+      reports.filter((report) => {
+        if (statusFilter !== "all" && report.status !== statusFilter)
+          return false;
+        const needle = query.trim().toLocaleLowerCase("pt-BR");
+        if (!needle) return true;
+        return [
+          report.description,
+          report.aircraft?.registration,
+          report.aircraft?.model,
+          report.reporter?.full_name,
+        ].some((value) => value?.toLocaleLowerCase("pt-BR").includes(needle));
+      }),
+    [reports, query, statusFilter],
+  );
 
   const reportsByAircraft = useMemo(() => {
-    const groups = new Map<string, { aircraft: Aircraft; reports: MaintenanceReport[] }>();
+    const groups = new Map<
+      string,
+      { aircraft: Aircraft; reports: MaintenanceReport[] }
+    >();
     filteredReports.forEach((report) => {
       const id = report.aircraft?.id ?? report.aircraft_id;
       const known = aircraft.find((plane) => plane.id === id);
@@ -232,143 +493,511 @@ export default function ManutencaoScreen() {
       groups.set(id, group);
     });
     aircraft.forEach((plane) => {
-      if (!groups.has(plane.id)) groups.set(plane.id, { aircraft: plane, reports: [] });
+      if (!groups.has(plane.id))
+        groups.set(plane.id, { aircraft: plane, reports: [] });
     });
-    return Array.from(groups.values()).sort((a, b) => a.aircraft.registration.localeCompare(b.aircraft.registration));
+    return Array.from(groups.values()).sort((a, b) =>
+      a.aircraft.registration.localeCompare(b.aircraft.registration),
+    );
   }, [filteredReports, aircraft]);
 
-  const createReport = async (payload: { aeronave_id: string; descricao: string; severidade: Severity; data_relatorio: string }) => {
+  const createReport = async (payload: {
+    aeronave_id: string;
+    descricao: string;
+    severidade: Severity;
+    data_relatorio: string;
+  }) => {
     setSaving(true);
     try {
-      await apiFetch<MaintenanceReport>(API_PATH, { method: "POST", body: JSON.stringify(payload) });
+      await apiFetch<MaintenanceReport>(API_PATH, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
       setShowModal(false);
-      Alert.alert("Report enviado", "O report de manutenção foi registrado.");
+      avisar("Report enviado", "O report de manutenção foi registrado.");
       await loadReports();
     } catch (cause) {
-      const message = cause instanceof ApiError ? cause.message : "Não foi possível enviar o report. Tente novamente.";
-      Alert.alert("Falha ao salvar", message);
+      const message =
+        cause instanceof ApiError
+          ? cause.message
+          : "Não foi possível enviar o report. Tente novamente.";
+      avisar("Falha ao salvar", message);
     } finally {
       setSaving(false);
     }
   };
 
-  const activeCount = reports.filter((report) => report.status !== "resolved").length;
+  const activeCount = reports.filter(
+    (report) => report.status !== "resolved",
+  ).length;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 12 }]}>
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.eyebrow, { color: colors.secondary }]}>GESTÃO DE FROTA</Text>
-          <Text style={[styles.title, { color: colors.foreground }]}>Manutenção</Text>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Reports por aeronave</Text>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: colors.background, paddingTop: insets.top + 12 },
+      ]}
+    >
+      <Cabecalho
+        titulo="Manutenção"
+        apoio="OCORRÊNCIAS DA AERONAVE"
+        voltar={() => router.back()}
+      />
+      <View style={{ paddingHorizontal: 20, paddingBottom: 15 }}>
+        <Botao
+          texto="Reportar ocorrência"
+          icone="plus"
+          disabled={!aircraft.length}
+          onPress={() => setShowModal(true)}
+        />
+      </View>
+
+      <View
+        style={[
+          styles.summary,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <View style={styles.summaryBit}>
+          <Feather name="send" size={15} color={colors.primary} />
+          <Text style={[styles.summaryText, { color: colors.foreground }]}>
+            {reports.length} reports
+          </Text>
         </View>
-        <Pressable onPress={() => setShowModal(true)} disabled={!aircraft.length} style={[styles.addButton, { backgroundColor: colors.primary, opacity: aircraft.length ? 1 : 0.5 }]} accessibilityRole="button" accessibilityLabel="Criar report de manutenção">
-          <Feather name="plus" size={21} color="#FFFFFF" />
-        </Pressable>
+        <View style={styles.summaryBit}>
+          <Feather name="tool" size={15} color={colors.secondary} />
+          <Text style={[styles.summaryText, { color: colors.foreground }]}>
+            {activeCount} em aberto
+          </Text>
+        </View>
+        <View style={styles.summaryBit}>
+          <Feather name="airplay" size={15} color={colors.mutedForeground} />
+          <Text style={[styles.summaryText, { color: colors.foreground }]}>
+            {aircraft.length} aeronaves
+          </Text>
+        </View>
       </View>
 
-      <View style={[styles.summary, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.summaryBit}><Feather name="send" size={15} color={colors.primary} /><Text style={[styles.summaryText, { color: colors.foreground }]}>{reports.length} reports</Text></View>
-        <View style={styles.summaryBit}><Feather name="tool" size={15} color={colors.secondary} /><Text style={[styles.summaryText, { color: colors.foreground }]}>{activeCount} em aberto</Text></View>
-        <View style={styles.summaryBit}><Feather name="airplay" size={15} color={colors.mutedForeground} /><Text style={[styles.summaryText, { color: colors.foreground }]}>{aircraft.length} aeronaves</Text></View>
-      </View>
-
-      <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.searchBox,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
         <Feather name="search" size={17} color={colors.mutedForeground} />
-        <TextInput style={[styles.searchInput, { color: colors.foreground }]} value={query} onChangeText={setQuery} placeholder="Buscar descrição ou aeronave" placeholderTextColor={colors.mutedForeground} returnKeyType="search" />
-        {!!query && <Pressable onPress={() => setQuery("")} accessibilityLabel="Limpar busca"><Feather name="x-circle" size={17} color={colors.mutedForeground} /></Pressable>}
+        <TextInput
+          style={[styles.searchInput, { color: colors.foreground }]}
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Buscar descrição ou aeronave"
+          placeholderTextColor={colors.mutedForeground}
+          returnKeyType="search"
+        />
+        {!!query && (
+          <Pressable
+            onPress={() => setQuery("")}
+            accessibilityLabel="Limpar busca"
+          >
+            <Feather name="x-circle" size={17} color={colors.mutedForeground} />
+          </Pressable>
+        )}
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-        {STATUSES.map((filter) => <Pressable key={filter} onPress={() => setStatusFilter(filter)} style={[styles.filterChip, { backgroundColor: statusFilter === filter ? colors.primary : colors.muted }]}><Text style={[styles.filterText, { color: statusFilter === filter ? "#FFFFFF" : colors.mutedForeground }]}>{filterLabels[filter]}</Text></Pressable>)}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filters}
+      >
+        {STATUSES.map((filter) => (
+          <Pressable
+            key={filter}
+            onPress={() => setStatusFilter(filter)}
+            style={[
+              styles.filterChip,
+              {
+                backgroundColor:
+                  statusFilter === filter ? colors.primary : colors.muted,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                {
+                  color:
+                    statusFilter === filter
+                      ? "#FFFFFF"
+                      : colors.mutedForeground,
+                },
+              ]}
+            >
+              {filterLabels[filter]}
+            </Text>
+          </Pressable>
+        ))}
       </ScrollView>
 
-      {error ? <View style={[styles.errorBox, { backgroundColor: colors.destructive + "12", borderColor: colors.destructive + "35" }]}><Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text><Pressable onPress={() => void loadReports()}><Text style={[styles.retryText, { color: colors.primary }]}>Tentar novamente</Text></Pressable></View> : null}
-      {loading ? <View style={styles.centerState}><ActivityIndicator color={colors.primary} /><Text style={[styles.stateText, { color: colors.mutedForeground }]}>Carregando reports…</Text></View> : (
+      {error ? (
+        <View
+          style={[
+            styles.errorBox,
+            {
+              backgroundColor: colors.destructive + "12",
+              borderColor: colors.destructive + "35",
+            },
+          ]}
+        >
+          <Text style={[styles.errorText, { color: colors.destructive }]}>
+            {error}
+          </Text>
+          <Pressable onPress={() => void loadReports()}>
+            <Text style={[styles.retryText, { color: colors.primary }]}>
+              Tentar novamente
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+      {loading ? (
+        <View style={styles.centerState}>
+          <ActivityIndicator color={colors.primary} />
+          <Text style={[styles.stateText, { color: colors.mutedForeground }]}>
+            Carregando reports…
+          </Text>
+        </View>
+      ) : (
         <FlatList
           data={reportsByAircraft}
           keyExtractor={(group) => group.aircraft.id}
-          contentContainerStyle={reportsByAircraft.length ? styles.list : styles.emptyList}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadReports(true)} tintColor={colors.primary} />}
+          contentContainerStyle={
+            reportsByAircraft.length ? styles.list : styles.emptyList
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => void loadReports(true)}
+              tintColor={colors.primary}
+            />
+          }
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <View style={styles.aircraftGroup}>
-              <View style={[styles.aircraftHeader, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.aircraftIcon, { backgroundColor: colors.primary + "14" }]}><Feather name="send" size={17} color={colors.primary} /></View>
-                <View style={styles.aircraftInfo}><Text style={[styles.registration, { color: colors.foreground }]}>{item.aircraft.registration}</Text><Text style={[styles.model, { color: colors.mutedForeground }]}>{item.aircraft.model}</Text></View>
-                {item.aircraft.in_maintenance ? <Text style={[styles.maintenanceFlag, { color: "#B45309", backgroundColor: "#FEF3C7" }]}>Em manutenção</Text> : null}
-                <Text style={[styles.reportCount, { color: colors.mutedForeground }]}>{item.reports.length}</Text>
+              <View
+                style={[
+                  styles.aircraftHeader,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.aircraftIcon,
+                    { backgroundColor: colors.primary + "14" },
+                  ]}
+                >
+                  <Feather name="send" size={17} color={colors.primary} />
+                </View>
+                <View style={styles.aircraftInfo}>
+                  <Text
+                    style={[styles.registration, { color: colors.foreground }]}
+                  >
+                    {item.aircraft.registration}
+                  </Text>
+                  <Text
+                    style={[styles.model, { color: colors.mutedForeground }]}
+                  >
+                    {item.aircraft.model}
+                  </Text>
+                </View>
+                {item.aircraft.in_maintenance ? (
+                  <Text
+                    style={[
+                      styles.maintenanceFlag,
+                      { color: "#B45309", backgroundColor: "#FEF3C7" },
+                    ]}
+                  >
+                    Em manutenção
+                  </Text>
+                ) : null}
+                <Text
+                  style={[
+                    styles.reportCount,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {item.reports.length}
+                </Text>
               </View>
-              {item.reports.length ? item.reports.map((report) => <ReportCard key={report.id} report={report} colors={colors} />) : <View style={[styles.noReports, { borderColor: colors.border }]}><Text style={[styles.noReportsText, { color: colors.mutedForeground }]}>{query || statusFilter !== "all" ? "Nenhum report corresponde aos filtros." : "Nenhum report registrado."}</Text></View>}
+              {item.reports.length ? (
+                item.reports.map((report) => (
+                  <ReportCard key={report.id} report={report} colors={colors} />
+                ))
+              ) : (
+                <View
+                  style={[styles.noReports, { borderColor: colors.border }]}
+                >
+                  <Text
+                    style={[
+                      styles.noReportsText,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    {query || statusFilter !== "all"
+                      ? "Nenhum report corresponde aos filtros."
+                      : "Nenhum report registrado."}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
-          ListEmptyComponent={<View style={[styles.emptyCard, { borderColor: colors.border, backgroundColor: colors.card }]}><Feather name="tool" size={28} color={colors.mutedForeground} /><Text style={[styles.emptyTitle, { color: colors.foreground }]}>{reports.length ? "Nada encontrado" : "Sem reports de manutenção"}</Text><Text style={[styles.emptyText, { color: colors.mutedForeground }]}>{reports.length ? "Ajuste a busca ou o filtro de status." : "Os reports registrados para a frota aparecerão aqui."}</Text></View>}
+          ListEmptyComponent={
+            <View
+              style={[
+                styles.emptyCard,
+                { borderColor: colors.border, backgroundColor: colors.card },
+              ]}
+            >
+              <Feather name="tool" size={28} color={colors.mutedForeground} />
+              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+                {reports.length
+                  ? "Nada encontrado"
+                  : "Sem reports de manutenção"}
+              </Text>
+              <Text
+                style={[styles.emptyText, { color: colors.mutedForeground }]}
+              >
+                {reports.length
+                  ? "Ajuste a busca ou o filtro de status."
+                  : "Os reports registrados para a frota aparecerão aqui."}
+              </Text>
+            </View>
+          }
         />
       )}
-      <NewReportModal visible={showModal} aircraft={aircraft} onClose={() => setShowModal(false)} onSave={createReport} saving={saving} colors={colors} insets={insets} />
+      <NewReportModal
+        visible={showModal}
+        aircraft={aircraft}
+        onClose={() => setShowModal(false)}
+        onSave={createReport}
+        saving={saving}
+        colors={colors}
+        insets={insets}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 18 },
-  header: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 },
-  eyebrow: { fontSize: 10, fontFamily: "Inter_600SemiBold", letterSpacing: 1.5, marginBottom: 4 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 16,
+  },
+  eyebrow: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 1.5,
+    marginBottom: 4,
+  },
   title: { fontSize: 25, fontFamily: "Inter_700Bold" },
   subtitle: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 3 },
-  addButton: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  summary: { minHeight: 55, borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  addButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  summary: {
+    minHeight: 55,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
   summaryBit: { flexDirection: "row", alignItems: "center", gap: 6 },
   summaryText: { fontSize: 11, fontFamily: "Inter_500Medium" },
-  searchBox: { height: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 9 },
-  searchInput: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", paddingVertical: 0 },
+  searchBox: {
+    height: 44,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    paddingVertical: 0,
+  },
   filters: { gap: 7, paddingVertical: 11 },
   filterChip: { borderRadius: 100, paddingHorizontal: 12, paddingVertical: 7 },
   filterText: { fontSize: 11, fontFamily: "Inter_500Medium" },
-  errorBox: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 10, gap: 7 },
+  errorBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    gap: 7,
+  },
   errorText: { fontSize: 13, fontFamily: "Inter_400Regular" },
   retryText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  centerState: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10 },
+  centerState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
   stateText: { fontSize: 13, fontFamily: "Inter_400Regular" },
   list: { paddingBottom: 32 },
   emptyList: { flexGrow: 1, justifyContent: "center", paddingBottom: 35 },
   aircraftGroup: { marginBottom: 16, gap: 8 },
-  aircraftHeader: { minHeight: 61, borderWidth: 1, borderRadius: 14, padding: 11, flexDirection: "row", alignItems: "center", gap: 10 },
-  aircraftIcon: { width: 36, height: 36, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+  aircraftHeader: {
+    minHeight: 61,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 11,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  aircraftIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   aircraftInfo: { flex: 1 },
   registration: { fontSize: 14, fontFamily: "Inter_700Bold" },
   model: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
-  maintenanceFlag: { overflow: "hidden", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 5, fontSize: 9, fontFamily: "Inter_600SemiBold" },
-  reportCount: { minWidth: 20, textAlign: "right", fontSize: 12, fontFamily: "Inter_600SemiBold" },
-  reportCard: { borderWidth: 1, borderLeftWidth: 3, borderRadius: 13, padding: 12, marginLeft: 9 },
-  reportTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8 },
+  maintenanceFlag: {
+    overflow: "hidden",
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    fontSize: 9,
+    fontFamily: "Inter_600SemiBold",
+  },
+  reportCount: {
+    minWidth: 20,
+    textAlign: "right",
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+  },
+  reportCard: {
+    borderWidth: 1,
+    borderLeftWidth: 3,
+    borderRadius: 13,
+    padding: 12,
+    marginLeft: 9,
+  },
+  reportTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
   badges: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
-  badge: { overflow: "hidden", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 4, fontSize: 10, fontFamily: "Inter_600SemiBold" },
+  badge: {
+    overflow: "hidden",
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+  },
   date: { fontSize: 10, fontFamily: "Inter_400Regular" },
   description: { fontSize: 13, lineHeight: 19, fontFamily: "Inter_400Regular" },
-  reporter: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 9 },
+  reporter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 9,
+  },
   metaText: { fontSize: 11, fontFamily: "Inter_400Regular" },
-  noReports: { marginLeft: 9, borderWidth: 1, borderStyle: "dashed", borderRadius: 12, padding: 14 },
+  noReports: {
+    marginLeft: 9,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderRadius: 12,
+    padding: 14,
+  },
   noReportsText: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  emptyCard: { borderWidth: 1, borderStyle: "dashed", borderRadius: 18, padding: 26, alignItems: "center", gap: 9 },
+  emptyCard: {
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderRadius: 18,
+    padding: 26,
+    alignItems: "center",
+    gap: 9,
+  },
   emptyTitle: { fontSize: 16, fontFamily: "Inter_700Bold", marginTop: 3 },
-  emptyText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center" },
+  emptyText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+  },
   modal: { flex: 1 },
-  modalHeader: { height: 54, borderBottomWidth: 1, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  modalHeader: {
+    height: 54,
+    borderBottomWidth: 1,
+    paddingHorizontal: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   modalTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
   saveText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   form: { padding: 18, paddingBottom: 34, gap: 8 },
-  label: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginTop: 7, marginBottom: 1 },
-  input: { borderRadius: 11, borderWidth: 1, padding: 12, fontSize: 14, fontFamily: "Inter_400Regular" },
+  label: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    marginTop: 7,
+    marginBottom: 1,
+  },
+  input: {
+    borderRadius: 11,
+    borderWidth: 1,
+    padding: 12,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+  },
   textarea: { minHeight: 120 },
   aircraftPicker: { gap: 8, paddingVertical: 3 },
-  aircraftOption: { minWidth: 122, borderWidth: 1, borderRadius: 12, padding: 10 },
+  aircraftOption: {
+    minWidth: 122,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+  },
   optionRegistration: { fontSize: 13, fontFamily: "Inter_700Bold" },
   optionModel: { fontSize: 10, fontFamily: "Inter_400Regular", marginTop: 3 },
-  chipRow: { flexDirection: "row", gap: 7, flexWrap: "wrap", paddingVertical: 3 },
+  chipRow: {
+    flexDirection: "row",
+    gap: 7,
+    flexWrap: "wrap",
+    paddingVertical: 3,
+  },
   choiceChip: { borderRadius: 30, paddingHorizontal: 13, paddingVertical: 8 },
   choiceText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   helperText: { fontSize: 11, fontFamily: "Inter_400Regular" },
   validation: { fontSize: 11, fontFamily: "Inter_500Medium" },
-  submitButton: { minHeight: 48, borderRadius: 13, alignItems: "center", justifyContent: "center", marginTop: 14 },
-  submitText: { color: "#FFFFFF", fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  submitButton: {
+    minHeight: 48,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 14,
+  },
+  submitText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
 });

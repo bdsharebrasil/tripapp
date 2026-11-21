@@ -15,7 +15,7 @@ test('salvar horário em Meus Voos informa resultado da sincronização e permit
   assert.match(agenda, /"Horários e Diário atualizados"/)
   assert.match(agenda, /"\/diario-bordo"/)
   assert.match(agenda, /"DIÁRIO EM RASCUNHO"/)
-  assert.match(agenda, /!leg\.diario_confirmado && !leg\.diario_assinado_pic/)
+  assert.match(agenda, /!leg\.diario_confirmado\s*&&\s*!leg\.diario_assinado_pic/)
 })
 
 test('Diário trabalha por perna e com dados operacionais vindos do Worker', () => {
@@ -34,8 +34,8 @@ test('Diário trabalha por perna e com dados operacionais vindos do Worker', () 
 })
 
 test('complementação e assinatura são comandos distintos autenticados', () => {
-  assert.match(diario, /method:"PATCH"/)
-  assert.match(diario, /method:"POST",body:JSON\.stringify\(\{confirmar_assinatura:true\}\)/)
+  assert.match(diario, /method:\s*"PATCH"/)
+  assert.match(diario, /method:\s*"POST",\s*body:\s*JSON\.stringify\(\{\s*confirmar_assinatura:\s*true,?\s*\}\)/)
   assert.match(diario, /response\?\.pode_assinar/)
   assert.match(diario, /"Salve primeiro"/)
   assert.match(diario, /"Assinatura eletrônica do comandante"/)
@@ -43,3 +43,4 @@ test('complementação e assinatura são comandos distintos autenticados', () =>
   assert.match(router, /name="diario-bordo"/)
   assert.match(history, /"\/diario-bordo"/)
 })
+

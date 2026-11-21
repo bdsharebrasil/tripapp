@@ -22,8 +22,8 @@ test("briefing usa download autenticado, valida PDF e limpa a cópia temporária
 });
 
 test("agenda e checklist oferecem briefing da versão recebida pelo Worker", () => {
-  assert.match(agenda, /abrirBriefingPdf\(voo\.id, snapshot\.versao/);
-  assert.match(preparacao, /abrirBriefingPdf\(id, snapshot\.versao/);
+  assert.match(agenda, /abrirBriefingPdf\(\s*voo\.id,\s*snapshot\.versao/);
+  assert.match(preparacao, /abrirBriefingPdf\(\s*id,\s*snapshot\.versao/);
   assert.match(preparacao, /if \(dirty\)/);
 });
 
@@ -34,3 +34,4 @@ test("dependências Expo SDK 57 de PDF estão alinhadas ao lockfile", () => {
   assert.match(lockfile, /expo-sharing@57\.0\.26/);
   assert.match(lockfile, /expo-file-system@57\.0\.7/);
 });
+
