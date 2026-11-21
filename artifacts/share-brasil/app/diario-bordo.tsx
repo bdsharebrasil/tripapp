@@ -120,7 +120,7 @@ export default function DiarioBordoMobile() {
       for(const key of changed) {
         const value=draft[key] || "";
         const numeric=grupos.some(g=>g.campos.some(c=>c.key===key&&Boolean(c.keyboard)));
-        if (numeric && value.trim() && !/^\\d+(?:[.,]\\d+)?$/.test(value.trim())) {
+        if (numeric && value.trim() && !/^\d+(?:[.,]\d+)?$/.test(value.trim())) {
           Alert.alert("Valor inválido", `Confira o campo ${key.replace(/_/g," ")}. Use apenas números positivos.`);
           return;
         }
