@@ -23,7 +23,11 @@ import type { Session } from "@/src/lib/session";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { setUnauthorizedHandler } from "@/src/lib/session";
-import { getSession, onSessionChange } from "@/src/lib/session";
+import {
+  getSession,
+  getCachedSessionForOffline,
+  onSessionChange,
+} from "@/src/lib/session";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -86,6 +90,7 @@ function RootLayoutNav({
         name="relatorio-voo"
         options={{ presentation: "modal", headerShown: false }}
       />
+      <Stack.Screen name="acompanhar-voo" options={{ headerShown: false }} />
       <Stack.Screen name="minhas-horas" options={{ headerShown: false }} />
       <Stack.Screen name="diario-bordo" options={{ headerShown: false }} />
       <Stack.Screen name="notificacoes" options={{ headerShown: false }} />
@@ -135,8 +140,12 @@ export default function RootLayout() {
             setAuthReady(true);
           }
         })
-        .catch(() => {
-          if (active) setAuthReady(true);
+        .catch(async () => {
+          const cached = await getCachedSessionForOffline();
+          if (active) {
+            setSession(cached);
+            setAuthReady(true);
+          }
         });
     refresh();
     const timer = setInterval(refresh, 30000);

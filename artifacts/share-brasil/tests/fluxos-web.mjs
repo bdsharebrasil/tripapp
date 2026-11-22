@@ -34,6 +34,47 @@ const dom = await JSDOM.fromURL(url, {
     ])
       w[key] = globalThis[key];
     Object.defineProperty(w, "crypto", { value: webcrypto });
+    let gpsCallback = null;
+    Object.defineProperty(w.navigator, "permissions", {
+      value: { query: async () => ({ state: "granted" }) },
+    });
+    Object.defineProperty(w.navigator, "geolocation", {
+      value: {
+        getCurrentPosition: (cb) =>
+          cb({
+            timestamp: Date.now(),
+            coords: {
+              latitude: -15.7,
+              longitude: -52,
+              accuracy: 10,
+              altitude: 4000,
+              altitudeAccuracy: 10,
+              heading: 90,
+              speed: 100,
+            },
+          }),
+        watchPosition: (cb) => {
+          gpsCallback = cb;
+          return 1;
+        },
+        clearWatch: () => {
+          gpsCallback = null;
+        },
+      },
+    });
+    w.qaEmitGps = () =>
+      gpsCallback?.({
+        timestamp: Date.now(),
+        coords: {
+          latitude: -15.7,
+          longitude: -52,
+          accuracy: 10,
+          altitude: 4000,
+          altitudeAccuracy: 10,
+          heading: 90,
+          speed: 100,
+        },
+      });
     w.matchMedia = () => ({
       matches: false,
       addListener() {},
@@ -146,6 +187,47 @@ try {
     "cartão abre operação existente",
   );
   assert.ok(text().includes("Cliente de teste"));
+  await click("Acompanhar voo");
+  await wait(
+    () => text().includes("ADS-B atualizado") && text().includes("230 kt"),
+    "acompanhamento integrado ao backend",
+  );
+  assert.ok(text().includes("16000 ft"));
+  assert.ok(doc.querySelector("svg"));
+  w.qaLiveOffline = true;
+  await click("Atualizar e sincronizar");
+  await wait(
+    () => text().includes("Dados salvos no aparelho."),
+    "consulta preservada sem internet",
+  );
+  assert.ok(text().includes("Última posição ADS-B"));
+  assert.ok(text().includes("Cheyenne II"));
+  await click("Ativar GPS local");
+  await wait(
+    () => text().includes("Pausar GPS local"),
+    "permissão de GPS local",
+  );
+  await new Promise((r) => setTimeout(r, 100));
+  w.qaEmitGps();
+  await wait(
+    () =>
+      text().includes("GPS local") &&
+      text().includes("1 posições aguardando envio"),
+    "GPS sem internet fica na fila",
+  );
+  assert.ok(text().includes("194 kt"));
+  w.qaLiveOffline = false;
+  await click("Atualizar e sincronizar");
+  await wait(
+    () => w.qaRequests.some((r) => r.path.endsWith("/posicoes-gps")),
+    "fila GPS enviada ao reconectar",
+  );
+  await wait(
+    () => text().includes("0 posições aguardando envio"),
+    "fila removida após confirmação",
+  );
+  await click("Pausar GPS local");
+  await click("Voltar");
   await click("Início");
   await click("Perfil");
   checkMenu("Perfil");

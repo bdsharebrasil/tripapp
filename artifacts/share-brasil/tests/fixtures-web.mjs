@@ -54,6 +54,11 @@ if(path==='/api/colaborador/foto')return realFetch('/icon.png');
 if(path==='/api/colaborador/documentos')return json([]);
 if(path==='/api/colaborador/folha-pagamento')return failPayments?json({error:'Folha temporariamente indisponível'},503):json({pagamentos:[{id:'qa-folha',competencia_ano:2026,competencia_mes:11,rotulo:'Pagamento de teste',valor_centavos:123456,status:'PENDENTE'}]});
 if(path==='/api/colaborador/meus-voos'||path.endsWith('/meus-voos'))return json({voos:[flight]});
+if(path==='/api/colaborador/meus-voos/qa-voo/acompanhamento'){
+ if(window.qaLiveOffline)throw new TypeError('Rede de acompanhamento indisponível');
+ return json({...flight,origem_coord:{lat:-15.65,lon:-56.12},destino_coord:{lat:-15.87,lon:-47.92},modelo:'Cheyenne II',perna_atual:{id:'qa-perna',horario_dep:new Date(Date.now()-3600000).toISOString(),horario_pouso:null,horario_corte:null},rastreio:{lat:-15.7,lon:-52,alt_ft:16000,gs_kt:230,rumo_graus:90,visto_ha_s:2},observado_em:new Date(Date.now()-2000).toISOString(),rastreio_status:'ao_vivo',trilha:[]});
+}
+if(path==='/api/colaborador/meus-voos/qa-voo/posicoes-gps')return json({recebidos:JSON.parse(init.body).pontos.map(p=>p.id)});
 if(path==='/api/colaborador/meus-voos/qa-voo')return json({voo:{...flight,cliente_razao_social:'Cliente de teste'},jornadas:[],hospedagens:[]});
 if(path==='/api/colaborador/diario-bordo/voos/qa-voo')return json({pode_assinar:true,lancamentos:[{perna_id:'qa-perna',jornada_id:'qa-jornada',numero_perna:1,origem:'SBCY',destino:'SBBR',horario_ac:today+'T10:00:00Z',horario_dep:today+'T10:15:00Z',horario_pouso:today+'T11:45:00Z',horario_corte:today+'T12:00:00Z',lancamento_id:'qa-perna',numero_sequencial:1,data_registro:today,tempo_voo:1.5,tempo_total:2,status_lancamento:'RASCUNHO'}]});
 if(path==='/api/ctm/relatorios-manutencao')return json({aeronaves:[{id:'qa-aviao',registration:'QA-TESTE',model:'Cheyenne II',in_maintenance:false},{id:'qa-aviao2',registration:'QA-OUTRO',model:'Seneca V',in_maintenance:false}],data:[{id:'qa-report',aircraft_id:'qa-aviao',report_date:today,description:'Discrepância de teste restrita à pasta',severity:'medium',status:'open',aircraft:{id:'qa-aviao',registration:'QA-TESTE',model:'Cheyenne II',in_maintenance:false}}]});

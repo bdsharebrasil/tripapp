@@ -442,6 +442,12 @@ export default function AgendaScreen() {
           ) : (
             <>
               <CartaoVoo key={detail.voo.id} voo={detail.voo} />
+              {action("Acompanhar voo", "map", () =>
+                router.push({
+                  pathname: "/acompanhar-voo",
+                  params: { vooId: detail.voo.id },
+                }),
+              )}
               <Text style={s.section}>PREPARAÇÃO E BRIEFING</Text>
               <View style={s.panel}>
                 <Text style={s.rowTitle}>Informações do briefing</Text>

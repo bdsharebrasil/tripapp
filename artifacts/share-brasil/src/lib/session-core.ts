@@ -108,6 +108,11 @@ export class SessionManager {
     await this.persist(session, generation);
     return session;
   }
+  /** Somente para restaurar a interface e o cache offline. Nunca autoriza requisições. */
+  async getCachedSessionForOffline(): Promise<Session | null> {
+    await this.initialize();
+    return this.current;
+  }
   async getSession(): Promise<Session | null> {
     await this.initialize();
     const current = this.current;
