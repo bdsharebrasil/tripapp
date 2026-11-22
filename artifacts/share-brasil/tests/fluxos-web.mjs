@@ -101,13 +101,33 @@ const click = async (label) => {
   await new Promise((r) => setTimeout(r, 250));
 };
 
+const checkMenu = (selected) => {
+  const tabs = [
+    ...doc.querySelectorAll('[role="tablist"] [role="tab"]'),
+  ].filter((t) => !t.closest('[aria-hidden="true"]'));
+  assert.equal(tabs.length, 4);
+  assert.equal(
+    tabs.filter((t) => t.getAttribute("aria-selected") === "true").length,
+    1,
+  );
+  for (const tab of tabs) {
+    const label = tab.getAttribute("aria-label");
+    assert.equal(
+      tab.getAttribute("aria-selected") === "true",
+      label === selected,
+    );
+    assert.equal(tab.textContent.includes(label), label === selected);
+  }
+};
 try {
   await wait(
     () => text().includes("Sua operação de hoje, em um só lugar."),
     "início",
   );
   await wait(() => text().includes("Olá, Piloto"), "identidade do cadastro");
+  checkMenu("Início");
   await click("Meus voos");
+  checkMenu("Meus voos");
   await wait(
     () => text().includes("Previsto · UTC"),
     "cartão de voo na agenda",
@@ -128,6 +148,7 @@ try {
   assert.ok(text().includes("Cliente de teste"));
   await click("Início");
   await click("Perfil");
+  checkMenu("Perfil");
   await wait(() => text().includes("30/06/2027"), "CMA atualizado");
   assert.ok(text().includes("MLTE") && text().includes("IFRA"));
   await wait(
@@ -224,6 +245,7 @@ try {
     "PASS: diário sem ID, complemento com horários, manutenção por pastas e horas com PDF filtrado.",
   );
   await click("Despesas");
+  checkMenu("Despesas");
   await wait(() => text().includes("Iniciar"), "voo disponível");
   // O botão Iniciar é parte do cartão clicável de voo.
   const start = [...doc.querySelectorAll('[role="button"]')].find((el) =>
