@@ -4,6 +4,8 @@ import { SessionManager } from "./session-core";
 export type { Session } from "./session-core";
 const manager = new SessionManager(encryptedSessionStorage, apiFetch);
 export const getSession = () => manager.getSession();
+export const getCachedSessionForOffline = () =>
+  manager.getCachedSessionForOffline();
 export const signIn = (usuario: string, senha: string) =>
   manager.login(usuario, senha);
 export const signOut = () => manager.logout();

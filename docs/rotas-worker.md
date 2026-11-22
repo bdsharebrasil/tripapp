@@ -18,6 +18,8 @@ Todas as chamadas abaixo usam `apiFetch` no domínio `EXPO_PUBLIC_API_URL`. D1 e
 | Holerite/comprovante | GET | `/api/colaborador/folha-pagamento/anexos?key=...` |
 | Agenda/histórico | GET | `/api/colaborador/meus-voos` |
 | Detalhe do voo | GET | `/api/colaborador/meus-voos/:id` |
+| Acompanhamento do voo | GET | `/api/colaborador/meus-voos/:id/acompanhamento` |
+| Sincronizar GPS local | POST | `/api/colaborador/meus-voos/:id/posicoes-gps` |
 | Horários | PATCH | `/api/interno/jornadas/:jornada/pernas/:perna` |
 | Preparação/checklist | GET, POST | `/api/interno/agendamento/:id/preparacao` |
 | Conclusão do checklist | POST | `/api/interno/agendamento/:id/preparacao/concluir` |

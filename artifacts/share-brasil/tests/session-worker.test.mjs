@@ -95,3 +95,17 @@ test("logout local termina mesmo sem acesso ao Worker", async () => {
   assert.equal(await manager.getSession(), null);
   assert.equal(data.size, 0);
 });
+
+test("sessão offline restaura apenas a interface; requisições continuam exigindo renovação e logout apaga o cache de sessão", async () => {
+  let calls = 0;
+  const { manager } = setup(value("expired", 90), async () => {
+    calls++;
+    throw new Error("offline");
+  });
+  assert.equal((await manager.getCachedSessionForOffline()).user.id, "piloto");
+  assert.equal(calls, 0);
+  await assert.rejects(manager.getSession(), /offline/);
+  assert.equal((await manager.getCachedSessionForOffline()).user.id, "piloto");
+  await manager.logout();
+  assert.equal(await manager.getCachedSessionForOffline(), null);
+});
