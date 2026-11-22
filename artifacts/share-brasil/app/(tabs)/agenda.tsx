@@ -1,6 +1,7 @@
+import { CartaoVoo } from "@/src/components/CartaoVoo";
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -98,8 +99,9 @@ export default function AgendaScreen() {
     horario_corte: "",
   });
 
+  const loaded = useRef(false);
   const load = useCallback(async () => {
-    setLoading(true);
+    if (!loaded.current) setLoading(true);
     setError("");
     try {
       const result = await apiFetch<{ voos: Flight[] }>(
@@ -113,6 +115,7 @@ export default function AgendaScreen() {
           : "Não foi possível consultar sua agenda.",
       );
     } finally {
+      loaded.current = true;
       setLoading(false);
     }
   }, []);
@@ -123,8 +126,8 @@ export default function AgendaScreen() {
     }, [load]),
   );
 
-  const openFlight = async (id: string) => {
-    setLoading(true);
+  const openFlight = async (id: string, refresh = false) => {
+    if (!refresh) setLoading(true);
     setError("");
     try {
       setSelected(
@@ -263,7 +266,9 @@ export default function AgendaScreen() {
         titulo={detail ? "Meu voo" : "Minha agenda"}
         apoio="OPERAÇÕES DE VOO"
         voltar={detail ? () => setSelected(null) : undefined}
-        acao={() => (detail ? void openFlight(detail.voo.id) : void load())}
+        acao={() =>
+          detail ? void openFlight(detail.voo.id, true) : void load()
+        }
       />
       {error ? (
         <Pressable onPress={() => void load()} style={s.error}>
@@ -409,32 +414,11 @@ export default function AgendaScreen() {
                     : "ÚLTIMO VOO"}
               </Text>
               {current ? (
-                <Pressable
+                <CartaoVoo
+                  key={current.id}
+                  voo={current}
                   onPress={() => void openFlight(current.id)}
-                  style={[s.flightCard, { borderColor: blue }]}
-                >
-                  <View style={s.between}>
-                    <Text style={s.flightNo}>
-                      {current.numero_voo || "Voo programado"}
-                    </Text>
-                    <Text style={s.status}>
-                      {current.status || "PROGRAMADO"}
-                    </Text>
-                  </View>
-                  <Text style={s.route}>
-                    {current.origem || "—"}{" "}
-                    <Text style={{ color: blue }}>→</Text>{" "}
-                    {current.destino || "—"}
-                  </Text>
-                  <Text style={s.secondary}>
-                    {current.matricula_registro || "Aeronave"} ·{" "}
-                    {formatDate(current.data_agendada)} ·{" "}
-                    {hhmm(current.horario_previsto_agendamento)} UTC
-                  </Text>
-                  <Text style={[s.link, { marginTop: 15 }]}>
-                    Consultar voo e operação →
-                  </Text>
-                </Pressable>
+                />
               ) : (
                 <Vazio
                   icone="calendar"
@@ -448,39 +432,16 @@ export default function AgendaScreen() {
                 </Text>
               )}
               {visible.slice(1).map((f) => (
-                <Pressable
+                <CartaoVoo
                   key={f.id}
+                  voo={f}
                   onPress={() => void openFlight(f.id)}
-                  style={s.listRow}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.rowTitle}>{f.numero_voo || "Voo"}</Text>
-                    <Text style={s.secondary}>
-                      {f.origem} → {f.destino} · {formatDate(f.data_agendada)}
-                    </Text>
-                  </View>
-                  <Feather name="chevron-right" color={blue} size={20} />
-                </Pressable>
+                />
               ))}
             </>
           ) : (
             <>
-              <View style={s.flightCard}>
-                <View style={s.between}>
-                  <Text style={s.flightNo}>{detail.voo.numero_voo}</Text>
-                  <Text style={s.status}>{detail.voo.status}</Text>
-                </View>
-                <Text style={s.route}>
-                  {detail.voo.origem} → {detail.voo.destino}
-                </Text>
-                <Text style={s.secondary}>
-                  {detail.voo.matricula_registro} ·{" "}
-                  {formatDate(detail.voo.data_agendada)}
-                </Text>
-                <Text style={[s.secondary, { marginTop: 10 }]}>
-                  {detail.voo.cliente_razao_social || "Cliente não informado"}
-                </Text>
-              </View>
+              <CartaoVoo key={detail.voo.id} voo={detail.voo} />
               <Text style={s.section}>PREPARAÇÃO E BRIEFING</Text>
               <View style={s.panel}>
                 <Text style={s.rowTitle}>Informações do briefing</Text>
