@@ -39,6 +39,7 @@ const session=${JSON.stringify(session)};
 if(!sessionStorage.getItem('qa-seeded')){localStorage.setItem(${JSON.stringify(sessionKey)},JSON.stringify(session));sessionStorage.setItem('qa-seeded','1')}
 const today=new Date().toLocaleDateString('en-CA');
 const flight={id:'qa-voo',solicitacao_id:'qa-voo',numero_voo:'QA-001/26',origem:'SBCY',destino:'SBBR',data_agendada:today,horario_previsto_agendamento:'12:00',matricula_registro:'QA-TESTE',matricula:'QA-TESTE',status:'APROVADA',aeronave_id:'qa-aviao',cliente_id:'qa-cliente'};
+window.qaUpdateFlight=(patch)=>Object.assign(flight,patch);
 let reports=[],saved=[];let failPayments=false;window.qaRequests=[];
 const realFetch=window.fetch.bind(window);
 window.fetch=async(input,init={})=>{

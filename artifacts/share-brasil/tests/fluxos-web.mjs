@@ -107,6 +107,26 @@ try {
     "início",
   );
   await wait(() => text().includes("Olá, Piloto"), "identidade do cadastro");
+  await click("Meus voos");
+  await wait(
+    () => text().includes("Previsto · UTC"),
+    "cartão de voo na agenda",
+  );
+  assert.ok(text().includes("QA-TESTE") && text().includes("12:00"));
+  assert.ok(!text().includes("Poltrona") && !text().includes("Seat"));
+  w.qaUpdateFlight({ horario_previsto_agendamento: "12:45" });
+  await click("Atualizar dados");
+  await wait(
+    () => text().includes("12:45") && text().includes("12:00"),
+    "atualização mantém horário anterior riscado",
+  );
+  await click("Consultar voo QA-001/26, SBCY para SBBR");
+  await wait(
+    () => text().includes("Informações do briefing"),
+    "cartão abre operação existente",
+  );
+  assert.ok(text().includes("Cliente de teste"));
+  await click("Início");
   await click("Perfil");
   await wait(() => text().includes("30/06/2027"), "CMA atualizado");
   assert.ok(text().includes("MLTE") && text().includes("IFRA"));
