@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Tabs } from "expo-router";
+import { Tabs, useRouter, type Href } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import {
   AccessibilityInfo,
@@ -7,6 +7,7 @@ import {
   Easing,
   Keyboard,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -21,7 +22,10 @@ const itens: Record<string, { titulo: string; icone: Icone }> = {
   index: { titulo: "Início", icone: "home" },
   agenda: { titulo: "Meus voos", icone: "send" },
   financeiro: { titulo: "Despesas", icone: "file-text" },
-  perfil: { titulo: "Perfil", icone: "user" },
+  perfil: { titulo: "Documentos", icone: "shield" },
+  diario: { titulo: "Diário", icone: "book-open" },
+  horas: { titulo: "Horas", icone: "bar-chart-2" },
+  manutencao: { titulo: "Manutenção", icone: "tool" },
 };
 function Item({
   titulo,
@@ -52,11 +56,10 @@ function Item({
   return (
     <Animated.View
       style={{
-        flexBasis: 0,
         minWidth: 44,
-        flexGrow: anim.interpolate({
+        width: anim.interpolate({
           inputRange: [0, 1],
-          outputRange: [1, 2.5],
+          outputRange: [44, 124],
         }),
       }}
     >
@@ -105,7 +108,8 @@ function Item({
     </Animated.View>
   );
 }
-export function MenuInferior({ state, navigation }: Props) {
+export function MenuInferior({ state }: Props) {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [keyboard, setKeyboard] = useState(false),
     [reduzir, setReduzir] = useState(true);
@@ -139,32 +143,36 @@ export function MenuInferior({ state, navigation }: Props) {
       accessibilityRole="tablist"
       style={[s.bar, { bottom: Math.max(10, insets.bottom) }]}
     >
-      {state.routes
-        .filter((r) => itens[r.name])
-        .map((route) => {
-          const item = itens[route.name],
-            ativo = route.name === visible;
-          return (
-            <Item
-              key={route.key}
-              {...item}
-              ativo={ativo}
-              reduzir={reduzir}
-              onPress={() => {
-                const event = navigation.emit({
-                  type: "tabPress",
-                  target: route.key,
-                  canPreventDefault: true,
-                });
-                if (route.name !== selected && !event.defaultPrevented)
-                  navigation.navigate(route.name, route.params);
-              }}
-              onLongPress={() =>
-                navigation.emit({ type: "tabLongPress", target: route.key })
-              }
-            />
-          );
-        })}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.items}
+      >
+        {state.routes
+          .filter((r) => itens[r.name])
+          .map((route) => {
+            const item = itens[route.name],
+              ativo = route.name === visible;
+            return (
+              <Item
+                key={route.key}
+                {...item}
+                ativo={ativo}
+                reduzir={reduzir}
+                onPress={() => {
+                  if (route.name !== selected) {
+                    const path =
+                      route.name === "index"
+                        ? "/(tabs)"
+                        : `/(tabs)/${route.name}`;
+                    router.navigate(path as Href);
+                  }
+                }}
+                onLongPress={() => undefined}
+              />
+            );
+          })}
+      </ScrollView>
     </View>
   );
 }
@@ -174,14 +182,13 @@ const s = StyleSheet.create({
     left: 15,
     right: 15,
     padding: 8,
-    gap: 6,
-    flexDirection: "row",
     backgroundColor: tema.superficie,
     borderWidth: 1,
     borderColor: tema.borda,
     borderRadius: 32,
     elevation: 0,
   },
+  items: { flexDirection: "row", alignItems: "center", gap: 6 },
   item: {
     height: 48,
     borderRadius: 24,

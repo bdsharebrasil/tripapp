@@ -4,7 +4,6 @@ import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   ImageBackground,
   Pressable,
   RefreshControl,
@@ -77,16 +76,39 @@ export default function HomeScreen() {
   );
   const p = perfil?.perfil,
     nome = p?.nome_exibicao || p?.nome_completo || "Tripulante";
-  const ordenados = (voos || [])
-    .filter(
-      (v) =>
-        String(v.data_agendada || "").slice(0, 10) >= hoje() &&
-        !["CANCELADA", "CANCELADO"].includes(v.status?.toUpperCase() || ""),
-    )
-    .sort((a, b) =>
-      String(a.data_agendada).localeCompare(String(b.data_agendada)),
-    );
-  const atual = ordenados[0];
+  const normalizarStatus = (status?: string) =>
+    String(status || "")
+      .trim()
+      .toUpperCase()
+      .replace(/[\\s-]+/g, "_");
+  const emAndamento = new Set(["EM_SOLO", "EM_ROTA", "EM_VOO"]);
+  const confirmados = new Set([
+    "APROVADA",
+    "APROVADO",
+    "CONFIRMADA",
+    "CONFIRMADO",
+  ]);
+  const voosRelevantes = (voos || [])
+    .filter((v) => {
+      const status = normalizarStatus(v.status);
+      const futuro = String(v.data_agendada || "").slice(0, 10) >= hoje();
+      return emAndamento.has(status) || (futuro && confirmados.has(status));
+    })
+    .sort((a, b) => {
+      const aAtivo = emAndamento.has(normalizarStatus(a.status));
+      const bAtivo = emAndamento.has(normalizarStatus(b.status));
+      if (aAtivo !== bAtivo) return aAtivo ? -1 : 1;
+      return String(a.data_agendada || "").localeCompare(
+        String(b.data_agendada || ""),
+      );
+    });
+  const rotuloStatus = (status?: string) => {
+    const chave = normalizarStatus(status);
+    if (chave === "EM_SOLO") return "Em solo";
+    if (chave === "EM_ROTA" || chave === "EM_VOO") return "Em rota";
+    if (confirmados.has(chave)) return "Confirmado";
+    return status || "Programado";
+  };
   const rascunhos = relatorios?.filter(
     (r) => r.status.toLowerCase() === "rascunho",
   ).length;
@@ -186,13 +208,6 @@ export default function HomeScreen() {
             >
               <View style={s.between}>
                 <View style={{ flex: 1 }}>
-                  <Image
-                    source={require("../../assets/images/logoshare.branco.png")}
-                    resizeMode="contain"
-                    style={{ width: 110, height: 36 }}
-                  />
-                  <Text style={s.brand}>TRIP SHARE</Text>
-                  <Text style={s.hello}>ÁREA DA TRIPULAÇÃO</Text>
                 </View>
                 <Pressable
                   accessibilityLabel="Abrir notificações"
@@ -240,114 +255,54 @@ export default function HomeScreen() {
             ))}
           </ScrollView>
           <Secao
-            titulo={
-              atual?.data_agendada?.slice(0, 10) === hoje()
-                ? "Seu voo de hoje"
-                : "Próximo voo"
-            }
+            titulo="Próximo voo e voos ativos"
             acao="Minha agenda"
             onPress={() => router.push("/(tabs)/agenda")}
           />
-          {atual ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() =>
-                router.push({
-                  pathname: "/(tabs)/agenda",
-                  params: { vooId: atual.id },
-                })
-              }
-            >
-              <LinearGradient
-                colors={["#232D53", "#1D274B", "#182142"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={s.flight}
-              >
-                <View style={s.between}>
-                  <Text style={s.flightNo}>
-                    {atual.numero_voo || "Voo programado"}
-                  </Text>
-                  <Etiqueta texto={atual.status || "Programado"} />
-                </View>
-                <View style={s.route}>
-                  <View>
-                    <Text style={s.airport}>{atual.origem || "—"}</Text>
-                    <Text style={s.hello}>Origem</Text>
-                  </View>
-                  <View style={s.track}>
-                    <View style={s.line} />
-                    <Feather name="send" size={22} color={tema.azul} />
-                    <View style={s.line} />
-                  </View>
-                  <View style={{ alignItems: "flex-end" }}>
-                    <Text style={s.airport}>{atual.destino || "—"}</Text>
-                    <Text style={s.hello}>Destino</Text>
-                  </View>
-                </View>
-                <Text style={s.meta}>
-                  {dataBr(atual.data_agendada)} ·{" "}
-                  {atual.horario_previsto_agendamento?.match(
-                    /\d{2}:\d{2}/,
-                  )?.[0] || "Horário a definir"}{" "}
-                  · {atual.matricula_registro || "Aeronave a definir"}
-                </Text>
-                <View style={s.flightFooter}>
-                  <Text style={s.cta}>Horários, checklist e briefing</Text>
-                  <Feather name="arrow-up-right" color={tema.azul} size={20} />
-                </View>
-              </LinearGradient>
-            </Pressable>
-          ) : (
-            <Vazio
-              icone="calendar"
-              titulo={voos ? "Nenhum voo próximo" : "Agenda indisponível"}
-              texto={
-                voos
-                  ? "Consulte seus voos anteriores na agenda."
-                  : "Atualize para consultar sua programação."
-              }
-            />
-          )}
-          {ordenados.length > 1 && (
-            <>
-              <Secao
-                titulo="Próximas escalas"
-                acao="Ver todas"
-                onPress={() => router.push("/(tabs)/agenda")}
-              />
-              <View style={s.upcoming}>
-                {ordenados.slice(1, 4).map((v) => (
-                  <Pressable
-                    key={v.id}
-                    accessibilityRole="button"
-                    onPress={() =>
-                      router.push({
-                        pathname: "/(tabs)/agenda",
-                        params: { vooId: v.id },
-                      })
-                    }
-                    style={s.nextFlight}
-                  >
-                    <Feather name="calendar" size={20} color={tema.azul} />
-                    <View style={{ flex: 1 }}>
+          {voosRelevantes.length ? (
+            <View style={s.upcoming}>
+              {voosRelevantes.map((v) => (
+                <Pressable
+                  key={v.id}
+                  accessibilityRole="button"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(tabs)/agenda",
+                      params: { vooId: v.id },
+                    })
+                  }
+                  style={s.nextFlight}
+                >
+                  <Feather name="send" size={19} color={tema.azul} />
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <View style={s.between}>
                       <Text style={s.flightNo}>
                         {v.numero_voo || "Voo programado"}
                       </Text>
-                      <Text style={s.hello}>
-                        {v.origem || "—"} → {v.destino || "—"}
-                      </Text>
+                      <Etiqueta texto={rotuloStatus(v.status)} />
                     </View>
-                    <Text style={s.hello}>{dataBr(v.data_agendada)}</Text>
-                    <Feather
-                      name="chevron-right"
-                      color={tema.suave}
-                      size={18}
-                    />
-                  </Pressable>
-                ))}
-              </View>
-            </>
+                    <Text style={s.hello}>
+                      {v.origem || "—"} → {v.destino || "—"} · {dataBr(v.data_agendada)}
+                    </Text>
+                    <Text style={s.hello}>
+                      {v.horario_previsto_agendamento?.match(/\d{2}:\d{2}/)?.[0] || "Horário a definir"}
+                      {v.matricula_registro ? ` · ${v.matricula_registro}` : ""}
+                    </Text>
+                  </View>
+                  <Feather name="chevron-right" color={tema.suave} size={18} />
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <Vazio
+              icone="calendar"
+              titulo={voos ? "Nenhum voo ativo ou confirmado" : "Agenda indisponível"}
+              texto={
+                voos
+                  ? "Voos em solo, em rota e próximos voos confirmados aparecerão aqui."
+                  : "Atualize para consultar sua programação."
+              }
+            />
           )}
           <Secao
             titulo="Suas despesas de viagem"
@@ -371,18 +326,6 @@ export default function HomeScreen() {
               <Text style={s.shortcutNote}>A receber</Text>
             </View>
           </View>
-          <Pressable
-            onPress={() => router.push("/(tabs)/perfil")}
-            style={s.account}
-          >
-            <Image
-              source={require("../../assets/images/logoshare.branco.png")}
-              style={{ width: 80, height: 30 }}
-              resizeMode="contain"
-            />
-            <Text style={s.hello}>Minha conta e documentos</Text>
-            <Feather name="arrow-right" size={17} color={tema.suave} />
-          </Pressable>
         </ScrollView>
       )}
     </View>
@@ -392,13 +335,6 @@ const s = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingBottom: 120 },
   hero: { minHeight: 220, borderRadius: 24, overflow: "hidden" },
   heroShade: { padding: 20, paddingTop: 14, paddingBottom: 24, flex: 1 },
-  brand: {
-    color: tema.texto,
-    fontFamily: "Inter_700Bold",
-    fontSize: 18,
-    letterSpacing: 1.5,
-    marginTop: 4,
-  },
   greeting: {
     color: tema.texto,
     fontFamily: "Inter_700Bold",
@@ -527,13 +463,5 @@ const s = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     color: tema.texto,
     marginBottom: 4,
-  },
-  account: {
-    marginTop: 26,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-    paddingVertical: 16,
   },
 });

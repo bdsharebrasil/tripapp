@@ -108,7 +108,7 @@ export default function LoginScreen() {
   const [passFocused, setPassFocused] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const passwordRef = useRef<TextInput>(null);
+  const passwordRef = useRef<React.ComponentRef<typeof TextInput>>(null);
   const busyRef = useRef(false);
 
   useEffect(() => {

@@ -68,7 +68,7 @@ export async function abrirArquivoPrivado(
       throw new Error("Arquivo indisponível ou vazio.");
     const handle = file.open(FileMode.ReadOnly);
     try {
-      const bytes = Array.from(handle.readBytes(12));
+      const bytes = Array.from(await handle.readBytes(12));
       const ascii = String.fromCharCode(...bytes);
       const valid =
         mime === "application/pdf"

@@ -30,10 +30,10 @@ test("agenda e checklist oferecem briefing da versão recebida pelo Worker", () 
   assert.match(preparacao, /if \(dirty\)/);
 });
 
-test("dependências Expo SDK 57 de PDF estão alinhadas ao lockfile", () => {
+test("dependências Expo SDK 58 de PDF estão alinhadas ao lockfile", () => {
   const pack = JSON.parse(packageFile);
-  assert.equal(pack.dependencies["expo-file-system"], "~57.0.7");
-  assert.equal(pack.dependencies["expo-sharing"], "~57.0.26");
-  assert.match(lockfile, /expo-sharing@57\.0\.26/);
-  assert.match(lockfile, /expo-file-system@57\.0\.7/);
+  assert.equal(pack.dependencies["expo-file-system"], "~58.0.14");
+  assert.equal(pack.dependencies["expo-sharing"], "~58.0.23");
+  assert.match(lockfile, /expo-sharing@58\.0\.23/);
+  assert.match(lockfile, /expo-file-system@58\.0\.14/);
 });

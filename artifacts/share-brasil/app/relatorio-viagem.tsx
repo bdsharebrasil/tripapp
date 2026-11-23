@@ -122,7 +122,7 @@ export default function RelatorioViagemScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ relatorioId?: string }>();
   const dirtyRef = useRef(false);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const [flights, setFlights] = useState<Obj[]>([]);
   const [reports, setReports] = useState<Obj[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(
