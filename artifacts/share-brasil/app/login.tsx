@@ -33,16 +33,16 @@ import { signIn } from "@/src/lib/session";
 
 const EMAIL_DOMAIN = "share-brasil.com";
 const C = {
-  bg: "#030814",
-  bgMid: "#061225",
-  bgEnd: "#081b31",
-  card: "rgba(6,18,35,0.88)",
-  accent: "#38d7ff",
-  accentPressed: "#6be4ff",
-  onAccent: "#02111f",
-  text: "#ffffff",
-  textSoft: "#cbd5e1",
-  textMuted: "#b4c0d0",
+  bg: "#111835",
+  bgMid: "#141E42",
+  bgEnd: "#182142",
+  card: "rgba(24,33,66,0.94)",
+  accent: "#F4D532",
+  accentPressed: "#FFE45C",
+  onAccent: "#111835",
+  text: "#EBEDFC",
+  textSoft: "#D4D8EF",
+  textMuted: "#B7BED7",
   danger: "#ff9aaa",
 };
 const REMEMBER_KEY = "sharebrasil.login.username";
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   fieldFocused: {
-    borderColor: "rgba(56,215,255,0.8)",
+    borderColor: "rgba(244,213,50,0.8)",
     backgroundColor: "rgba(255,255,255,0.1)",
   },
   input: {
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   suffix: {
-    color: "#b4c0d0",
+    color: "#B7BED7",
     fontFamily: "Inter_400Regular",
     fontSize: 13,
     maxWidth: 140,
@@ -484,9 +484,9 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 17,
   },
-  buttonTextDisabled: { color: "#c1ccd9" },
+  buttonTextDisabled: { color: "#B7BED7" },
   footer: {
-    color: "#c0ccdb",
+    color: "#B7BED7",
     fontFamily: "Inter_400Regular",
     fontSize: 12,
     textAlign: "center",

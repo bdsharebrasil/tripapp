@@ -108,42 +108,49 @@ export default function HomeScreen() {
   );
   const shortcuts: {
     nome: string;
+    rotulo: string;
     texto: string;
     icone: Icone;
     path: string;
   }[] = [
     {
       nome: "Agenda de voos",
+      rotulo: "Voos",
       texto: "Horários e checklist",
       icone: "send",
       path: "/(tabs)/agenda",
     },
     {
       nome: "Documentos",
+      rotulo: "Docs",
       texto: "Licenças e arquivos",
       icone: "shield",
       path: "/(tabs)/perfil",
     },
     {
       nome: "Diário de bordo",
+      rotulo: "Diário",
       texto: "Completar e assinar",
       icone: "book-open",
       path: "/diario-bordo",
     },
     {
       nome: "Despesas",
+      rotulo: "Despesas",
       texto: "Lançar e acompanhar",
       icone: "file-text",
       path: "/(tabs)/financeiro",
     },
     {
       nome: "Minhas horas",
+      rotulo: "Horas",
       texto: "Consultar e exportar PDF",
       icone: "bar-chart-2",
       path: "/minhas-horas",
     },
     {
       nome: "Manutenção",
+      rotulo: "Manut.",
       texto: "Reportar ocorrência",
       icone: "tool",
       path: "/manutencao",
@@ -174,7 +181,7 @@ export default function HomeScreen() {
             imageStyle={{ opacity: 0.8 }}
           >
             <LinearGradient
-              colors={["rgba(12,14,18,0.25)", "rgba(12,14,18,0.35)", "#0c0e12"]}
+              colors={["rgba(17,24,53,0.25)", "rgba(17,24,53,0.35)", "#111835"]}
               style={s.heroShade}
             >
               <View style={s.between}>
@@ -207,6 +214,31 @@ export default function HomeScreen() {
               </Text>
             </LinearGradient>
           </ImageBackground>
+          <Secao titulo="Acesso rápido" />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.shortcuts}
+          >
+            {shortcuts.map((x) => (
+              <Pressable
+                key={x.nome}
+                accessibilityLabel={x.nome}
+                accessibilityHint={x.texto}
+                accessibilityRole="button"
+                onPress={() => router.push(x.path as any)}
+                style={({ pressed }) => [
+                  s.shortcut,
+                  pressed && { backgroundColor: tema.elevado },
+                ]}
+              >
+                <Feather name={x.icone} size={16} color={tema.destaque} />
+                <Text numberOfLines={1} style={s.shortcutTitle}>
+                  {x.rotulo}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
           <Secao
             titulo={
               atual?.data_agendada?.slice(0, 10) === hoje()
@@ -227,7 +259,7 @@ export default function HomeScreen() {
               }
             >
               <LinearGradient
-                colors={["#292e37", "#202630", "#191d24"]}
+                colors={["#232D53", "#1D274B", "#182142"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={s.flight}
@@ -277,26 +309,6 @@ export default function HomeScreen() {
               }
             />
           )}
-          <Secao titulo="O que você precisa fazer" />
-          <View style={s.grid}>
-            {shortcuts.map((x) => (
-              <Pressable
-                key={x.nome}
-                accessibilityLabel={x.nome}
-                accessibilityRole="button"
-                onPress={() => router.push(x.path as any)}
-                style={({ pressed }) => [
-                  s.shortcut,
-                  pressed && { backgroundColor: tema.elevado },
-                ]}
-              >
-                <View style={s.shortcutIcon}>
-                  <Feather name={x.icone} size={21} color={tema.azul} />
-                </View>
-                <Text style={s.shortcutTitle}>{x.nome}</Text>
-              </Pressable>
-            ))}
-          </View>
           {ordenados.length > 1 && (
             <>
               <Secao
@@ -378,8 +390,8 @@ export default function HomeScreen() {
 }
 const s = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingBottom: 120 },
-  hero: { marginHorizontal: -20, minHeight: 250 },
-  heroShade: { padding: 22, paddingTop: 12, paddingBottom: 28, flex: 1 },
+  hero: { minHeight: 220, borderRadius: 24, overflow: "hidden" },
+  heroShade: { padding: 20, paddingTop: 14, paddingBottom: 24, flex: 1 },
   brand: {
     color: tema.texto,
     fontFamily: "Inter_700Bold",
@@ -391,7 +403,7 @@ const s = StyleSheet.create({
     color: tema.texto,
     fontFamily: "Inter_700Bold",
     fontSize: 30,
-    marginTop: 38,
+    marginTop: 25,
   },
   tagline: {
     color: "#d7d9de",
@@ -422,7 +434,7 @@ const s = StyleSheet.create({
   flight: {
     padding: 20,
     borderRadius: 24,
-    borderColor: "#4b5663",
+    borderColor: tema.borda,
     borderWidth: 1,
   },
   flightNo: {
@@ -445,42 +457,37 @@ const s = StyleSheet.create({
     color: tema.texto,
   },
   track: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
-  line: { height: 1, backgroundColor: "#53606d", flex: 1 },
-  meta: { fontSize: 11, lineHeight: 18, color: "#bfd1e3" },
+  line: { height: 1, backgroundColor: tema.borda, flex: 1 },
+  meta: { fontSize: 11, lineHeight: 18, color: tema.suave },
   flightFooter: {
     borderTopWidth: 1,
-    borderTopColor: "#3b4550",
+    borderTopColor: tema.borda,
     marginTop: 17,
     paddingTop: 16,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  cta: { color: tema.azul, fontSize: 12, fontFamily: "Inter_600SemiBold" },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  cta: { color: tema.destaque, fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  shortcuts: { gap: 8, paddingRight: 20, paddingBottom: 2 },
   shortcut: {
-    width: "30%",
-    flexGrow: 1,
-    padding: 12,
+    width: 82,
+    minHeight: 54,
+    paddingHorizontal: 8,
+    flexDirection: "row",
+    justifyContent: "center",
     alignItems: "center",
-    minHeight: 112,
-    borderRadius: 20,
+    gap: 6,
+    borderRadius: 17,
     backgroundColor: tema.superficie,
     borderWidth: 1,
     borderColor: tema.borda,
   },
-  shortcutIcon: {
-    alignSelf: "center",
-    padding: 10,
-    backgroundColor: tema.elevado,
-    borderRadius: 13,
-    marginBottom: 8,
-  },
   shortcutTitle: {
     color: tema.texto,
     fontFamily: "Inter_600SemiBold",
-    fontSize: 12,
-    textAlign: "center",
+    fontSize: 10,
+    flexShrink: 1,
   },
   shortcutNote: {
     color: tema.suave,

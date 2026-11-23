@@ -21,7 +21,6 @@ import { signOut } from "@/src/lib/session";
 import { useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "@/src/components/Avatar";
 import {
-  Cabecalho,
   Etiqueta,
   ErroConsulta,
   tema,
@@ -59,7 +58,7 @@ type Salary = {
 const BG = tema.fundo,
   CARD = tema.superficie,
   BORDER = tema.borda,
-  BLUE = tema.azul,
+  ACCENT = tema.destaque,
   MUTED = tema.suave;
 const tabs = [
   { id: "horas", label: "Minhas horas", icon: "bar-chart-2" },
@@ -342,35 +341,51 @@ export default function PerfilScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
-      <Cabecalho
-        titulo="Meu perfil"
-        apoio="MINHA CONTA"
-        acao={() => void load(true)}
-      />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Sair da conta"
-        disabled={!!busy}
-        onPress={() => void logout()}
-        style={styles.logout}
-      >
-        <Feather name="log-out" color={tema.perigo} size={18} />
-        <Text style={styles.logoutText}>
-          {busy === "logout" ? "Saindo…" : "Sair da conta"}
-        </Text>
-      </Pressable>
+      <View style={styles.header}>
+        <View style={styles.headerCopy}>
+          <Text style={styles.kicker}>MINHA CONTA</Text>
+          <Text style={styles.title}>Meu perfil</Text>
+          <Text style={styles.headerSubtitle}>
+            Dados e documentos da tripulação
+          </Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Atualizar perfil"
+          accessibilityState={{ busy: refreshing || loading }}
+          disabled={refreshing || loading}
+          onPress={() => void load(true)}
+          style={styles.iconBtn}
+        >
+          <Feather name="refresh-cw" color={ACCENT} size={18} />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Sair da conta"
+          accessibilityState={{ disabled: !!busy, busy: busy === "logout" }}
+          disabled={!!busy}
+          onPress={() => void logout()}
+          style={styles.iconBtn}
+        >
+          {busy === "logout" ? (
+            <ActivityIndicator size="small" color={tema.perigo} />
+          ) : (
+            <Feather name="log-out" color={tema.perigo} size={18} />
+          )}
+        </Pressable>
+      </View>
       {!!error && (
         <ErroConsulta mensagem={error} atualizar={() => void load(true)} />
       )}
       {loading ? (
-        <ActivityIndicator color={BLUE} style={{ marginTop: 36 }} />
+        <ActivityIndicator color={ACCENT} style={{ marginTop: 36 }} />
       ) : (
         <ScrollView
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => void load(true)}
-              tintColor={BLUE}
+              tintColor={ACCENT}
             />
           }
           keyboardShouldPersistTaps="handled"
@@ -397,6 +412,20 @@ export default function PerfilScreen() {
                   : "CANAC não informado"}
               </Text>
             </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Atualizar foto do perfil"
+              accessibilityState={{ disabled: !!busy }}
+              disabled={!!busy}
+              onPress={() => void uploadPhoto()}
+              style={styles.heroAction}
+            >
+              {busy === "foto" ? (
+                <ActivityIndicator size="small" color={ACCENT} />
+              ) : (
+                <Feather name="camera" size={18} color={ACCENT} />
+              )}
+            </Pressable>
           </View>
           <View style={styles.stats}>
             <View style={styles.stat}>
@@ -430,9 +459,9 @@ export default function PerfilScreen() {
                 <Feather
                   name={t.icon}
                   size={17}
-                  color={tab === t.id ? BLUE : MUTED}
+                  color={tab === t.id ? BG : MUTED}
                 />
-                <Text style={[styles.tabText, tab === t.id && { color: BLUE }]}>
+                <Text style={[styles.tabText, tab === t.id && { color: BG }]}>
                   {t.label}
                 </Text>
               </Pressable>
@@ -551,7 +580,7 @@ export default function PerfilScreen() {
                 disabled={!!busy}
                 onPress={() => void uploadPhoto()}
               >
-                <Feather name="camera" color={BLUE} size={17} />
+                <Feather name="camera" color={ACCENT} size={17} />
                 <Text style={styles.link}>
                   {busy === "foto" ? "Enviando…" : "Atualizar foto do perfil"}
                 </Text>
@@ -597,7 +626,7 @@ export default function PerfilScreen() {
                         )
                       }
                     >
-                      <Feather name="file-text" color={BLUE} size={16} />
+                      <Feather name="file-text" color={ACCENT} size={16} />
                       <Text style={styles.link}>Abrir holerite</Text>
                     </Pressable>
                   )}
@@ -612,7 +641,7 @@ export default function PerfilScreen() {
                         )
                       }
                     >
-                      <Feather name="paperclip" color={BLUE} size={16} />
+                      <Feather name="paperclip" color={ACCENT} size={16} />
                       <Text style={styles.link}>Comprovante</Text>
                     </Pressable>
                   )}
@@ -712,7 +741,7 @@ export default function PerfilScreen() {
               )}
               {docs.map((d) => (
                 <View key={d.id} style={styles.docRow}>
-                  <Feather name="file" size={20} color={BLUE} />
+                  <Feather name="file" size={20} color={ACCENT} />
                   <Pressable
                     style={{ flex: 1 }}
                     onPress={() =>
@@ -743,7 +772,7 @@ export default function PerfilScreen() {
             style={styles.smallLink}
             onPress={() => router.push("/manutencao")}
           >
-            <Feather name="tool" size={17} color={BLUE} />
+            <Feather name="tool" size={17} color={ACCENT} />
             <Text style={styles.link}>Meus reports de manutenção</Text>
             <Feather name="chevron-right" color={MUTED} size={17} />
           </Pressable>
@@ -751,7 +780,7 @@ export default function PerfilScreen() {
             style={styles.smallLink}
             onPress={() => router.push("/relatorio-voo")}
           >
-            <Feather name="send" size={17} color={BLUE} />
+            <Feather name="send" size={17} color={ACCENT} />
             <Text style={styles.link}>Meu histórico de voos</Text>
             <Feather name="chevron-right" color={MUTED} size={17} />
           </Pressable>
@@ -762,35 +791,32 @@ export default function PerfilScreen() {
 }
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: BG },
-  logout: {
-    alignSelf: "flex-end",
-    flexDirection: "row",
-    gap: 8,
-    padding: 12,
-    marginRight: 12,
-    marginBottom: 4,
-  },
-  logoutText: {
-    color: tema.perigo,
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 13,
-  },
   header: {
     paddingHorizontal: 18,
-    paddingVertical: 15,
+    paddingTop: 10,
+    paddingBottom: 16,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: 9,
   },
-  kicker: { fontSize: 10, color: BLUE, letterSpacing: 1.65, fontWeight: "800" },
-  title: { fontSize: 26, fontWeight: "800", color: "#fff", marginTop: 5 },
+  headerCopy: { flex: 1, minWidth: 0 },
+  kicker: {
+    fontSize: 9,
+    color: ACCENT,
+    letterSpacing: 1.5,
+    fontWeight: "800",
+  },
+  title: { fontSize: 24, fontWeight: "800", color: tema.texto, marginTop: 4 },
+  headerSubtitle: { fontSize: 11, color: MUTED, marginTop: 2 },
   iconBtn: {
     height: 44,
     width: 44,
-    borderRadius: 13,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: CARD,
+    borderWidth: 1,
+    borderColor: BORDER,
   },
   hero: {
     backgroundColor: CARD,
@@ -800,20 +826,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 15,
     borderWidth: 1,
-    borderColor: "#444d59",
+    borderColor: BORDER,
+  },
+  heroAction: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: tema.elevado,
+    borderWidth: 1,
+    borderColor: BORDER,
   },
   avatar: {
     width: 66,
     height: 66,
     borderRadius: 20,
-    backgroundColor: "#384652",
+    backgroundColor: tema.elevado,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarImage: { width: 66, height: 66, borderRadius: 20 },
-  avatarText: { color: "#fff", fontWeight: "800", fontSize: 22 },
-  name: { fontSize: 19, fontWeight: "800", color: "#fff" },
-  secondary: { fontSize: 13, color: "#c0d0df", marginTop: 6, lineHeight: 19 },
+  avatarText: { color: tema.texto, fontWeight: "800", fontSize: 22 },
+  name: { fontSize: 19, fontWeight: "800", color: tema.texto },
+  secondary: { fontSize: 13, color: MUTED, marginTop: 6, lineHeight: 19 },
   stats: {
     flexDirection: "row",
     backgroundColor: CARD,
@@ -829,7 +865,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 3,
   },
-  statValue: { fontSize: 20, fontWeight: "800", color: "#fff" },
+  statValue: { fontSize: 20, fontWeight: "800", color: tema.texto },
   statLabel: { fontSize: 10, color: MUTED, textAlign: "center", marginTop: 5 },
   tabs: { flexDirection: "row", gap: 8, paddingBottom: 18 },
   tab: {
@@ -844,7 +880,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: BORDER,
   },
-  tabActive: { backgroundColor: "#303b46", borderColor: BLUE },
+  tabActive: { backgroundColor: ACCENT, borderColor: ACCENT },
   tabText: {
     fontSize: 11,
     fontWeight: "700",
@@ -859,7 +895,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
-  heading: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  heading: { color: tema.texto, fontWeight: "800", fontSize: 16 },
   muted: { color: MUTED, fontSize: 12, lineHeight: 19, marginTop: 4 },
   infoRow: {
     flexDirection: "row",
@@ -871,7 +907,7 @@ const styles = StyleSheet.create({
     borderBottomColor: BORDER,
   },
   infoValue: {
-    color: "#f1f7ff",
+    color: tema.texto,
     fontSize: 13,
     fontWeight: "600",
     textAlign: "right",
@@ -894,7 +930,7 @@ const styles = StyleSheet.create({
     backgroundColor: BG,
     borderWidth: 1,
     borderColor: BORDER,
-    color: "#fff",
+    color: tema.texto,
     fontSize: 15,
     padding: 12,
     borderRadius: 10,
@@ -902,7 +938,7 @@ const styles = StyleSheet.create({
   },
   primary: {
     minHeight: 52,
-    backgroundColor: BLUE,
+    backgroundColor: ACCENT,
     borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
@@ -922,7 +958,7 @@ const styles = StyleSheet.create({
     minHeight: 47,
     marginTop: 13,
   },
-  link: { color: BLUE, fontSize: 13, fontWeight: "700" },
+  link: { color: ACCENT, fontSize: 13, fontWeight: "700" },
   status: {
     fontSize: 11,
     color: "#9be6c7",
@@ -940,7 +976,7 @@ const styles = StyleSheet.create({
     marginTop: 13,
     marginBottom: 12,
   },
-  amount: { fontSize: 24, fontWeight: "800", color: "#fff", marginTop: 11 },
+  amount: { fontSize: 24, fontWeight: "800", color: tema.texto, marginTop: 11 },
   categories: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
   chip: {
     borderRadius: 9,
@@ -948,9 +984,9 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderWidth: 1,
     borderColor: BORDER,
-    backgroundColor: "#272f39",
+    backgroundColor: tema.elevado,
   },
-  chipActive: { backgroundColor: BLUE, borderColor: BLUE },
+  chipActive: { backgroundColor: ACCENT, borderColor: ACCENT },
   docRow: {
     flexDirection: "row",
     alignItems: "center",

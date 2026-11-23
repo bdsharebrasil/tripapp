@@ -152,7 +152,7 @@ export function MapaVoo({
                 <G
                   transform={`translate(${p.x},${p.y}) rotate(${posicao.rumo_graus ?? 0})`}
                 >
-                  <Circle r={25} fill={atual ? "#a9bdce22" : "#66666622"} />
+                  <Circle r={25} fill={atual ? "#2948C222" : "#66666622"} />
                   <Path
                     d="M0 -16 L3 -4 L15 4 L15 7 L3 4 L3 12 L7 15 L7 17 L0 15 L-7 17 L-7 15 L-3 12 L-3 4 L-15 7 L-15 4 L-3 -4 Z"
                     fill={atual ? "#d6e1eb" : "#7e8791"}

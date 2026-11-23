@@ -76,7 +76,7 @@ function Item({
         <Feather
           name={icone}
           size={21}
-          color={ativo ? tema.fundo : tema.suave}
+          color={ativo ? tema.texto : tema.suave}
         />
         <Animated.View
           accessibilityElementsHidden
@@ -190,5 +190,5 @@ const s = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 10,
   },
-  label: { color: tema.fundo, fontFamily: "Inter_600SemiBold", fontSize: 12 },
+  label: { color: tema.texto, fontFamily: "Inter_600SemiBold", fontSize: 12 },
 });

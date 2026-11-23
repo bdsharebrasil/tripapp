@@ -10,13 +10,14 @@ import {
 } from "react-native";
 
 export const tema = {
-  fundo: "#0c0e12",
-  superficie: "#191d24",
-  elevado: "#252b34",
-  borda: "#343c47",
-  azul: "#a9bdce",
-  texto: "#f4f8ff",
-  suave: "#9ba5b2",
+  fundo: "#111835",
+  superficie: "#182142",
+  elevado: "#232D53",
+  borda: "#2948C2",
+  azul: "#2948C2",
+  destaque: "#F4D532",
+  texto: "#EBEDFC",
+  suave: "#B7BED7",
   verde: "#74dcb3",
   perigo: "#ff9da6",
 };
@@ -100,11 +101,11 @@ export function Botao({
           <Feather
             name={icone}
             size={18}
-            color={secundario ? tema.azul : tema.fundo}
+            color={secundario ? tema.destaque : tema.texto}
           />
         )
       )}
-      <Text style={[u.buttonText, secundario && { color: tema.azul }]}>
+      <Text style={[u.buttonText, secundario && { color: tema.destaque }]}>
         {texto}
       </Text>
     </Pressable>
@@ -142,7 +143,7 @@ export function Vazio({
   return (
     <View style={u.empty}>
       <View style={u.emptyIcon}>
-        <Feather name={icone} size={24} color={tema.azul} />
+        <Feather name={icone} size={24} color={tema.destaque} />
       </View>
       <Text style={u.emptyTitle}>{titulo}</Text>
       {texto && <Text style={u.note}>{texto}</Text>}
@@ -214,7 +215,7 @@ export const u = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 2,
     fontFamily: "Inter_600SemiBold",
-    color: tema.azul,
+    color: tema.destaque,
     textTransform: "uppercase",
   },
   icon: {
@@ -250,7 +251,7 @@ export const u = StyleSheet.create({
     borderWidth: 1,
     borderColor: tema.borda,
   },
-  buttonText: { fontSize: 14, fontFamily: "Inter_700Bold", color: tema.fundo },
+  buttonText: { fontSize: 14, fontFamily: "Inter_700Bold", color: tema.texto },
   section: {
     flexDirection: "row",
     alignItems: "center",
@@ -264,7 +265,7 @@ export const u = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     color: tema.texto,
   },
-  link: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: tema.azul },
+  link: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: tema.destaque },
   badge: {
     fontSize: 10,
     fontFamily: "Inter_600SemiBold",

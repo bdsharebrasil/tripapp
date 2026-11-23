@@ -1,5 +1,4 @@
 import { avisar } from "@/src/lib/confirmar";
-import { Cabecalho, Botao } from "@/src/components/ui";
 import { Feather } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
@@ -539,6 +538,13 @@ export default function ManutencaoScreen() {
   const activeCount = reports.filter(
     (report) => report.status !== "resolved",
   ).length;
+  const goBack = () => {
+    if (selectedAircraftId) {
+      setSelectedAircraftId("");
+      setQuery("");
+      setStatusFilter("all");
+    } else router.back();
+  };
 
   return (
     <View
@@ -547,27 +553,51 @@ export default function ManutencaoScreen() {
         { backgroundColor: colors.background, paddingTop: insets.top + 12 },
       ]}
     >
-      <Cabecalho
-        titulo={selectedAircraft?.registration || "Manutenção"}
-        apoio="OCORRÊNCIAS DA AERONAVE"
-        voltar={() => {
-          if (selectedAircraftId) {
-            setSelectedAircraftId("");
-            setQuery("");
-            setStatusFilter("all");
-          } else router.back();
-        }}
-      />
-      {!!selectedAircraftId && (
-        <View style={{ paddingHorizontal: 20, paddingBottom: 15 }}>
-          <Botao
-            texto="Reportar ocorrência"
-            icone="plus"
-            disabled={!aircraft.length}
-            onPress={() => setShowModal(true)}
-          />
+      <View style={styles.header}>
+        <Pressable
+          onPress={goBack}
+          accessibilityRole="button"
+          accessibilityLabel={
+            selectedAircraftId ? "Voltar para aeronaves" : "Voltar"
+          }
+          style={[
+            styles.headerIcon,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Feather name="arrow-left" size={20} color={colors.foreground} />
+        </Pressable>
+        <View style={styles.heading}>
+          <Text style={[styles.eyebrow, { color: colors.secondary }]}>
+            OCORRÊNCIAS DA AERONAVE
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={[styles.title, { color: colors.foreground }]}
+          >
+            {selectedAircraft?.registration || "Manutenção"}
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+            Histórico e reports técnicos
+          </Text>
         </View>
-      )}
+        <Pressable
+          onPress={() => setShowModal(true)}
+          disabled={!aircraft.length || saving}
+          accessibilityRole="button"
+          accessibilityLabel="Reportar ocorrência"
+          accessibilityState={{ disabled: !aircraft.length || saving }}
+          style={({ pressed }) => [
+            styles.addButton,
+            {
+              backgroundColor: colors.secondary,
+              opacity: !aircraft.length || saving ? 0.5 : pressed ? 0.75 : 1,
+            },
+          ]}
+        >
+          <Feather name="plus" size={22} color={colors.secondaryForeground} />
+        </Pressable>
+      </View>
 
       <View
         style={[
@@ -812,7 +842,15 @@ export default function ManutencaoScreen() {
                       { backgroundColor: colors.primary + "14" },
                     ]}
                   >
-                    <Feather name="send" size={17} color={colors.primary} />
+                    {item.aircraft.image_url ? (
+                      <Image
+                        source={{ uri: item.aircraft.image_url }}
+                        style={styles.aircraftImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Feather name="send" size={17} color={colors.primary} />
+                    )}
                   </View>
                   <View style={styles.aircraftInfo}>
                     <Text
@@ -919,16 +957,25 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 18,
   },
+  headerIcon: {
+    width: 44,
+    height: 44,
+    borderWidth: 1,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heading: { flex: 1, minWidth: 0 },
   eyebrow: {
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: "Inter_600SemiBold",
-    letterSpacing: 1.5,
-    marginBottom: 4,
+    letterSpacing: 1.2,
+    marginBottom: 3,
   },
-  title: { fontSize: 25, fontFamily: "Inter_700Bold" },
-  subtitle: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 3 },
+  title: { fontSize: 22, fontFamily: "Inter_700Bold" },
+  subtitle: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
   addButton: {
     width: 44,
     height: 44,
@@ -937,17 +984,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   summary: {
-    minHeight: 55,
+    minHeight: 68,
     borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 12,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 12,
   },
-  summaryBit: { flexDirection: "row", alignItems: "center", gap: 6 },
-  summaryText: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  summaryBit: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+  summaryText: { fontSize: 10, fontFamily: "Inter_500Medium" },
   searchBox: {
     height: 44,
     borderWidth: 1,
@@ -998,9 +1052,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 11,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
   },
+  aircraftImage: { width: "100%", height: "100%" },
   aircraftInfo: { flex: 1 },
   registration: { fontSize: 14, fontFamily: "Inter_700Bold" },
   model: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
