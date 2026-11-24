@@ -116,10 +116,10 @@ export function MenuInferior({ state }: Props) {
   const visible = itens[selected] ? selected : "agenda";
   const indice = rotas.findIndex((r) => r.name === visible);
   useEffect(() => {
-    if (!largura || indice < 0) return;
+    if (keyboard || !largura || indice < 0) return;
     const x = indice * LARGURA_ITEM - (largura - LARGURA_ITEM) / 2;
     scroll.current?.scrollTo({ x: Math.max(0, x), animated: !reduzir });
-  }, [indice, largura, reduzir]);
+  }, [indice, largura, reduzir, keyboard]);
   if (keyboard) return null;
   return (
     <View
