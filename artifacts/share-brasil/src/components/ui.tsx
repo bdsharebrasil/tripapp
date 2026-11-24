@@ -10,7 +10,7 @@ import {
 } from "react-native";
 
 export const tema = {
-  fundo: "#111835",
+  fundo: "#080D18",
   superficie: "#182142",
   elevado: "#232D53",
   borda: "#2948C2",

@@ -48,7 +48,7 @@ export default function NovoLancamentoScreen() {
   );
 }
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#071323", paddingHorizontal: 20 },
+  root: { flex: 1, backgroundColor: "#080D18", paddingHorizontal: 20 },
   header: {
     flexDirection: "row",
     gap: 14,

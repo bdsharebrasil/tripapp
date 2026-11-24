@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -75,13 +76,29 @@ const today = () => {
 };
 const formatDate = (v?: string) =>
   v ? v.slice(0, 10).split("-").reverse().join("/") : "—";
+const dateKey = (d: Date) =>
+  [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-");
+const normalizeStatus = (status?: string) =>
+  String(status || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_");
+const isClosedStatus = (status?: string) =>
+  ["ENCERRADO", "ENCERRADA", "CONCLUIDO", "CONCLUIDA", "FINALIZADO", "FINALIZADA", "CLOSED"].includes(
+    normalizeStatus(status),
+  );
 
 export default function AgendaScreen() {
   const router = useRouter(),
     insets = useSafeAreaInsets();
   const { vooId } = useLocalSearchParams<{ vooId?: string }>();
   const [day, setDay] = useState(today());
-  const [filter, setFilter] = useState<"dia" | "proximos" | "historico">("dia");
+  const [filter, setFilter] = useState<"operacao" | "proximos" | "historico">("operacao");
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(today().slice(0, 7));
   const [flights, setFlights] = useState<Flight[]>([]);
   const [selected, setSelected] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(true),
@@ -237,13 +254,13 @@ export default function AgendaScreen() {
   );
   const detail = selected;
   const visible = flights
-    .filter((f) =>
-      filter === "dia"
-        ? f.data_agendada?.slice(0, 10) === day
-        : filter === "proximos"
-          ? String(f.data_agendada || "").slice(0, 10) >= today()
-          : String(f.data_agendada || "").slice(0, 10) < today(),
-    )
+    .filter((f) => {
+      const flightDate = String(f.data_agendada || "").slice(0, 10);
+      if (filter === "operacao") return !isClosedStatus(f.status);
+      if (filter === "proximos")
+        return flightDate >= today() && (!selectedDate || flightDate === selectedDate);
+      return Boolean(flightDate) && flightDate < today();
+    })
     .sort((a, b) =>
       filter === "historico"
         ? String(b.data_agendada).localeCompare(String(a.data_agendada))
@@ -253,12 +270,17 @@ export default function AgendaScreen() {
   const dates = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(day + "T12:00:00");
     d.setDate(d.getDate() + i - 3);
-    return [
-      d.getFullYear(),
-      String(d.getMonth() + 1).padStart(2, "0"),
-      String(d.getDate()).padStart(2, "0"),
-    ].join("-");
+    return dateKey(d);
   });
+  const monthDate = new Date(`${calendarMonth}-01T12:00:00`);
+  const monthDayCount = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+  const monthOffset = (monthDate.getDay() + 6) % 7;
+  const monthCells: (string | null)[] = [
+    ...Array.from({ length: monthOffset }, () => null),
+    ...Array.from({ length: monthDayCount }, (_, i) =>
+      dateKey(new Date(monthDate.getFullYear(), monthDate.getMonth(), i + 1, 12)),
+    ),
+  ];
 
   return (
     <View style={[s.root, { paddingTop: insets.top + 10 }]}>
@@ -289,22 +311,26 @@ export default function AgendaScreen() {
               <View style={s.filters}>
                 {(
                   [
-                    ["dia", "Por dia"],
-                    ["proximos", "Próximos"],
+                    ["operacao", "Voos em Operação"],
+                    ["proximos", "Próximos voos"],
                     ["historico", "Histórico"],
                   ] as const
                 ).map(([id, label]) => (
                   <Pressable
                     key={id}
                     accessibilityRole="button"
-                    onPress={() => setFilter(id)}
+                    onPress={() => {
+                      setFilter(id);
+                      if (id !== "proximos") setSelectedDate(null);
+                    }}
                     style={[s.filter, filter === id && s.activeFilter]}
                   >
                     <Text
                       style={{
                         color: filter === id ? blue : muted,
-                        fontSize: 12,
+                        fontSize: 10,
                         fontFamily: "Inter_600SemiBold",
+                        textAlign: "center",
                       }}
                     >
                       {label}
@@ -312,7 +338,7 @@ export default function AgendaScreen() {
                   </Pressable>
                 ))}
               </View>
-              {filter === "dia" && (
+              {filter === "proximos" && (
                 <>
                   <View style={s.between}>
                     <Pressable
@@ -320,36 +346,39 @@ export default function AgendaScreen() {
                       onPress={() => {
                         const d = new Date(day + "T12:00:00");
                         d.setDate(d.getDate() - 7);
-                        setDay(
-                          [
-                            d.getFullYear(),
-                            String(d.getMonth() + 1).padStart(2, "0"),
-                            String(d.getDate()).padStart(2, "0"),
-                          ].join("-"),
-                        );
+                        const next = dateKey(d);
+                        setDay(next);
+                        if (selectedDate) setSelectedDate(next);
                       }}
                       style={s.calendarArrow}
                     >
                       <Feather name="chevron-left" color={blue} size={18} />
                     </Pressable>
-                    <Text style={s.rowTitle}>
-                      {new Date(day + "T12:00:00").toLocaleDateString("pt-BR", {
-                        month: "long",
-                        year: "numeric",
-                      })}
-                    </Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Abrir calendário mensal"
+                      onPress={() => {
+                        setCalendarMonth(day.slice(0, 7));
+                        setMonthPickerOpen(true);
+                      }}
+                      style={s.monthTitle}
+                    >
+                      <Text style={s.rowTitle}>
+                        {new Date(day + "T12:00:00").toLocaleDateString("pt-BR", {
+                          month: "long",
+                          year: "numeric",
+                        })}
+                      </Text>
+                      <Feather name="calendar" size={16} color={blue} />
+                    </Pressable>
                     <Pressable
                       accessibilityLabel="Próxima semana"
                       onPress={() => {
                         const d = new Date(day + "T12:00:00");
                         d.setDate(d.getDate() + 7);
-                        setDay(
-                          [
-                            d.getFullYear(),
-                            String(d.getMonth() + 1).padStart(2, "0"),
-                            String(d.getDate()).padStart(2, "0"),
-                          ].join("-"),
-                        );
+                        const next = dateKey(d);
+                        setDay(next);
+                        if (selectedDate) setSelectedDate(next);
                       }}
                       style={s.calendarArrow}
                     >
@@ -361,14 +390,18 @@ export default function AgendaScreen() {
                       <Pressable
                         key={d}
                         accessibilityRole="button"
-                        accessibilityState={{ selected: day === d }}
-                        onPress={() => setDay(d)}
-                        style={[s.day, day === d && s.selectedDay]}
+                        accessibilityState={{ selected: selectedDate === d, disabled: d < today() }}
+                        disabled={d < today()}
+                        onPress={() => {
+                          setDay(d);
+                          setSelectedDate(d);
+                        }}
+                        style={[s.day, selectedDate === d && s.selectedDay, d < today() && s.pastDay]}
                       >
                         <Text
                           style={{
                             fontSize: 9,
-                            color: day === d ? navy : muted,
+                            color: selectedDate === d ? navy : muted,
                             textTransform: "uppercase",
                           }}
                         >
@@ -380,7 +413,7 @@ export default function AgendaScreen() {
                           style={{
                             fontSize: 18,
                             fontFamily: "Inter_700Bold",
-                            color: day === d ? navy : "#fff",
+                            color: selectedDate === d ? navy : "#fff",
                             marginTop: 7,
                           }}
                         >
@@ -395,7 +428,7 @@ export default function AgendaScreen() {
                             backgroundColor: flights.some(
                               (f) => f.data_agendada?.slice(0, 10) === d,
                             )
-                              ? day === d
+                              ? selectedDate === d
                                 ? navy
                                 : blue
                               : "transparent",
@@ -404,14 +437,26 @@ export default function AgendaScreen() {
                       </Pressable>
                     ))}
                   </View>
+                  <View style={s.between}>
+                    <Text style={s.calendarHint}>
+                      {selectedDate ? `Filtrado por ${formatDate(selectedDate)}` : "Selecione um dia para filtrar"}
+                    </Text>
+                    {selectedDate ? (
+                      <Pressable accessibilityRole="button" onPress={() => setSelectedDate(null)}>
+                        <Text style={s.clearDate}>Todos os próximos</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
                 </>
               )}
               <Text style={s.section}>
-                {filter === "dia"
-                  ? `VOOS EM ${formatDate(day)}`
+                {filter === "operacao"
+                  ? "VOOS EM OPERAÇÃO"
                   : filter === "proximos"
-                    ? "PRÓXIMO VOO"
-                    : "ÚLTIMO VOO"}
+                    ? selectedDate
+                      ? `VOOS EM ${formatDate(selectedDate)}`
+                      : "PRÓXIMOS VOOS"
+                    : "HISTÓRICO DE VOOS"}
               </Text>
               {current ? (
                 <CartaoVoo
@@ -421,9 +466,15 @@ export default function AgendaScreen() {
                 />
               ) : (
                 <Vazio
-                  icone="calendar"
-                  titulo="Nenhum voo neste período"
-                  texto="Selecione outro dia ou consulte seu histórico."
+                  icone={filter === "operacao" ? "send" : "calendar"}
+                  titulo={filter === "proximos" && selectedDate ? "Nenhum voo neste dia" : "Nenhum voo neste período"}
+                  texto={
+                    filter === "proximos" && selectedDate
+                      ? "Escolha outra data no calendário ou veja todos os próximos voos."
+                      : filter === "operacao"
+                        ? "Não há voos em operação no momento."
+                        : "Selecione outro período ou consulte seu histórico."
+                  }
                 />
               )}
               {visible.length > 1 && (
@@ -571,6 +622,96 @@ export default function AgendaScreen() {
           )}
         </ScrollView>
       )}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={monthPickerOpen}
+        onRequestClose={() => setMonthPickerOpen(false)}
+      >
+        <View style={s.modalBackdrop}>
+          <View style={s.monthSheet}>
+            <View style={s.between}>
+              <Text style={s.monthSheetTitle}>Escolher data</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Fechar calendário mensal"
+                onPress={() => setMonthPickerOpen(false)}
+                hitSlop={10}
+              >
+                <Feather name="x" size={22} color="#fff" />
+              </Pressable>
+            </View>
+            <View style={[s.between, { marginTop: 18 }]}>
+              <Pressable
+                accessibilityLabel="Mês anterior"
+                onPress={() => {
+                  const prev = new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, 1, 12);
+                  setCalendarMonth(dateKey(prev).slice(0, 7));
+                }}
+                style={s.calendarArrow}
+              >
+                <Feather name="chevron-left" color={blue} size={18} />
+              </Pressable>
+              <Text style={s.rowTitle}>
+                {monthDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+              </Text>
+              <Pressable
+                accessibilityLabel="Próximo mês"
+                onPress={() => {
+                  const next = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1, 12);
+                  setCalendarMonth(dateKey(next).slice(0, 7));
+                }}
+                style={s.calendarArrow}
+              >
+                <Feather name="chevron-right" color={blue} size={18} />
+              </Pressable>
+            </View>
+            <View style={s.monthGrid}>
+              {["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((weekday) => (
+                <Text key={weekday} style={s.weekdayLabel}>{weekday}</Text>
+              ))}
+              {monthCells.map((d, index) => {
+                if (!d) return <View key={`blank-${index}`} style={s.monthCell} />;
+                const isPast = d < today();
+                const isSelected = selectedDate === d;
+                const hasFlight = flights.some((f) => f.data_agendada?.slice(0, 10) === d);
+                return (
+                  <Pressable
+                    key={d}
+                    accessibilityRole="button"
+                    accessibilityLabel={new Date(d + "T12:00:00").toLocaleDateString("pt-BR", { dateStyle: "full" })}
+                    accessibilityState={{ selected: isSelected, disabled: isPast }}
+                    disabled={isPast}
+                    onPress={() => {
+                      setDay(d);
+                      setSelectedDate(d);
+                      setMonthPickerOpen(false);
+                    }}
+                    style={[s.monthCell, isSelected && s.selectedDay, isPast && s.pastDay]}
+                  >
+                    <Text style={[s.monthCellText, isSelected && { color: navy }]}>
+                      {Number(d.slice(-2))}
+                    </Text>
+                    {hasFlight ? <View style={[s.monthCellDot, isSelected && { backgroundColor: navy }]} /> : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+            {selectedDate ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setSelectedDate(null);
+                  setMonthPickerOpen(false);
+                }}
+                style={s.clearMonthDate}
+              >
+                <Text style={s.clearDate}>Remover filtro de data · ver todos os próximos</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
       {editing && (
         <View style={[s.editor, { bottom: insets.bottom + 12 }]}>
           <View style={s.between}>
@@ -637,6 +778,10 @@ const s = StyleSheet.create({
   },
   activeFilter: { backgroundColor: "#153752" },
   week: { flexDirection: "row", gap: 5, marginTop: 15 },
+  monthTitle: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8 },
+  calendarHint: { color: muted, fontSize: 11, marginTop: 12 },
+  clearDate: { color: blue, fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  pastDay: { opacity: 0.35 },
   day: {
     flex: 1,
     alignItems: "center",
@@ -779,4 +924,37 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   primaryText: { color: navy, fontWeight: "800" },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: "center",
+    padding: 20,
+    backgroundColor: "rgba(0,0,0,0.72)",
+  },
+  monthSheet: {
+    backgroundColor: card,
+    borderColor: border,
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: 20,
+  },
+  monthSheetTitle: { color: "#fff", fontSize: 18, fontFamily: "Inter_700Bold" },
+  monthGrid: { flexDirection: "row", flexWrap: "wrap", marginTop: 18 },
+  weekdayLabel: {
+    width: `${100 / 7}%`,
+    color: muted,
+    textAlign: "center",
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    paddingBottom: 8,
+  },
+  monthCell: {
+    width: `${100 / 7}%`,
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+  },
+  monthCellText: { color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  monthCellDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: blue, position: "absolute", bottom: 4 },
+  clearMonthDate: { alignItems: "center", paddingTop: 18 },
 });

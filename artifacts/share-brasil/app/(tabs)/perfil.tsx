@@ -20,12 +20,7 @@ import { apiFetch } from "@/src/lib/api";
 import { signOut } from "@/src/lib/session";
 import { useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "@/src/components/Avatar";
-import {
-  Etiqueta,
-  ErroConsulta,
-  tema,
-  u,
-} from "@/src/components/ui";
+import { Etiqueta, ErroConsulta, tema, u } from "@/src/components/ui";
 import { PerfilCompleto, situacaoValidade } from "@/src/lib/perfil";
 import { avisar, confirmar } from "@/src/lib/confirmar";
 import { anexarArquivo } from "@/src/lib/upload";
@@ -61,6 +56,7 @@ const BG = tema.fundo,
   ACCENT = tema.destaque,
   MUTED = tema.suave;
 const tabs = [
+  { id: "dados", label: "Dados", icon: "user" },
   { id: "licencas", label: "Licenças", icon: "shield" },
   { id: "salario", label: "Salário", icon: "credit-card" },
   { id: "ferias", label: "Férias", icon: "sun" },
@@ -91,9 +87,15 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
   const insets = useSafeAreaInsets(),
     router = useRouter();
   const { secao } = useLocalSearchParams<{ secao?: string }>();
-  const [tab, setTab] = useState<Tab>(
-    initialTab ?? (secao === "salario" ? "salario" : "licencas"),
-  );
+  const [tab, setTab] = useState<Tab>(() => {
+    if (initialTab) return initialTab;
+    if (secao === "horas") return "licencas";
+    return (
+      (["dados", "licencas", "salario", "ferias", "docs"] as const).find(
+        (section) => section === secao,
+      ) ?? "dados"
+    );
+  });
   const [licencasTab, setLicencasTab] = useState<"licencas" | "horas">(
     secao === "horas" ? "horas" : "licencas",
   );
@@ -377,6 +379,30 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
           )}
         </Pressable>
       </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.tabs}
+      >
+        {tabs.map((t) => (
+          <Pressable
+            key={t.id}
+            accessibilityRole="button"
+            accessibilityState={{ selected: tab === t.id }}
+            onPress={() => setTab(t.id)}
+            style={[styles.tab, tab === t.id && styles.tabActive]}
+          >
+            <Feather
+              name={t.icon}
+              size={17}
+              color={tab === t.id ? BG : MUTED}
+            />
+            <Text style={[styles.tabText, tab === t.id && { color: BG }]}>
+              {t.label}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
       {!!error && (
         <ErroConsulta mensagem={error} atualizar={() => void load(true)} />
       )}
@@ -397,151 +423,107 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
             paddingBottom: insets.bottom + 110,
           }}
         >
-          <View style={styles.hero}>
-            <Avatar
-              nome={fullName}
-              disponivel={!!p?.foto_url}
-              versao={photoVersion}
-              tamanho={76}
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.name}>{fullName}</Text>
-              <Text style={styles.secondary}>
-                {p?.departamento || p?.tipo_user || "Tripulação"}
-              </Text>
-              <Text style={styles.kicker}>
-                {p?.canac || data?.tripulante?.canac
-                  ? `CANAC ${p?.canac || data?.tripulante?.canac}`
-                  : "CANAC não informado"}
-              </Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Atualizar foto do perfil"
-              accessibilityState={{ disabled: !!busy }}
-              disabled={!!busy}
-              onPress={() => void uploadPhoto()}
-              style={styles.heroAction}
-            >
-              {busy === "foto" ? (
-                <ActivityIndicator size="small" color={ACCENT} />
-              ) : (
-                <Feather name="camera" size={18} color={ACCENT} />
-              )}
-            </Pressable>
-          </View>
-          <View style={styles.card}>
-            <View style={styles.between}>
-              <Text style={styles.heading}>Dados pessoais</Text>
-              <Pressable onPress={() => setEditing(!editing)}>
-                <Text style={styles.link}>
-                  {editing ? "Cancelar" : "Editar"}
-                </Text>
-              </Pressable>
-            </View>
-            {editing ? (
-              <>
-                <Text style={styles.label}>Nome de exibição</Text>
-                <TextInput
-                  style={styles.input}
-                  value={displayName}
-                  onChangeText={setDisplayName}
+          {tab === "dados" && (
+            <>
+              <View style={styles.hero}>
+                <Avatar
+                  nome={fullName}
+                  disponivel={!!p?.foto_url}
+                  versao={photoVersion}
+                  tamanho={76}
                 />
-                <Text style={styles.label}>Telefone</Text>
-                <TextInput
-                  style={styles.input}
-                  value={phone}
-                  keyboardType="phone-pad"
-                  onChangeText={setPhone}
-                />
-                <Pressable
-                  style={styles.primary}
-                  disabled={!!busy}
-                  onPress={() => void saveProfile()}
-                >
-                  <Text style={styles.primaryText}>
-                    {busy === "profile" ? "Salvando…" : "Salvar alterações"}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.name}>{fullName}</Text>
+                  <Text style={styles.secondary}>
+                    {p?.departamento || p?.tipo_user || "Tripulação"}
                   </Text>
+                  <Text style={styles.kicker}>
+                    {p?.canac || data?.tripulante?.canac
+                      ? `CANAC ${p?.canac || data?.tripulante?.canac}`
+                      : "CANAC não informado"}
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Atualizar foto do perfil"
+                  accessibilityState={{ disabled: !!busy }}
+                  disabled={!!busy}
+                  onPress={() => void uploadPhoto()}
+                  style={styles.heroAction}
+                >
+                  {busy === "foto" ? (
+                    <ActivityIndicator size="small" color={ACCENT} />
+                  ) : (
+                    <Feather name="camera" size={18} color={ACCENT} />
+                  )}
                 </Pressable>
-              </>
-            ) : (
-              <>
-                {row("Nome completo", p?.nome_completo)}
-                {row("E-mail", p?.email_envio || p?.email)}
-                {row("Telefone", p?.telefone)}
-                {row("CANAC", p?.canac || data?.tripulante?.canac)}
-                {row("Tipo de licença", data?.tripulante?.tipo_licenca)}
-                {row("Cidade/UF", [p?.cidade, p?.uf].filter(Boolean).join(" / "))}
-                {row("Admissão", date(p?.data_admissao))}
-              </>
-            )}
-            <Pressable
-              style={styles.outline}
-              disabled={!!busy}
-              onPress={() => void uploadPhoto()}
-            >
-              <Feather name="camera" color={ACCENT} size={17} />
-              <Text style={styles.link}>
-                {busy === "foto" ? "Enviando…" : "Atualizar foto do perfil"}
-              </Text>
-            </Pressable>
-          </View>
-          <View style={styles.stats}>
-            <View style={styles.stat}>
-              <Text style={styles.statValue}>
-                {data?.metricas?.horas_totais == null
-                  ? "—"
-                  : Number(data.metricas.horas_totais).toLocaleString("pt-BR")}
-              </Text>
-              <Text style={styles.statLabel}>Horas registradas</Text>
-            </View>
-            <View style={styles.stat}>
-              <Text style={styles.statValue}>
-                {data?.tripulante?.tipo_licenca || "—"}
-              </Text>
-              <Text style={styles.statLabel}>Licença</Text>
-            </View>
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tabs}
-          >
-            {tabs.map((t) => (
-              <Pressable
-                key={t.id}
-                accessibilityRole="button"
-                accessibilityState={{ selected: tab === t.id }}
-                onPress={() => setTab(t.id)}
-                style={[styles.tab, tab === t.id && styles.tabActive]}
-              >
-                <Feather
-                  name={t.icon}
-                  size={17}
-                  color={tab === t.id ? BG : MUTED}
-                />
-                <Text style={[styles.tabText, tab === t.id && { color: BG }]}>
-                  {t.label}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+              </View>
+              <View style={styles.card}>
+                <View style={styles.between}>
+                  <Text style={styles.heading}>Dados pessoais</Text>
+                  <Pressable onPress={() => setEditing(!editing)}>
+                    <Text style={styles.link}>
+                      {editing ? "Cancelar" : "Editar"}
+                    </Text>
+                  </Pressable>
+                </View>
+                {editing ? (
+                  <>
+                    <Text style={styles.label}>Nome de exibição</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={displayName}
+                      onChangeText={setDisplayName}
+                    />
+                    <Text style={styles.label}>Telefone</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={phone}
+                      keyboardType="phone-pad"
+                      onChangeText={setPhone}
+                    />
+                    <Pressable
+                      style={styles.primary}
+                      disabled={!!busy}
+                      onPress={() => void saveProfile()}
+                    >
+                      <Text style={styles.primaryText}>
+                        {busy === "profile" ? "Salvando…" : "Salvar alterações"}
+                      </Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <>
+                    {row("Nome completo", p?.nome_completo)}
+                    {row("E-mail", p?.email_envio || p?.email)}
+                    {row("Telefone", p?.telefone)}
+                    {row("CANAC", p?.canac || data?.tripulante?.canac)}
+                    {row("Tipo de licença", data?.tripulante?.tipo_licenca)}
+                    {row(
+                      "Cidade/UF",
+                      [p?.cidade, p?.uf].filter(Boolean).join(" / "),
+                    )}
+                    {row("Admissão", date(p?.data_admissao))}
+                  </>
+                )}
+              </View>
+            </>
+          )}
           {tab === "licencas" && (
             <>
               <View style={styles.tabs}>
-                {([
-                  ["licencas", "Licenças", "shield"],
-                  ["horas", "Minhas horas", "bar-chart-2"],
-                ] as const).map(([id, label, icon]) => (
+                {(
+                  [
+                    ["licencas", "Licenças", "shield"],
+                    ["horas", "Minhas horas", "bar-chart-2"],
+                  ] as const
+                ).map(([id, label, icon]) => (
                   <Pressable
                     key={id}
                     accessibilityRole="tab"
                     accessibilityState={{ selected: licencasTab === id }}
                     onPress={() => setLicencasTab(id)}
-                    style={[
-                      styles.tab,
-                      licencasTab === id && styles.tabActive,
-                    ]}
+                    style={[styles.tab, licencasTab === id && styles.tabActive]}
                   >
                     <Feather
                       name={icon}
@@ -563,60 +545,68 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                 <HorasVoo />
               ) : (
                 <>
-              <View style={styles.card}>
-                <View style={styles.between}>
-                  <View>
-                    <Text style={styles.kicker}>CERTIFICADO MÉDICO</Text>
-                    <Text style={[styles.heading, { marginTop: 8 }]}>CMA</Text>
-                  </View>
-                  <Etiqueta
-                    texto={situacaoValidade(data?.cma?.validade)}
-                    alerta={situacaoValidade(data?.cma?.validade) === "Vencido"}
-                  />
-                </View>
-                {row("Classe", data?.cma?.classe)}
-                {row("Validade", date(data?.cma?.validade))}
-                {!data?.cma && (
-                  <Text style={styles.muted}>
-                    Nenhum CMA cadastrado. Solicite a atualização à equipe
-                    responsável.
-                  </Text>
-                )}
-              </View>
-              <Text style={styles.section}>
-                MINHAS HABILITAÇÕES · {data?.habilitacoes?.length ?? "—"}
-              </Text>
-              {data?.habilitacoes === undefined ? (
-                <View style={styles.card}>
-                  <Text style={styles.muted}>
-                    Não foi possível consultar as habilitações. Atualize o
-                    aplicativo e tente novamente.
-                  </Text>
-                </View>
-              ) : !data.habilitacoes.length ? (
-                <View style={styles.card}>
-                  <Text style={styles.muted}>
-                    Nenhuma habilitação cadastrada.
-                  </Text>
-                </View>
-              ) : (
-                data.habilitacoes.map((h) => (
-                  <View key={h.id} style={styles.card}>
+                  <View style={styles.card}>
                     <View style={styles.between}>
                       <View>
-                        <Text style={styles.heading}>{h.tipo_habilitacao}</Text>
-                        <Text style={styles.secondary}>
-                          Validade: {date(h.data_validade)}
+                        <Text style={styles.kicker}>CERTIFICADO MÉDICO</Text>
+                        <Text style={[styles.heading, { marginTop: 8 }]}>
+                          CMA
                         </Text>
                       </View>
                       <Etiqueta
-                        texto={situacaoValidade(h.data_validade)}
-                        alerta={situacaoValidade(h.data_validade) === "Vencido"}
+                        texto={situacaoValidade(data?.cma?.validade)}
+                        alerta={
+                          situacaoValidade(data?.cma?.validade) === "Vencido"
+                        }
                       />
                     </View>
+                    {row("Classe", data?.cma?.classe)}
+                    {row("Validade", date(data?.cma?.validade))}
+                    {!data?.cma && (
+                      <Text style={styles.muted}>
+                        Nenhum CMA cadastrado. Solicite a atualização à equipe
+                        responsável.
+                      </Text>
+                    )}
                   </View>
-                ))
-              )}
+                  <Text style={styles.section}>
+                    MINHAS HABILITAÇÕES · {data?.habilitacoes?.length ?? "—"}
+                  </Text>
+                  {data?.habilitacoes === undefined ? (
+                    <View style={styles.card}>
+                      <Text style={styles.muted}>
+                        Não foi possível consultar as habilitações. Atualize o
+                        aplicativo e tente novamente.
+                      </Text>
+                    </View>
+                  ) : !data.habilitacoes.length ? (
+                    <View style={styles.card}>
+                      <Text style={styles.muted}>
+                        Nenhuma habilitação cadastrada.
+                      </Text>
+                    </View>
+                  ) : (
+                    data.habilitacoes.map((h) => (
+                      <View key={h.id} style={styles.card}>
+                        <View style={styles.between}>
+                          <View>
+                            <Text style={styles.heading}>
+                              {h.tipo_habilitacao}
+                            </Text>
+                            <Text style={styles.secondary}>
+                              Validade: {date(h.data_validade)}
+                            </Text>
+                          </View>
+                          <Etiqueta
+                            texto={situacaoValidade(h.data_validade)}
+                            alerta={
+                              situacaoValidade(h.data_validade) === "Vencido"
+                            }
+                          />
+                        </View>
+                      </View>
+                    ))
+                  )}
                 </>
               )}
             </>
@@ -802,22 +792,6 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
               ))}
             </>
           )}
-          <Pressable
-            style={styles.smallLink}
-            onPress={() => router.push("/manutencao")}
-          >
-            <Feather name="tool" size={17} color={ACCENT} />
-            <Text style={styles.link}>Meus reports de manutenção</Text>
-            <Feather name="chevron-right" color={MUTED} size={17} />
-          </Pressable>
-          <Pressable
-            style={styles.smallLink}
-            onPress={() => router.push("/relatorio-voo")}
-          >
-            <Feather name="send" size={17} color={ACCENT} />
-            <Text style={styles.link}>Meu histórico de voos</Text>
-            <Feather name="chevron-right" color={MUTED} size={17} />
-          </Pressable>
         </ScrollView>
       )}
     </View>
@@ -885,23 +859,6 @@ const styles = StyleSheet.create({
   avatarText: { color: tema.texto, fontWeight: "800", fontSize: 22 },
   name: { fontSize: 19, fontWeight: "800", color: tema.texto },
   secondary: { fontSize: 13, color: MUTED, marginTop: 6, lineHeight: 19 },
-  stats: {
-    flexDirection: "row",
-    backgroundColor: CARD,
-    marginVertical: 13,
-    borderRadius: 16,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: BORDER,
-  },
-  stat: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 15,
-    paddingHorizontal: 3,
-  },
-  statValue: { fontSize: 20, fontWeight: "800", color: tema.texto },
-  statLabel: { fontSize: 10, color: MUTED, textAlign: "center", marginTop: 5 },
   tabs: { flexDirection: "row", gap: 8, paddingBottom: 18 },
   tab: {
     paddingHorizontal: 15,
@@ -1031,15 +988,6 @@ const styles = StyleSheet.create({
     padding: 15,
     borderWidth: 1,
     borderColor: BORDER,
-    marginBottom: 9,
-  },
-  smallLink: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 16,
-    backgroundColor: CARD,
-    borderRadius: 12,
     marginBottom: 9,
   },
   error: {

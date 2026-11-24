@@ -2,7 +2,7 @@ const colors = {
   dark: {
     text: "#EBEDFC",
     tint: "#F4D532",
-    background: "#111835",
+    background: "#080D18",
     foreground: "#EBEDFC",
     card: "#182142",
     cardForeground: "#EBEDFC",
@@ -22,7 +22,7 @@ const colors = {
     successForeground: "#FFFFFF",
     warning: "#F59E0B",
     warningForeground: "#FFFFFF",
-    navy: "#111835",
+    navy: "#080D18",
     green: "#74dcb3",
     gold: "#F4D532",
   },

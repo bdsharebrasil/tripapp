@@ -33,7 +33,7 @@ import { signIn } from "@/src/lib/session";
 
 const EMAIL_DOMAIN = "share-brasil.com";
 const C = {
-  bg: "#111835",
+  bg: "#080D18",
   bgMid: "#141E42",
   bgEnd: "#182142",
   card: "rgba(24,33,66,0.94)",

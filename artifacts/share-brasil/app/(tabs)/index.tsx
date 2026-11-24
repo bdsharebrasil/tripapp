@@ -143,11 +143,11 @@ export default function HomeScreen() {
       path: "/(tabs)/agenda",
     },
     {
-      nome: "Documentos",
-      rotulo: "Docs",
-      texto: "Licenças e arquivos",
-      icone: "shield",
-      path: "/(tabs)/perfil",
+      nome: "Plano de voo",
+      rotulo: "Plano de voo",
+      texto: "Planejamento e dados do voo",
+      icone: "map",
+      path: "/(tabs)/plano-voo",
     },
     {
       nome: "Diário de bordo",
@@ -203,12 +203,11 @@ export default function HomeScreen() {
             imageStyle={{ opacity: 0.8 }}
           >
             <LinearGradient
-              colors={["rgba(17,24,53,0.25)", "rgba(17,24,53,0.35)", "#111835"]}
+              colors={["rgba(8,13,24,0.25)", "rgba(8,13,24,0.45)", "#080D18"]}
               style={s.heroShade}
             >
               <View style={s.between}>
-                <View style={{ flex: 1 }}>
-                </View>
+                <View style={{ flex: 1 }}></View>
                 <Pressable
                   accessibilityLabel="Abrir notificações"
                   onPress={() => router.push("/notificacoes")}
@@ -230,11 +229,7 @@ export default function HomeScreen() {
             </LinearGradient>
           </ImageBackground>
           <Secao titulo="Acesso rápido" />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.shortcuts}
-          >
+          <View style={s.shortcuts}>
             {shortcuts.map((x) => (
               <Pressable
                 key={x.nome}
@@ -253,7 +248,7 @@ export default function HomeScreen() {
                 </Text>
               </Pressable>
             ))}
-          </ScrollView>
+          </View>
           <Secao
             titulo="Próximo voo e voos ativos"
             acao="Minha agenda"
@@ -282,10 +277,13 @@ export default function HomeScreen() {
                       <Etiqueta texto={rotuloStatus(v.status)} />
                     </View>
                     <Text style={s.hello}>
-                      {v.origem || "—"} → {v.destino || "—"} · {dataBr(v.data_agendada)}
+                      {v.origem || "—"} → {v.destino || "—"} ·{" "}
+                      {dataBr(v.data_agendada)}
                     </Text>
                     <Text style={s.hello}>
-                      {v.horario_previsto_agendamento?.match(/\d{2}:\d{2}/)?.[0] || "Horário a definir"}
+                      {v.horario_previsto_agendamento?.match(
+                        /\d{2}:\d{2}/,
+                      )?.[0] || "Horário a definir"}
                       {v.matricula_registro ? ` · ${v.matricula_registro}` : ""}
                     </Text>
                   </View>
@@ -296,7 +294,9 @@ export default function HomeScreen() {
           ) : (
             <Vazio
               icone="calendar"
-              titulo={voos ? "Nenhum voo ativo ou confirmado" : "Agenda indisponível"}
+              titulo={
+                voos ? "Nenhum voo ativo ou confirmado" : "Agenda indisponível"
+              }
               texto={
                 voos
                   ? "Voos em solo, em rota e próximos voos confirmados aparecerão aqui."
@@ -405,12 +405,19 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   cta: { color: tema.destaque, fontSize: 12, fontFamily: "Inter_600SemiBold" },
-  shortcuts: { gap: 8, paddingRight: 20, paddingBottom: 2 },
-  shortcut: {
-    width: 82,
-    minHeight: 54,
-    paddingHorizontal: 8,
+  shortcuts: {
     flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingBottom: 2,
+  },
+  shortcut: {
+    flexBasis: "30%",
+    flexGrow: 1,
+    minHeight: 76,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    flexDirection: "column",
     justifyContent: "center",
     alignItems: "center",
     gap: 6,

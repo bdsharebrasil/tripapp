@@ -22,6 +22,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import type { Session } from "@/src/lib/session";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { tema } from "@/src/components/ui";
 import { setUnauthorizedHandler } from "@/src/lib/session";
 import {
   getSession,
@@ -171,7 +172,7 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView
-            style={{ flex: 1, backgroundColor: "#111835" }}
+            style={{ flex: 1, backgroundColor: tema.fundo }}
           >
             <View
               style={{
