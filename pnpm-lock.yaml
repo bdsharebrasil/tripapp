@@ -155,8 +155,6 @@ importers:
         specifier: ~6.0.3
         version: 6.0.3
 
-  artifacts/share-brasil-pwa: {}
-
 packages:
 
   2g@1.0.1:

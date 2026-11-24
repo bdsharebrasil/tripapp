@@ -4,7 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  ImageBackground,
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -197,13 +197,15 @@ export default function HomeScreen() {
           }
           contentContainerStyle={s.content}
         >
-          <ImageBackground
-            source={require("../../assets/images/ceu-asa.jpg")}
-            style={s.hero}
-            imageStyle={{ opacity: 0.8 }}
-          >
+          <View style={s.hero}>
+            <Image
+              source={require("../../assets/images/ceu-asa.jpg")}
+              style={s.heroImage}
+              resizeMode="cover"
+            />
             <LinearGradient
-              colors={["rgba(8,13,24,0.25)", "rgba(8,13,24,0.45)", "#080D18"]}
+              colors={["rgba(8,13,24,0)", "rgba(8,13,24,0.25)", "rgba(8,13,24,0.85)"]}
+              locations={[0, 0.45, 1]}
               style={s.heroShade}
             >
               <View style={s.between}>
@@ -223,11 +225,8 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
               <Text style={s.greeting}>Olá, {nome.split(" ")[0]}</Text>
-              <Text style={s.tagline}>
-                Sua operação de hoje, em um só lugar.
-              </Text>
             </LinearGradient>
-          </ImageBackground>
+          </View>
           <Secao titulo="Acesso rápido" />
           <View style={s.shortcuts}>
             {shortcuts.map((x) => (
@@ -334,19 +333,27 @@ export default function HomeScreen() {
 const s = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingBottom: 120 },
   hero: { minHeight: 220, borderRadius: 24, overflow: "hidden" },
-  heroShade: { padding: 20, paddingTop: 14, paddingBottom: 24, flex: 1 },
+  heroImage: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    opacity: 0.8,
+  },
+  heroShade: {
+    padding: 20,
+    paddingTop: 14,
+    paddingBottom: 24,
+    flex: 1,
+    marginTop: 6,
+    marginBottom: 6,
+  },
   greeting: {
     color: tema.texto,
     fontFamily: "Inter_700Bold",
     fontSize: 30,
     marginTop: 25,
-  },
-  tagline: {
-    color: "#d7d9de",
-    fontSize: 14,
-    marginTop: 7,
-    maxWidth: 240,
-    lineHeight: 21,
   },
   identity: {
     flexDirection: "row",

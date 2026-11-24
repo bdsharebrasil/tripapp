@@ -294,7 +294,6 @@ export function CartaoVoo({
               <Ionicons name="airplane" size={15} color={tema.fundo} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.brand}>TRIP SHARE</Text>
               <Text style={s.number}>{voo.numero_voo || "Voo programado"}</Text>
             </View>
           </View>
@@ -382,8 +381,7 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     gap: 9,
   },
-  brand: { color: tema.texto, fontFamily: "Inter_600SemiBold", fontSize: 12 },
-  number: { color: tema.suave, fontSize: 11, marginTop: 3 },
+  number: { color: "#F2F3F6", fontSize: 16, marginTop: 3 },
   icon: {
     backgroundColor: tema.azul,
     width: 26,

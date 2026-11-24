@@ -575,21 +575,6 @@ export default function RelatorioViagemScreen() {
         >
           {!selected ? (
             <>
-              <View style={styles.overview}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.muted}>Relatórios vinculados a você</Text>
-                  <Text style={styles.overviewTitle}>
-                    Cada viagem, organizada.
-                  </Text>
-                  <Text style={styles.secondary}>
-                    Crie despesas, adicione comprovantes e acompanhe os
-                    reembolsos.
-                  </Text>
-                </View>
-                <View style={styles.overviewIcon}>
-                  <Feather name="file-text" size={30} color={BLUE} />
-                </View>
-              </View>
               <View style={styles.tabs}>
                 {(["lancamentos", "historico"] as const).map((t) => (
                   <Pressable
@@ -1163,31 +1148,6 @@ const styles = StyleSheet.create({
     height: 46,
     borderRadius: 14,
     backgroundColor: "#17354f",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  overview: {
-    flexDirection: "row",
-    gap: 16,
-    padding: 20,
-    borderRadius: 24,
-    backgroundColor: "#102a46",
-    borderWidth: 1,
-    borderColor: EDGE,
-    marginBottom: 18,
-  },
-  overviewTitle: {
-    color: "#fff",
-    fontSize: 23,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: -0.7,
-    marginVertical: 8,
-  },
-  overviewIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
-    backgroundColor: "#183c59",
     alignItems: "center",
     justifyContent: "center",
   },

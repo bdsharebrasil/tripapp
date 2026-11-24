@@ -8,7 +8,6 @@
     "android": "pnpm --filter @workspace/share-brasil android",
     "ios": "pnpm --filter @workspace/share-brasil ios",
     "web": "pnpm --filter @workspace/share-brasil web",
-    "build": "pnpm typecheck && pnpm --filter @workspace/share-brasil-pwa build",
     "build:native": "pnpm --filter @workspace/share-brasil build",
     "typecheck": "pnpm --filter @workspace/share-brasil typecheck",
     "test": "pnpm --filter @workspace/share-brasil test",
