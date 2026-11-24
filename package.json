@@ -4,14 +4,14 @@
   "private": true,
   "packageManager": "pnpm@11.25.0",
   "scripts": {
-    "dev": "pnpm --filter @workspace/share-brasil start",
-    "android": "pnpm --filter @workspace/share-brasil android",
-    "ios": "pnpm --filter @workspace/share-brasil ios",
-    "web": "pnpm --filter @workspace/share-brasil web",
-    "build:native": "pnpm --filter @workspace/share-brasil build",
-    "typecheck": "pnpm --filter @workspace/share-brasil typecheck",
-    "test": "pnpm --filter @workspace/share-brasil test",
-    "test:web": "pnpm --filter @workspace/share-brasil test:web"
+    "dev": "pnpm --dir artifacts/share-brasil start",
+    "android": "pnpm --dir artifacts/share-brasil android",
+    "ios": "pnpm --dir artifacts/share-brasil ios",
+    "web": "pnpm --dir artifacts/share-brasil web",
+    "build:native": "pnpm --dir artifacts/share-brasil build",
+    "typecheck": "pnpm --dir artifacts/share-brasil typecheck",
+    "test": "pnpm --dir artifacts/share-brasil test",
+    "test:web": "pnpm --dir artifacts/share-brasil test:web"
   },
   "devDependencies": {
     "@types/react": "~19.3.0",

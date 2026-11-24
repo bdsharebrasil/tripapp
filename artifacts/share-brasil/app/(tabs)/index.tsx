@@ -12,19 +12,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { apiFetch } from "@/src/lib/api";
-import { PerfilCompleto, hoje, moeda, dataBr } from "@/src/lib/perfil";
+import { PerfilCompleto, hoje } from "@/src/lib/perfil";
 import { Avatar } from "@/src/components/Avatar";
 import {
-  BotaoIcone,
   ErroConsulta,
-  Etiqueta,
   Icon,
-  ItemLista,
-  Secao,
   Toque,
-  Vazio,
   tema,
-  u,
   type Icone,
 } from "@/src/components/ui";
 
@@ -38,18 +32,46 @@ type Voo = {
   matricula_registro?: string;
   status?: string;
 };
-type Relatorio = {
-  id: string;
-  status: string;
-  pagamento_status?: string;
-  pagamento_total?: number;
-  pagamento_valor?: number;
+
+// Cores do corpo claro da tela (o topo usa o tema escuro).
+const CLARO = "#F4F7FC";
+const AZUL = "#11699c";
+const LOGO = require("@/assets/images/share-icon.png");
+const DIAS = [
+  "Domingo",
+  "Segunda",
+  "Terça",
+  "Quarta",
+  "Quinta",
+  "Sexta",
+  "Sábado",
+];
+const MESES = [
+  "janeiro",
+  "fevereiro",
+  "março",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro",
+];
+// "2026-08-05" -> "05 Ago"
+const diaMes = (d?: string | null) => {
+  if (!d) return "—";
+  const [, m, dia] = d.slice(0, 10).split("-");
+  const mes = MESES[Number(m) - 1] ?? "";
+  return `${dia} ${mes.charAt(0).toUpperCase()}${mes.slice(1, 3)}`;
 };
+
 export default function HomeScreen() {
   const router = useRouter();
   const [perfil, setPerfil] = useState<PerfilCompleto | null>(null),
-    [voos, setVoos] = useState<Voo[] | null>(null),
-    [relatorios, setRelatorios] = useState<Relatorio[] | null>(null);
+    [voos, setVoos] = useState<Voo[] | null>(null);
   const [loading, setLoading] = useState(true),
     [error, setError] = useState("");
   const load = useCallback(async () => {
@@ -57,14 +79,10 @@ export default function HomeScreen() {
     const resultados = await Promise.allSettled([
       apiFetch<PerfilCompleto>("/api/colaborador/perfil"),
       apiFetch<{ voos: Voo[] }>("/api/colaborador/meus-voos"),
-      apiFetch<{ relatorios: Relatorio[] }>(
-        "/api/financeiro/relatorios-despesa-viagem/minhas",
-      ),
     ]);
-    const [p, v, r] = resultados;
+    const [p, v] = resultados;
     setPerfil(p.status === "fulfilled" ? p.value : null);
     setVoos(v.status === "fulfilled" ? v.value.voos : null);
-    setRelatorios(r.status === "fulfilled" ? r.value.relatorios : null);
     if (resultados.some((x) => x.status === "rejected"))
       setError("Alguns dados não puderam ser atualizados.");
     setLoading(false);
@@ -74,13 +92,20 @@ export default function HomeScreen() {
       void load();
     }, [load]),
   );
+
   const p = perfil?.perfil,
-    nome = p?.nome_exibicao || p?.nome_completo || "Tripulante";
+    nome = p?.nome_exibicao || p?.nome_completo || "Cmte";
+  const agora = new Date();
+  const horaAtual = agora.getHours();
+  const saudacao =
+    horaAtual < 12 ? "Bom dia" : horaAtual < 18 ? "Boa tarde" : "Boa noite";
+  const dataHoje = `${DIAS[agora.getDay()]}, ${agora.getDate()} de ${MESES[agora.getMonth()]}`;
+
   const normalizarStatus = (status?: string) =>
     String(status || "")
       .trim()
       .toUpperCase()
-      .replace(/[\\s-]+/g, "_");
+      .replace(/[\s-]+/g, "_");
   const emAndamento = new Set(["EM_SOLO", "EM_ROTA", "EM_VOO"]);
   const confirmados = new Set([
     "APROVADA",
@@ -109,25 +134,7 @@ export default function HomeScreen() {
     if (confirmados.has(chave)) return "Confirmado";
     return status || "Programado";
   };
-  const rascunhos = relatorios?.filter(
-    (r) => r.status.toLowerCase() === "rascunho",
-  ).length;
-  const aprovacao = relatorios?.filter((r) =>
-    ["finalizado", "aguardando_aprovacao", "ajuste_concluido"].includes(
-      r.status.toLowerCase(),
-    ),
-  ).length;
-  const reembolso = relatorios?.reduce(
-    (n, r) =>
-      n +
-      (r.pagamento_status === "PENDENTE"
-        ? Math.max(
-            0,
-            Number(r.pagamento_total || 0) - Number(r.pagamento_valor || 0),
-          )
-        : 0),
-    0,
-  );
+
   const shortcuts: {
     nome: string;
     rotulo: string;
@@ -136,48 +143,35 @@ export default function HomeScreen() {
     path: string;
   }[] = [
     {
-      nome: "Agenda de voos",
-      rotulo: "Voos",
-      texto: "Horários e checklist",
+      nome: "Minha agenda",
+      rotulo: "Minha agenda",
+      texto: "Consultar voos e operações",
       icone: "send",
       path: "/(tabs)/agenda",
     },
     {
       nome: "Plano de voo",
       rotulo: "Plano de voo",
-      texto: "Planejamento e dados do voo",
+      texto: "Planejar uma rota",
       icone: "map",
       path: "/(tabs)/plano-voo",
     },
     {
-      nome: "Diário de bordo",
-      rotulo: "Diário",
-      texto: "Completar e assinar",
-      icone: "book-open",
-      path: "/diario-bordo",
-    },
-    {
-      nome: "Despesas",
+      nome: "Despesa de viagem",
       rotulo: "Despesas",
-      texto: "Lançar e acompanhar",
+      texto: "Registrar e acompanhar despesas",
       icone: "file-text",
       path: "/(tabs)/despesa-viagem",
     },
     {
-      nome: "Minhas horas",
-      rotulo: "Horas",
-      texto: "Consultar e exportar PDF",
-      icone: "bar-chart-2",
-      path: "/minhas-horas",
-    },
-    {
       nome: "Manutenção",
-      rotulo: "Manut.",
+      rotulo: "Manutenção",
       texto: "Reportar ocorrência",
       icone: "tool",
       path: "/manutencao",
     },
   ];
+
   const horario = (v?: Voo) =>
     v?.horario_previsto_agendamento?.match(/\d{2}:\d{2}/)?.[0] || "A definir";
   const partida = (v: Voo) =>
@@ -187,9 +181,16 @@ export default function HomeScreen() {
     [...voosRelevantes].sort((a, b) => partida(a).localeCompare(partida(b)))[0];
   const proximoAtivo =
     !!proximo && emAndamento.has(normalizarStatus(proximo.status));
-  const cores = [tema.destaque, tema.verde, "#7AA2FF"];
+
+  const tituloSecao = (texto: string, direita?: React.ReactNode) => (
+    <View style={s.secaoLinha}>
+      <Text style={s.secaoTitulo}>{texto}</Text>
+      {direita}
+    </View>
+  );
+
   return (
-    <SafeAreaView edges={["top"]} style={u.root}>
+    <SafeAreaView edges={["top"]} style={s.root}>
       {!!error && (
         <ErroConsulta mensagem={error} atualizar={() => void load()} />
       )}
@@ -198,6 +199,7 @@ export default function HomeScreen() {
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
+          style={{ backgroundColor: CLARO }}
           refreshControl={
             <RefreshControl
               refreshing={loading}
@@ -207,225 +209,236 @@ export default function HomeScreen() {
           }
           contentContainerStyle={s.content}
         >
-          <View style={s.topo}>
-            <Toque
-              accessibilityLabel="Abrir perfil"
-              accessibilityRole="button"
-              onPress={() => router.push("/(tabs)/perfil")}
-            >
-              <Avatar nome={nome} disponivel={!!p?.foto_url} tamanho={48} />
-            </Toque>
-            <View style={{ flex: 1 }}>
-              <Text style={s.hello}>Bem-vindo de volta</Text>
-              <Text style={s.greeting} numberOfLines={1}>
-                Olá, {nome.split(" ")[0]}
-              </Text>
-            </View>
-            <BotaoIcone
-              icone="bell"
-              rotulo="Abrir notificações"
-              onPress={() => router.push("/notificacoes")}
-            />
-          </View>
-
-          <Toque
-            accessibilityRole="button"
-            accessibilityLabel={
-              proximo
-                ? `${proximoAtivo ? "Voo em operação" : "Próximo voo"} ${proximo.numero_voo || ""}`
-                : "Abrir minha agenda"
-            }
-            onPress={() =>
-              proximo
-                ? router.push({
-                    pathname: "/(tabs)/agenda",
-                    params: { vooId: proximo.id },
-                  })
-                : router.push("/(tabs)/agenda")
-            }
-            style={s.hero}
-          >
+          <View style={s.header}>
             <Image
-              source={require("../../assets/images/ceu-asa.jpg")}
-              style={s.heroImage}
-              resizeMode="cover"
+              source={LOGO}
+              resizeMode="contain"
+              pointerEvents="none"
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={s.logoFundo}
             />
-            <LinearGradient
-              colors={[
-                "rgba(10,16,32,0.15)",
-                "rgba(10,16,32,0.55)",
-                "rgba(10,16,32,0.95)",
-              ]}
-              locations={[0, 0.45, 1]}
-              style={s.heroShade}
-            >
-              <View style={s.between}>
-                <Text style={s.heroKicker}>
-                  {proximo
-                    ? proximoAtivo
-                      ? "Voo em operação"
-                      : "Próximo voo"
-                    : "Sua agenda"}
-                </Text>
-                {proximo && <Etiqueta texto={rotuloStatus(proximo.status)} />}
-              </View>
-              {proximo ? (
-                <>
-                  <View style={s.route}>
-                    <Text style={s.airport}>{proximo.origem || "—"}</Text>
-                    <View style={s.track}>
-                      <View style={s.line} />
-                      <Icon name="airplane" size={18} color={tema.destaque} />
-                      <View style={s.line} />
-                    </View>
-                    <Text style={s.airport}>{proximo.destino || "—"}</Text>
-                  </View>
-                  <View style={s.heroMeta}>
-                    <View>
-                      <Text style={s.metaLabel}>Data</Text>
-                      <Text style={s.metaValue}>
-                        {dataBr(proximo.data_agendada)}
-                      </Text>
-                    </View>
-                    <View>
-                      <Text style={s.metaLabel}>Horário</Text>
-                      <Text style={s.metaValue}>{horario(proximo)}</Text>
-                    </View>
-                    <View>
-                      <Text style={s.metaLabel}>Voo</Text>
-                      <Text style={s.metaValue}>
-                        {proximo.numero_voo || "—"}
-                      </Text>
-                    </View>
-                  </View>
-                </>
-              ) : (
-                <Text style={s.heroVazio}>
-                  {voos
-                    ? "Nenhum voo ativo ou confirmado no momento."
-                    : "Agenda indisponível. Puxe para atualizar."}
-                </Text>
-              )}
-            </LinearGradient>
-          </Toque>
-
-          <Secao titulo="Acesso rápido" />
-          <View style={s.shortcuts}>
-            {shortcuts.map((x, i) => (
+            <View style={s.topo}>
               <Toque
-                key={x.nome}
-                accessibilityLabel={x.nome}
-                accessibilityHint={x.texto}
+                accessibilityLabel="Abrir perfil"
                 accessibilityRole="button"
-                onPress={() => router.push(x.path as any)}
-                style={s.shortcut}
+                onPress={() => router.push("/(tabs)/perfil")}
               >
-                <View
-                  style={[
-                    s.shortcutIcon,
-                    { backgroundColor: cores[i % cores.length] + "1F" },
-                  ]}
-                >
-                  <Icon
-                    name={x.icone}
-                    size={20}
-                    color={cores[i % cores.length]}
-                  />
-                </View>
-                <Text numberOfLines={1} style={s.shortcutTitle}>
-                  {x.rotulo}
-                </Text>
+                <Avatar nome={nome} disponivel={!!p?.foto_url} tamanho={44} />
               </Toque>
-            ))}
+              <Toque
+                accessibilityLabel="Abrir notificações"
+                accessibilityRole="button"
+                onPress={() => router.push("/notificacoes")}
+                style={s.iconBtn}
+              >
+                <Icon name="bell" size={20} color={tema.texto} />
+              </Toque>
+            </View>
+
+            <Text style={s.greeting} numberOfLines={1} adjustsFontSizeToFit>
+              {saudacao},{" "}
+              <Text style={s.greetingDestaque}>{nome}</Text>
+            </Text>
+            <Text style={s.dataHoje}>{dataHoje}</Text>
+
+            <Toque
+              accessibilityRole="button"
+              accessibilityLabel={
+                proximo
+                  ? `${proximoAtivo ? "Voo em operação" : "Próximo voo"} ${proximo.numero_voo || ""}`
+                  : "Abrir minha agenda"
+              }
+              onPress={() =>
+                proximo
+                  ? router.push({
+                      pathname: "/(tabs)/agenda",
+                      params: { vooId: proximo.id },
+                    })
+                  : router.push("/(tabs)/agenda")
+              }
+              style={s.hero}
+            >
+              <LinearGradient
+                colors={["#1C2856", "#182248"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={s.heroShade}
+              >
+                <View style={s.between}>
+                  <Text style={s.heroKicker}>
+                    {proximo
+                      ? proximoAtivo
+                        ? "VOO EM OPERAÇÃO"
+                        : "PRÓXIMO VOO"
+                      : "SUA AGENDA"}
+                  </Text>
+                  {proximo && (
+                    <Text style={s.vooIdentificacao}>
+                      {proximo.numero_voo || "—"} ·{" "}
+                      {proximo.matricula_registro || "PR-SHB"}
+                    </Text>
+                  )}
+                </View>
+                {proximo ? (
+                  <>
+                    <View style={s.route}>
+                      <Text style={s.airport}>{proximo.origem || "—"}</Text>
+                      <View style={s.track}>
+                        <View style={s.line} />
+                        <Icon name="airplane" size={18} color={tema.destaque} />
+                        <View style={s.line} />
+                      </View>
+                      <Text style={s.airport}>{proximo.destino || "—"}</Text>
+                    </View>
+                    <View style={s.between}>
+                      <Text style={s.metaLabel}>
+                        Saída{" "}
+                        <Text style={s.metaValue}>{horario(proximo)} Z</Text>
+                      </Text>
+                      <Text style={s.metaLabel}>
+                        Duração <Text style={s.metaValue}>A confirmar</Text>
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <Text style={s.heroVazio}>
+                    {voos
+                      ? "Nenhum voo ativo ou confirmado no momento."
+                      : "Agenda indisponível. Puxe para atualizar."}
+                  </Text>
+                )}
+              </LinearGradient>
+            </Toque>
           </View>
 
-          <Secao
-            titulo="Voos ativos e confirmados"
-            acao="Agenda"
-            onPress={() => router.push("/(tabs)/agenda")}
-          />
-          {voosRelevantes.length ? (
-            <View style={s.lista}>
-              {voosRelevantes.map((v, i) => (
-                <ItemLista
+          <View style={s.corpo}>
+            <View style={s.shortcuts}>
+              {shortcuts.map((x, i) => (
+                <Toque
+                  key={x.nome}
+                  accessibilityLabel={x.nome}
+                  accessibilityHint={x.texto}
+                  accessibilityRole="button"
+                  onPress={() => router.push(x.path as any)}
+                  style={[s.shortcut, i === 0 && s.shortcutAtivo]}
+                >
+                  <Icon name={x.icone} size={24} color={tema.fundo} />
+                  <Text numberOfLines={1} style={s.shortcutTitle}>
+                    {x.rotulo}
+                  </Text>
+                </Toque>
+              ))}
+            </View>
+
+            {tituloSecao(
+              "Relatórios a apresentar",
+              voosRelevantes.length ? (
+                <View style={s.badge}>
+                  <Text style={s.badgeTexto}>{voosRelevantes.length}</Text>
+                </View>
+              ) : null,
+            )}
+            {voosRelevantes.length ? (
+              voosRelevantes.map((v) => (
+                <Toque
                   key={v.id}
-                  icone="send"
-                  cor="#7AA2FF"
-                  titulo={`${v.origem || "—"} → ${v.destino || "—"}`}
-                  apoio={`${v.numero_voo || "Voo programado"} · ${dataBr(v.data_agendada)} · ${horario(v)}${v.matricula_registro ? ` · ${v.matricula_registro}` : ""}`}
-                  direita={<Etiqueta texto={rotuloStatus(v.status)} />}
-                  ultimo={i === voosRelevantes.length - 1}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${v.origem || "—"} para ${v.destino || "—"}`}
                   onPress={() =>
                     router.push({
                       pathname: "/(tabs)/agenda",
                       params: { vooId: v.id },
                     })
                   }
-                />
-              ))}
-            </View>
-          ) : (
-            <Vazio
-              icone="calendar"
-              titulo={
-                voos ? "Nenhum voo ativo ou confirmado" : "Agenda indisponível"
-              }
-              texto={
-                voos
-                  ? "Voos em solo, em rota e próximos voos confirmados aparecerão aqui."
-                  : "Atualize para consultar sua programação."
-              }
-            />
-          )}
-
-          <Secao
-            titulo="Despesas de viagem"
-            acao="Abrir"
-            onPress={() => router.push("/(tabs)/despesa-viagem")}
-          />
-          <View style={s.summary}>
-            <View style={s.summaryItem}>
-              <Icon name="edit-3" size={18} color={tema.suave} />
-              <Text style={s.stat}>{rascunhos ?? "—"}</Text>
-              <Text style={s.statLabel}>Rascunhos</Text>
-            </View>
-            <View style={s.summaryItem}>
-              <Icon name="clock" size={18} color={tema.destaque} />
-              <Text style={s.stat}>{aprovacao ?? "—"}</Text>
-              <Text style={s.statLabel}>Em aprovação</Text>
-            </View>
-            <View style={s.summaryItem}>
-              <Icon name="credit-card" size={18} color={tema.verde} />
-              <Text
-                style={[s.stat, s.statMoeda]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {reembolso == null ? "—" : moeda(reembolso)}
-              </Text>
-              <Text style={s.statLabel}>A receber</Text>
-            </View>
+                  style={s.item}
+                >
+                  <View style={s.itemIcone}>
+                    <Icon name="file-text" size={24} color={AZUL} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.itemTitulo} numberOfLines={1}>
+                      {v.origem || "—"} → {v.destino || "—"} ·{" "}
+                      {diaMes(v.data_agendada)}
+                    </Text>
+                    <Text style={s.itemApoio} numberOfLines={1}>
+                      {v.numero_voo || "Voo programado"} · {horario(v)} ·{" "}
+                      {rotuloStatus(v.status)}
+                    </Text>
+                  </View>
+                  <Icon name="chevron-right" size={22} color="#8A93A8" />
+                </Toque>
+              ))
+            ) : (
+              <View style={s.vazio}>
+                <Text style={s.itemTitulo}>
+                  {voos
+                    ? "Nenhum voo ativo ou confirmado"
+                    : "Agenda indisponível"}
+                </Text>
+                <Text style={s.itemApoio}>
+                  {voos
+                    ? "Voos em solo, em rota e próximos voos confirmados aparecerão aqui."
+                    : "Atualize para consultar sua programação."}
+                </Text>
+              </View>
+            )}
           </View>
         </ScrollView>
       )}
     </SafeAreaView>
   );
 }
+
 const s = StyleSheet.create({
-  content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 130 },
+  root: { flex: 1, backgroundColor: tema.fundo },
+  content: { paddingBottom: 130 },
+  header: {
+    backgroundColor: tema.fundo,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 64,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    overflow: "hidden",
+  },
+  logoFundo: {
+    position: "absolute",
+    top: -30,
+    right: -70,
+    width: 300,
+    height: 260,
+    opacity: 0.1,
+  },
   topo: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
-    marginBottom: 20,
+    justifyContent: "space-between",
+    marginBottom: 22,
   },
-  hello: { color: tema.suave, fontSize: 14, fontFamily: "Inter_400Regular" },
+  iconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: tema.superficie,
+    borderWidth: 1,
+    borderColor: tema.borda,
+  },
   greeting: {
     color: tema.texto,
     fontFamily: "Inter_700Bold",
-    fontSize: 26,
+    fontSize: 32,
     letterSpacing: -0.6,
-    marginTop: 2,
+  },
+  greetingDestaque: { color: tema.destaque },
+  dataHoje: {
+    color: tema.suave,
+    fontFamily: "Inter_400Regular",
+    fontSize: 16,
+    marginTop: 4,
+    marginBottom: 22,
   },
   between: {
     flexDirection: "row",
@@ -434,42 +447,34 @@ const s = StyleSheet.create({
     gap: 8,
   },
   hero: {
-    minHeight: 210,
-    borderRadius: 26,
+    borderRadius: 28,
     overflow: "hidden",
-    backgroundColor: tema.superficie,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
   },
-  heroImage: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-  },
-  heroShade: { flex: 1, padding: 20, justifyContent: "space-between" },
+  heroShade: { padding: 20, gap: 18 },
   heroKicker: {
-    color: tema.texto,
+    color: tema.destaque,
     fontFamily: "Inter_600SemiBold",
     fontSize: 14,
-    opacity: 0.9,
+    letterSpacing: 0.4,
+  },
+  vooIdentificacao: {
+    color: tema.suave,
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
   },
   heroVazio: {
     color: tema.texto,
     fontFamily: "Inter_600SemiBold",
     fontSize: 18,
     lineHeight: 25,
-    marginTop: 60,
+    paddingVertical: 20,
   },
-  route: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 34,
-    gap: 12,
-  },
+  route: { flexDirection: "row", alignItems: "center", gap: 12 },
   airport: {
-    fontSize: 30,
-    letterSpacing: -0.8,
+    fontSize: 40,
+    letterSpacing: -1,
     fontFamily: "Inter_700Bold",
     color: tema.texto,
   },
@@ -481,61 +486,102 @@ const s = StyleSheet.create({
     borderStyle: "dashed",
     borderColor: "rgba(242,244,250,0.45)",
   },
-  heroMeta: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 20,
+  metaLabel: {
+    color: tema.suave,
+    fontFamily: "Inter_400Regular",
+    fontSize: 16,
   },
-  metaLabel: { color: tema.suave, fontSize: 12 },
-  metaValue: {
-    color: tema.texto,
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 15,
-    marginTop: 3,
-  },
-  shortcuts: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  metaValue: { color: tema.texto, fontFamily: "Inter_700Bold", fontSize: 17 },
+
+  corpo: { paddingHorizontal: 20 },
+  shortcuts: { flexDirection: "row", gap: 10, marginTop: -40 },
   shortcut: {
-    flexBasis: "30%",
-    flexGrow: 1,
-    minHeight: 96,
-    padding: 12,
+    flex: 1,
+    minHeight: 76,
+    paddingHorizontal: 6,
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
+    gap: 8,
     borderRadius: 20,
-    backgroundColor: tema.superficie,
+    backgroundColor: "#e9ecee",
+    shadowColor: "#0B1230",
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
-  shortcutIcon: {
-    width: 44,
-    height: 44,
+  shortcutAtivo: { backgroundColor: tema.destaque },
+  shortcutTitle: {
+    color: tema.fundo,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+  },
+
+  secaoLinha: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 28,
+    marginBottom: 14,
+  },
+  secaoTitulo: {
+    color: tema.fundo,
+    fontFamily: "Inter_700Bold",
+    fontSize: 22,
+  },
+  badge: {
+    minWidth: 28,
+    height: 28,
+    borderRadius: 14,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: tema.destaque,
+  },
+  badgeTexto: {
+    color: tema.fundo,
+    fontFamily: "Inter_700Bold",
+    fontSize: 14,
+  },
+
+
+  item: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    padding: 14,
+    marginBottom: 10,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#0B1230",
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  itemIcone: {
+    width: 52,
+    height: 52,
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#E8EDFB",
   },
-  shortcutTitle: {
-    color: tema.texto,
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 13,
-  },
-  lista: {
-    backgroundColor: tema.superficie,
-    borderRadius: 22,
-    paddingHorizontal: 16,
-  },
-  summary: { flexDirection: "row", gap: 10 },
-  summaryItem: {
-    flex: 1,
-    backgroundColor: tema.superficie,
-    borderRadius: 20,
-    padding: 14,
-    gap: 6,
-  },
-  stat: {
-    fontSize: 24,
+  itemTitulo: {
+    color: tema.fundo,
     fontFamily: "Inter_700Bold",
-    color: tema.texto,
-    marginTop: 6,
+    fontSize: 18,
   },
-  statMoeda: { fontSize: 16, marginTop: 10, marginBottom: 4 },
-  statLabel: { color: tema.suave, fontSize: 12 },
+  itemApoio: {
+    color: "#5E6A85",
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    marginTop: 2,
+  },
+  vazio: {
+    padding: 20,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    gap: 4,
+  },
 });

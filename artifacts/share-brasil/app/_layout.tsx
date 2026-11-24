@@ -23,6 +23,7 @@ import type { Session } from "@/src/lib/session";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { tema } from "@/src/components/ui";
+import { MenuInferiorGlobal } from "@/src/components/MenuInferior";
 import { setUnauthorizedHandler } from "@/src/lib/session";
 import {
   getSession,
@@ -61,6 +62,7 @@ function RootLayoutNav({
   if (!session && currentRoot !== "login") return <Redirect href="/login" />;
 
   return (
+    <>
     <Stack
       key={session?.user.id || "login"}
       screenOptions={{ headerBackTitle: "Voltar" }}
@@ -96,6 +98,8 @@ function RootLayoutNav({
       <Stack.Screen name="diario-bordo" options={{ headerShown: false }} />
       <Stack.Screen name="notificacoes" options={{ headerShown: false }} />
     </Stack>
+    {currentRoot !== "login" && <MenuInferiorGlobal />}
+    </>
   );
 }
 

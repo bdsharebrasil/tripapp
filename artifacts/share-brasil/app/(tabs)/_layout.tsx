@@ -1,10 +1,9 @@
 import { Tabs } from "expo-router";
 import React from "react";
-import { MenuInferior } from "@/src/components/MenuInferior";
 export default function TabLayout() {
   return (
     <Tabs
-      tabBar={(props) => <MenuInferior {...props} />}
+      tabBar={() => null}
       screenOptions={{ headerShown: false }}
     >
       <Tabs.Screen name="index" options={{ title: "Início" }} />

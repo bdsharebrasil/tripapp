@@ -10,6 +10,7 @@ export type NovoPlano = {
   trecho: string;
   data: string;
   aeronave: string;
+  aeronaveId: string;
   matricula: string;
   horaPrevista: string;
   estimativaVoo: string;
@@ -42,6 +43,7 @@ export type FormularioPlano = {
   trecho: string;
   data: string;
   aeronave: string;
+  aeronaveId: string;
   matricula: string;
   horaPrevista: string;
   estimativaVoo: string;
@@ -68,6 +70,18 @@ export type PlanoRota = {
   destination?: Ponto;
   alternates?: { icao: string; name: string; distance_km: number }[];
   error?: string;
+};
+
+export type AeronaveSolicitacao = {
+  id: string;
+  registration?: string;
+  matricula?: string;
+  matricula_registro?: string;
+  model?: string;
+  modelo?: string;
+  manufacturer?: string;
+  fabricante?: string;
+  fuel_consumption?: number;
 };
 
 export type VooSolicitacao = {
@@ -98,8 +112,9 @@ export const criarFormulario = (): FormularioPlano => ({
   chegada: "",
   trecho: "",
   data: hoje(),
-  aeronave: "Citation CJ3+",
-  matricula: "PS-SBR",
+  aeronave: "",
+  aeronaveId: "",
+  matricula: "",
   horaPrevista: "",
   estimativaVoo: "",
   combustivelPrevisto: "",
@@ -150,6 +165,7 @@ export function paraPlano(r: PlanoRegistro): PlanoVoo {
     trecho: f.trecho ?? `${r.adep}-${r.ades}`,
     data: r.data_voo,
     aeronave: f.aeronave ?? "",
+    aeronaveId: f.aeronaveId ?? "",
     matricula: f.matricula ?? r.numero_voo,
     horaPrevista: f.horaPrevista ?? r.eobt,
     estimativaVoo: f.estimativaVoo ?? "",
@@ -172,6 +188,7 @@ export function paraRegistro(p: NovoPlano) {
     ades: p.chegada,
     data_voo: p.data,
     eobt: p.horaPrevista,
+    aircraft_id: p.aeronaveId || undefined,
     form: p,
     contexto: null,
     rota: null,

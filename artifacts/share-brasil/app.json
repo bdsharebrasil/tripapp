@@ -9,7 +9,8 @@
     "scheme": "share-brasil",
     "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.sharebrasil.tripshare"
     },
     "android": {
       "package": "com.sharebrasil.tripshare"
@@ -37,6 +38,12 @@
           "locationWhenInUsePermission": "Permitir que o Trip Share use sua localização para acompanhar este voo enquanto a tela está aberta.",
           "isIosBackgroundLocationEnabled": false,
           "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permitir que o Trip Share acesse suas fotos para atualizar a foto do perfil."
         }
       ]
     ],

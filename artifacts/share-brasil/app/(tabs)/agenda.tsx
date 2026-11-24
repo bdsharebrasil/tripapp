@@ -1,6 +1,5 @@
-import { CartaoVoo } from "@/src/components/CartaoVoo";
 import { useLocalSearchParams, useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -31,12 +30,18 @@ type Flight = {
   numero_voo?: string;
   origem?: string;
   destino?: string;
+  origem_cidade?: string;
+  destino_cidade?: string;
   data_agendada?: string;
   horario_previsto_agendamento?: string;
+  duracao?: string;
+  duracao_minutos?: number;
+  tempo_voo?: string;
   matricula_registro?: string;
   modelo?: string;
   status?: string;
 };
+
 type Leg = {
   id: string;
   numero: number;
@@ -51,12 +56,14 @@ type Leg = {
   diario_assinado_pic?: string | null;
   diario_fechado?: number;
 };
+
 type Journey = {
   id: string;
   status: string;
   pernas: Leg[];
   funcao_tripulante?: string;
 };
+
 type Detail = {
   voo: Flight & {
     mensagem?: string | null;
@@ -67,13 +74,41 @@ type Detail = {
   jornadas: Journey[];
   hospedagens: Record<string, unknown>[];
 };
-const navy = tema.fundo,
-  card = tema.superficie,
-  border = tema.borda,
-  blue = tema.azul,
-  muted = tema.suave;
+
+const CORES = {
+  fundo: "#0B0F22",
+  card: "#141A32",
+  cardBorda: "#222A46",
+  pillBg: "#161D36",
+  amarelo: "#F5CE3E",
+  amareloTexto: "#10152B",
+  amareloSuave: "rgba(245, 206, 62, 0.14)",
+  amareloBorda: "rgba(245, 206, 62, 0.42)",
+  verde: "#34D399",
+  verdeSuave: "rgba(52, 211, 153, 0.14)",
+  azul: tema.azul,
+  muted: "#8E96B0",
+  textoSecundario: "#B6BED4",
+};
+
+const MESES_CURTOS = [
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
+];
+
 const hhmm = (v?: string | null) =>
   v ? String(v).match(/(\d{2}:\d{2})/)?.[1] || "" : "";
+
 const today = () => {
   const d = new Date();
   return [
@@ -82,14 +117,37 @@ const today = () => {
     String(d.getDate()).padStart(2, "0"),
   ].join("-");
 };
-const formatDate = (v?: string) =>
+
+const formatDateShort = (v?: string) => {
+  if (!v) return "—";
+  const clean = v.slice(0, 10);
+  const [, month, day] = clean.split("-");
+  const monthIdx = Number(month) - 1;
+  if (!day || monthIdx < 0 || monthIdx > 11) return clean;
+  return `${day} ${MESES_CURTOS[monthIdx]}`;
+};
+
+const formatDateFull = (v?: string) =>
   v ? v.slice(0, 10).split("-").reverse().join("/") : "—";
+
 const dateKey = (d: Date) =>
   [
     d.getFullYear(),
     String(d.getMonth() + 1).padStart(2, "0"),
     String(d.getDate()).padStart(2, "0"),
   ].join("-");
+
+const formatDuration = (voo: Flight) => {
+  if (voo.duracao) return voo.duracao;
+  if (voo.tempo_voo) return voo.tempo_voo;
+  if (typeof voo.duracao_minutos === "number" && voo.duracao_minutos > 0) {
+    const h = Math.floor(voo.duracao_minutos / 60);
+    const m = voo.duracao_minutos % 60;
+    return `${h}h ${String(m).padStart(2, "0")}m`;
+  }
+  return "—";
+};
+
 const normalizeStatus = (status?: string) =>
   String(status || "")
     .normalize("NFD")
@@ -97,6 +155,7 @@ const normalizeStatus = (status?: string) =>
     .trim()
     .toUpperCase()
     .replace(/[\s-]+/g, "_");
+
 const isClosedStatus = (status?: string) =>
   [
     "ENCERRADO",
@@ -108,21 +167,145 @@ const isClosedStatus = (status?: string) =>
     "CLOSED",
   ].includes(normalizeStatus(status));
 
+const STATUS_APROVAR = new Set([
+  "PENDENTE",
+  "A_APROVAR",
+  "AGUARDANDO_APROVACAO",
+]);
+
+const STATUS_APROVADOS = new Set([
+  "APROVADA",
+  "APROVADO",
+  "CONFIRMADA",
+  "CONFIRMADO",
+]);
+
+function getStatusBadge(status?: string) {
+  const norm = normalizeStatus(status);
+  if (STATUS_APROVAR.has(norm)) {
+    return {
+      label: "A aprovar",
+      bg: CORES.amareloSuave,
+      color: CORES.amarelo,
+    };
+  }
+  if (STATUS_APROVADOS.has(norm)) {
+    return {
+      label: "Aprovado",
+      bg: CORES.verdeSuave,
+      color: CORES.verde,
+    };
+  }
+  return {
+    label: status || "Agendado",
+    bg: "rgba(142, 150, 176, 0.16)",
+    color: CORES.textoSecundario,
+  };
+}
+
+function CardVooItem({
+  voo,
+  onPress,
+}: {
+  voo: Flight;
+  onPress?: () => void;
+}) {
+  const badge = getStatusBadge(voo.status);
+  const horaZ = hhmm(voo.horario_previsto_agendamento);
+  const aeronave = [voo.matricula_registro, voo.modelo]
+    .filter(Boolean)
+    .join(" · ");
+
+  const content = (
+    <View style={s.flightCard}>
+      <View style={s.cardTopRow}>
+        <Text numberOfLines={1} style={s.aircraftText}>
+          {aeronave || voo.numero_voo || "Aeronave não informada"}
+        </Text>
+        <View style={[s.statusBadge, { backgroundColor: badge.bg }]}>
+          <Text style={[s.statusBadgeText, { color: badge.color }]}>
+            {badge.label}
+          </Text>
+        </View>
+      </View>
+
+      <View style={s.routeRow}>
+        <View style={s.airportCol}>
+          <Text style={s.icaoCode}>{voo.origem || "----"}</Text>
+          <Text numberOfLines={1} style={s.cityText}>
+            {voo.origem_cidade || "Origem"}
+          </Text>
+        </View>
+
+        <View style={s.routeLineWrap}>
+          <View style={s.dashedLine} />
+          <View style={s.planeIconWrap}>
+            <Icon name="send" size={14} color={CORES.amarelo} />
+          </View>
+          <View style={s.dashedLine} />
+        </View>
+
+        <View style={[s.airportCol, { alignItems: "flex-end" }]}>
+          <Text style={s.icaoCode}>{voo.destino || "----"}</Text>
+          <Text numberOfLines={1} style={s.cityText}>
+            {voo.destino_cidade || "Destino"}
+          </Text>
+        </View>
+      </View>
+
+      <View style={s.cardFooter}>
+        <View style={s.footerCol}>
+          <Text style={s.footerLabel}>Data</Text>
+          <Text style={s.footerValue}>
+            {formatDateShort(voo.data_agendada)}
+          </Text>
+        </View>
+
+        <View style={s.footerCol}>
+          <Text style={s.footerLabel}>Horário</Text>
+          <Text style={s.footerValue}>{horaZ ? `${horaZ} Z` : "—"}</Text>
+        </View>
+
+        <View style={[s.footerCol, { alignItems: "flex-end" }]}>
+          <Text style={s.footerLabel}>Duração</Text>
+          <Text style={[s.footerValue, { color: CORES.amarelo }]}>
+            {formatDuration(voo)}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  if (!onPress) return content;
+
+  return (
+    <Toque
+      accessibilityRole="button"
+      onPress={onPress}
+      style={{ marginBottom: 14 }}
+    >
+      {content}
+    </Toque>
+  );
+}
+
 export default function AgendaScreen() {
-  const router = useRouter(),
-    insets = useSafeAreaInsets();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { vooId } = useLocalSearchParams<{ vooId?: string }>();
   const [day, setDay] = useState(today());
-  const [filter, setFilter] = useState<"operacao" | "proximos" | "historico">(
-    "operacao",
-  );
+  const [filter, setFilter] = useState<
+    "todos" | "aprovar" | "aprovados" | "historico"
+  >("todos");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchText, setSearchText] = useState("");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(today().slice(0, 7));
   const [flights, setFlights] = useState<Flight[]>([]);
   const [selected, setSelected] = useState<Detail | null>(null);
-  const [loading, setLoading] = useState(true),
-    [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [openingBriefing, setOpeningBriefing] = useState(false);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<{
@@ -178,9 +361,11 @@ export default function AgendaScreen() {
       setLoading(false);
     }
   };
+
   useEffect(() => {
     if (vooId) void openFlight(vooId);
   }, [vooId]);
+
   const saveTimes = async () => {
     if (!editing || saving) return;
     const fields = Object.entries(times).filter(([, v]) => v.trim());
@@ -249,12 +434,10 @@ export default function AgendaScreen() {
         `/api/interno/agendamento/${encodeURIComponent(voo.id)}/preparacao`,
       );
       await abrirBriefingPdf(voo.id, snapshot.versao, voo.numero_voo || "");
-    } catch (error) {
+    } catch (err) {
       Alert.alert(
         "Briefing indisponível",
-        error instanceof Error
-          ? error.message
-          : "Não foi possível abrir o PDF.",
+        err instanceof Error ? err.message : "Não foi possível abrir o PDF.",
       );
     } finally {
       setOpeningBriefing(false);
@@ -263,34 +446,71 @@ export default function AgendaScreen() {
 
   const action = (label: string, icon: Icone, onPress: () => void) => (
     <Toque accessibilityRole="button" onPress={onPress} style={s.action}>
-      <Icon name={icon} size={19} color={blue} />
+      <Icon name={icon} size={19} color={CORES.amarelo} />
       <Text style={s.actionText}>{label}</Text>
-      <Icon name="chevron-right" size={16} color={muted} />
+      <Icon name="chevron-right" size={16} color={CORES.muted} />
     </Toque>
   );
+
+  const horasMesFormatada = useMemo(() => {
+    const mesAtual = today().slice(0, 7);
+    const totalMin = flights.reduce((acc, f) => {
+      if (!String(f.data_agendada || "").startsWith(mesAtual)) return acc;
+      if (typeof f.duracao_minutos === "number") return acc + f.duracao_minutos;
+      const match = String(f.duracao || f.tempo_voo || "").match(
+        /(\d+)\s*h\s*(\d+)?/i,
+      );
+      if (match) {
+        return acc + Number(match[1]) * 60 + Number(match[2] || 0);
+      }
+      return acc;
+    }, 0);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }, [flights]);
+
+  const pendentesCount = useMemo(
+    () =>
+      flights.filter((f) => STATUS_APROVAR.has(normalizeStatus(f.status)))
+        .length,
+    [flights],
+  );
+
   const detail = selected;
+
   const visible = flights
     .filter((f) => {
       const flightDate = String(f.data_agendada || "").slice(0, 10);
-      if (filter === "operacao") return !isClosedStatus(f.status);
-      if (filter === "proximos")
-        return (
-          flightDate >= today() &&
-          (!selectedDate || flightDate === selectedDate)
-        );
-      return Boolean(flightDate) && flightDate < today();
+      const status = normalizeStatus(f.status);
+      if (selectedDate && flightDate !== selectedDate) return false;
+      if (filter === "aprovar") return STATUS_APROVAR.has(status);
+      if (filter === "aprovados") return STATUS_APROVADOS.has(status);
+      if (filter === "historico")
+        return Boolean(flightDate) && flightDate < today();
+      return !isClosedStatus(f.status);
+    })
+    .filter((f) => {
+      if (!searchText.trim()) return true;
+      const query = searchText.trim().toLowerCase();
+      return [
+        f.numero_voo,
+        f.origem,
+        f.destino,
+        f.origem_cidade,
+        f.destino_cidade,
+        f.matricula_registro,
+        f.modelo,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query));
     })
     .sort((a, b) =>
       filter === "historico"
         ? String(b.data_agendada).localeCompare(String(a.data_agendada))
         : String(a.data_agendada).localeCompare(String(b.data_agendada)),
     );
-  const current = visible[0];
-  const dates = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(day + "T12:00:00");
-    d.setDate(d.getDate() + i - 3);
-    return dateKey(d);
-  });
+
   const monthDate = new Date(`${calendarMonth}-01T12:00:00`);
   const monthDayCount = new Date(
     monthDate.getFullYear(),
@@ -308,253 +528,204 @@ export default function AgendaScreen() {
   ];
 
   return (
-    <SafeAreaView edges={["top"]} style={[s.root, { paddingTop: 10 }]}>
-      <Cabecalho
-        titulo={detail ? "Meu voo" : "Minha agenda"}
-        apoio="OPERAÇÕES DE VOO"
-        voltar={detail ? () => setSelected(null) : undefined}
-        acao={() =>
-          detail ? void openFlight(detail.voo.id, true) : void load()
-        }
-      />
+    <SafeAreaView edges={["top"]} style={s.root}>
+      {detail ? (
+        <Cabecalho
+          titulo="Meu voo"
+          apoio="DIÁRIO DE BORDO"
+          voltar={() => setSelected(null)}
+          acao={() => void openFlight(detail.voo.id, true)}
+        />
+      ) : (
+        <View style={s.header}>
+          <View>
+            <Text style={s.headerKicker}>Diário de bordo</Text>
+            <Text style={s.headerTitle}>Meus Voos</Text>
+          </View>
+          <View style={s.headerActions}>
+            <Toque
+              accessibilityRole="button"
+              accessibilityLabel="Filtrar por data"
+              onPress={() => {
+                setCalendarMonth(day.slice(0, 7));
+                setMonthPickerOpen(true);
+              }}
+              style={[
+                s.circleBtn,
+                selectedDate && { borderColor: CORES.amarelo },
+              ]}
+            >
+              <Icon
+                name="calendar"
+                size={19}
+                color={selectedDate ? CORES.amarelo : "#FFFFFF"}
+              />
+            </Toque>
+            <Toque
+              accessibilityRole="button"
+              accessibilityLabel="Buscar voos"
+              onPress={() => setSearchOpen((open) => !open)}
+              style={[
+                s.circleBtn,
+                searchOpen && { borderColor: CORES.amarelo },
+              ]}
+            >
+              <Icon
+                name="search"
+                size={20}
+                color={searchOpen ? CORES.amarelo : "#FFFFFF"}
+              />
+            </Toque>
+          </View>
+        </View>
+      )}
+
       {error ? (
         <Toque onPress={() => void load()} style={s.error}>
-          <Text style={{ color: "#ffb6b6" }}>
+          <Text style={{ color: "#ffb6b6", fontSize: 13 }}>
             {error} · Toque para tentar novamente
           </Text>
         </Toque>
       ) : null}
+
       {loading ? (
-        <ActivityIndicator style={{ marginTop: 35 }} color={blue} />
+        <ActivityIndicator style={{ marginTop: 40 }} color={CORES.amarelo} />
       ) : (
         <ScrollView
-          contentContainerStyle={{ padding: 18, paddingBottom: 120 }}
+          contentContainerStyle={{
+            paddingHorizontal: 18,
+            paddingTop: 6,
+            paddingBottom: 165,
+          }}
           showsVerticalScrollIndicator={false}
         >
           {!detail ? (
             <>
-              <View style={s.filters}>
+              {searchOpen && (
+                <TextInput
+                  value={searchText}
+                  onChangeText={setSearchText}
+                  placeholder="Buscar voo, aeroporto ou aeronave"
+                  placeholderTextColor={CORES.muted}
+                  style={s.search}
+                  autoFocus
+                />
+              )}
+
+              <View style={s.metrics}>
+                <View style={s.metricCard}>
+                  <Text style={s.metricValue}>{horasMesFormatada}</Text>
+                  <Text style={s.metricLabel}>Horas no mês</Text>
+                </View>
+
+                <View style={s.metricCard}>
+                  <Text style={s.metricValue}>{flights.length}</Text>
+                  <Text style={s.metricLabel}>Voos</Text>
+                </View>
+
+                <View style={[s.metricCard, s.metricCardPending]}>
+                  <Text
+                    style={[s.metricValue, { color: CORES.amarelo }]}
+                  >
+                    {pendentesCount}
+                  </Text>
+                  <Text style={s.metricLabel}>Pendentes</Text>
+                </View>
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={s.filterScroll}
+              >
                 {(
                   [
-                    ["operacao", "Voos em Operação"],
-                    ["proximos", "Próximos voos"],
+                    ["todos", "Todos"],
+                    ["aprovar", "A aprovar"],
+                    ["aprovados", "Aprovados"],
                     ["historico", "Histórico"],
                   ] as const
-                ).map(([id, label]) => (
-                  <Toque
-                    key={id}
-                    accessibilityRole="button"
-                    onPress={() => {
-                      setFilter(id);
-                      if (id !== "proximos") setSelectedDate(null);
-                    }}
-                    style={[s.filter, filter === id && s.activeFilter]}
-                  >
-                    <Text
-                      style={{
-                        color: filter === id ? blue : muted,
-                        fontSize: 10,
-                        fontFamily: "Inter_600SemiBold",
-                        textAlign: "center",
-                      }}
-                    >
-                      {label}
-                    </Text>
-                  </Toque>
-                ))}
-              </View>
-              {filter === "proximos" && (
-                <>
-                  <View style={s.between}>
+                ).map(([id, label]) => {
+                  const active = filter === id;
+                  return (
                     <Toque
-                      accessibilityLabel="Semana anterior"
-                      onPress={() => {
-                        const d = new Date(day + "T12:00:00");
-                        d.setDate(d.getDate() - 7);
-                        const next = dateKey(d);
-                        setDay(next);
-                        if (selectedDate) setSelectedDate(next);
-                      }}
-                      style={s.calendarArrow}
-                    >
-                      <Icon name="chevron-left" color={blue} size={18} />
-                    </Toque>
-                    <Toque
+                      key={id}
                       accessibilityRole="button"
-                      accessibilityLabel="Abrir calendário mensal"
                       onPress={() => {
-                        setCalendarMonth(day.slice(0, 7));
-                        setMonthPickerOpen(true);
+                        setFilter(id);
+                        setSelectedDate(null);
                       }}
-                      style={s.monthTitle}
+                      style={[s.filterPill, active && s.filterPillActive]}
                     >
-                      <Text style={s.rowTitle}>
-                        {new Date(day + "T12:00:00").toLocaleDateString(
-                          "pt-BR",
-                          {
-                            month: "long",
-                            year: "numeric",
-                          },
-                        )}
-                      </Text>
-                      <Icon name="calendar" size={16} color={blue} />
-                    </Toque>
-                    <Toque
-                      accessibilityLabel="Próxima semana"
-                      onPress={() => {
-                        const d = new Date(day + "T12:00:00");
-                        d.setDate(d.getDate() + 7);
-                        const next = dateKey(d);
-                        setDay(next);
-                        if (selectedDate) setSelectedDate(next);
-                      }}
-                      style={s.calendarArrow}
-                    >
-                      <Icon name="chevron-right" color={blue} size={18} />
-                    </Toque>
-                  </View>
-                  <View style={s.week}>
-                    {dates.map((d) => (
-                      <Toque
-                        key={d}
-                        accessibilityRole="button"
-                        accessibilityState={{
-                          selected: selectedDate === d,
-                          disabled: d < today(),
-                        }}
-                        disabled={d < today()}
-                        onPress={() => {
-                          setDay(d);
-                          setSelectedDate(d);
-                        }}
+                      <Text
                         style={[
-                          s.day,
-                          selectedDate === d && s.selectedDay,
-                          d < today() && s.pastDay,
+                          s.filterPillText,
+                          active && s.filterPillTextActive,
                         ]}
                       >
-                        <Text
-                          style={{
-                            fontSize: 9,
-                            color: selectedDate === d ? navy : muted,
-                            textTransform: "uppercase",
-                          }}
-                        >
-                          {new Date(d + "T12:00:00")
-                            .toLocaleDateString("pt-BR", { weekday: "short" })
-                            .replace(".", "")}
-                        </Text>
-                        <Text
-                          style={{
-                            fontSize: 18,
-                            fontFamily: "Inter_700Bold",
-                            color: selectedDate === d ? navy : "#fff",
-                            marginTop: 7,
-                          }}
-                        >
-                          {d.slice(-2)}
-                        </Text>
-                        <View
-                          style={{
-                            width: 4,
-                            height: 4,
-                            borderRadius: 2,
-                            marginTop: 7,
-                            backgroundColor: flights.some(
-                              (f) => f.data_agendada?.slice(0, 10) === d,
-                            )
-                              ? selectedDate === d
-                                ? navy
-                                : blue
-                              : "transparent",
-                          }}
-                        />
-                      </Toque>
-                    ))}
-                  </View>
-                  <View style={s.between}>
-                    <Text style={s.calendarHint}>
-                      {selectedDate
-                        ? `Filtrado por ${formatDate(selectedDate)}`
-                        : "Selecione um dia para filtrar"}
-                    </Text>
-                    {selectedDate ? (
-                      <Toque
-                        accessibilityRole="button"
-                        onPress={() => setSelectedDate(null)}
-                      >
-                        <Text style={s.clearDate}>Todos os próximos</Text>
-                      </Toque>
-                    ) : null}
-                  </View>
-                </>
-              )}
-              <Text style={s.section}>
-                {filter === "operacao"
-                  ? "VOOS EM OPERAÇÃO"
-                  : filter === "proximos"
-                    ? selectedDate
-                      ? `VOOS EM ${formatDate(selectedDate)}`
-                      : "PRÓXIMOS VOOS"
-                    : "HISTÓRICO DE VOOS"}
-              </Text>
-              {current ? (
-                <CartaoVoo
-                  key={current.id}
-                  voo={current}
-                  onPress={() => void openFlight(current.id)}
-                />
+                        {label}
+                      </Text>
+                    </Toque>
+                  );
+                })}
+              </ScrollView>
+
+              {selectedDate ? (
+                <View style={s.activeDateBanner}>
+                  <Text style={s.activeDateText}>
+                    Data selecionada: {formatDateFull(selectedDate)}
+                  </Text>
+                  <Toque
+                    accessibilityRole="button"
+                    onPress={() => setSelectedDate(null)}
+                  >
+                    <Text style={s.clearDateText}>Limpar</Text>
+                  </Toque>
+                </View>
+              ) : null}
+
+              {visible.length ? (
+                visible.map((f) => (
+                  <CardVooItem
+                    key={f.id}
+                    voo={f}
+                    onPress={() => void openFlight(f.id)}
+                  />
+                ))
               ) : (
                 <Vazio
-                  icone={filter === "operacao" ? "send" : "calendar"}
-                  titulo={
-                    filter === "proximos" && selectedDate
-                      ? "Nenhum voo neste dia"
-                      : "Nenhum voo neste período"
-                  }
-                  texto={
-                    filter === "proximos" && selectedDate
-                      ? "Escolha outra data no calendário ou veja todos os próximos voos."
-                      : filter === "operacao"
-                        ? "Não há voos em operação no momento."
-                        : "Selecione outro período ou consulte seu histórico."
-                  }
+                  icone="calendar"
+                  titulo="Nenhum voo neste filtro"
+                  texto="Altere o filtro ou use a busca para localizar outro voo."
                 />
               )}
-              {visible.length > 1 && (
-                <Text style={s.section}>
-                  OUTROS VOOS · {visible.length - 1}
-                </Text>
-              )}
-              {visible.slice(1).map((f) => (
-                <CartaoVoo
-                  key={f.id}
-                  voo={f}
-                  onPress={() => void openFlight(f.id)}
-                />
-              ))}
             </>
           ) : (
             <>
-              <CartaoVoo key={detail.voo.id} voo={detail.voo} />
+              <View style={{ marginBottom: 14 }}>
+                <CardVooItem voo={detail.voo} />
+              </View>
+
               {action("Acompanhar voo", "map", () =>
                 router.push({
                   pathname: "/acompanhar-voo",
                   params: { vooId: detail.voo.id },
                 }),
               )}
+
               <Text style={s.section}>PREPARAÇÃO E BRIEFING</Text>
               <View style={s.panel}>
                 <Text style={s.rowTitle}>Informações do briefing</Text>
-                <Text style={[s.secondary, { marginTop: 8 }]}>
+                <Text style={[s.secondary, { marginTop: 6 }]}>
                   {detail.voo.mensagem ||
                     "Nenhuma observação operacional cadastrada."}
                 </Text>
-                <Text style={[s.secondary, { marginTop: 8 }]}>
+                <Text style={[s.secondary, { marginTop: 6 }]}>
                   Piloto: {detail.voo.piloto_nome || "—"} · Copiloto:{" "}
                   {detail.voo.copiloto_nome || "—"}
                 </Text>
               </View>
+
               {action("Checklist pré-voo", "check-square", () =>
                 router.push({
                   pathname: "/preparacao-voo",
@@ -579,6 +750,7 @@ export default function AgendaScreen() {
                     params: { vooId: detail.voo.id },
                   }),
               )}
+
               <Text style={s.section}>HOSPEDAGEM DA TRIPULAÇÃO</Text>
               {detail.hospedagens.length ? (
                 detail.hospedagens.map((h, i) => (
@@ -599,6 +771,7 @@ export default function AgendaScreen() {
                   </Text>
                 </View>
               )}
+
               <Text style={s.section}>HORÁRIOS · UTC</Text>
               {detail.jornadas.length ? (
                 detail.jornadas.map((j) => (
@@ -621,8 +794,8 @@ export default function AgendaScreen() {
                             {
                               color:
                                 leg.diario_confirmado || leg.diario_assinado_pic
-                                  ? "#79dbb5"
-                                  : blue,
+                                  ? CORES.verde
+                                  : CORES.amarelo,
                             },
                           ]}
                         >
@@ -666,6 +839,19 @@ export default function AgendaScreen() {
           )}
         </ScrollView>
       )}
+
+      {!detail && !editing && (
+        <Toque
+          accessibilityRole="button"
+          accessibilityLabel="Lançar voo"
+          onPress={() => router.push("/diario-bordo")}
+          style={[s.fab, { bottom: Math.max(insets.bottom, 12) + 84 }]}
+        >
+          <Text style={s.fabPlus}>+</Text>
+          <Text style={s.fabText}>Lançar voo</Text>
+        </Toque>
+      )}
+
       <Modal
         transparent
         animationType="fade"
@@ -699,7 +885,7 @@ export default function AgendaScreen() {
                 }}
                 style={s.calendarArrow}
               >
-                <Icon name="chevron-left" color={blue} size={18} />
+                <Icon name="chevron-left" color={CORES.amarelo} size={18} />
               </Toque>
               <Text style={s.rowTitle}>
                 {monthDate.toLocaleDateString("pt-BR", {
@@ -720,7 +906,7 @@ export default function AgendaScreen() {
                 }}
                 style={s.calendarArrow}
               >
-                <Icon name="chevron-right" color={blue} size={18} />
+                <Icon name="chevron-right" color={CORES.amarelo} size={18} />
               </Toque>
             </View>
             <View style={s.monthGrid}>
@@ -734,7 +920,6 @@ export default function AgendaScreen() {
               {monthCells.map((d, index) => {
                 if (!d)
                   return <View key={`blank-${index}`} style={s.monthCell} />;
-                const isPast = d < today();
                 const isSelected = selectedDate === d;
                 const hasFlight = flights.some(
                   (f) => f.data_agendada?.slice(0, 10) === d,
@@ -746,24 +931,19 @@ export default function AgendaScreen() {
                     accessibilityLabel={new Date(
                       d + "T12:00:00",
                     ).toLocaleDateString("pt-BR", { dateStyle: "full" })}
-                    accessibilityState={{
-                      selected: isSelected,
-                      disabled: isPast,
-                    }}
-                    disabled={isPast}
+                    accessibilityState={{ selected: isSelected }}
                     onPress={() => {
                       setDay(d);
                       setSelectedDate(d);
                       setMonthPickerOpen(false);
                     }}
-                    style={[
-                      s.monthCell,
-                      isSelected && s.selectedDay,
-                      isPast && s.pastDay,
-                    ]}
+                    style={[s.monthCell, isSelected && s.selectedDay]}
                   >
                     <Text
-                      style={[s.monthCellText, isSelected && { color: navy }]}
+                      style={[
+                        s.monthCellText,
+                        isSelected && { color: CORES.amareloTexto },
+                      ]}
                     >
                       {Number(d.slice(-2))}
                     </Text>
@@ -771,7 +951,7 @@ export default function AgendaScreen() {
                       <View
                         style={[
                           s.monthCellDot,
-                          isSelected && { backgroundColor: navy },
+                          isSelected && { backgroundColor: CORES.amareloTexto },
                         ]}
                       />
                     ) : null}
@@ -788,14 +968,15 @@ export default function AgendaScreen() {
                 }}
                 style={s.clearMonthDate}
               >
-                <Text style={s.clearDate}>
-                  Remover filtro de data · ver todos os próximos
+                <Text style={s.clearDateText}>
+                  Remover filtro de data · ver todos os voos
                 </Text>
               </Toque>
             ) : null}
           </View>
         </View>
       </Modal>
+
       {editing && (
         <View style={[s.editor, { bottom: insets.bottom + 12 }]}>
           <View style={s.between}>
@@ -822,7 +1003,7 @@ export default function AgendaScreen() {
                 <TextInput
                   style={s.input}
                   placeholder="HH:MM"
-                  placeholderTextColor={muted}
+                  placeholderTextColor={CORES.muted}
                   keyboardType="numbers-and-punctuation"
                   value={times[key]}
                   onChangeText={(v) => setTimes((p) => ({ ...p, [key]: v }))}
@@ -846,70 +1027,249 @@ export default function AgendaScreen() {
 }
 
 const s = StyleSheet.create({
-  filters: {
-    flexDirection: "row",
-    padding: 5,
-    borderRadius: 16,
-    backgroundColor: card,
-    gap: 5,
-    marginBottom: 20,
-  },
-  filter: {
+  root: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: "center",
+    backgroundColor: CORES.fundo,
   },
-  activeFilter: { backgroundColor: "#153752" },
-  week: { flexDirection: "row", gap: 5, marginTop: 15 },
-  monthTitle: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 8,
-  },
-  calendarHint: { color: muted, fontSize: 11, marginTop: 12 },
-  clearDate: { color: blue, fontSize: 11, fontFamily: "Inter_600SemiBold" },
-  pastDay: { opacity: 0.35 },
-  day: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 13,
-    borderRadius: 18,
-    backgroundColor: card,
-  },
-  selectedDay: { backgroundColor: blue, borderColor: blue },
-  calendarArrow: { padding: 10, borderRadius: 12, backgroundColor: card },
-  root: { flex: 1, backgroundColor: navy },
-  top: {
-    paddingHorizontal: 20,
-    paddingVertical: 18,
+  header: {
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  kicker: { color: blue, fontSize: 10, letterSpacing: 2.2, fontWeight: "800" },
-  heading: { color: "#fff", fontSize: 29, fontWeight: "800", marginTop: 7 },
-  iconBtn: {
+  headerKicker: {
+    color: CORES.muted,
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
+  headerTitle: {
+    color: "#FFFFFF",
+    fontSize: 28,
+    fontFamily: "Inter_700Bold",
+    marginTop: 2,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  circleBtn: {
     width: 44,
     height: 44,
-    backgroundColor: card,
-    borderRadius: 14,
+    borderRadius: 22,
+    backgroundColor: CORES.card,
+    borderWidth: 1,
+    borderColor: CORES.cardBorda,
     alignItems: "center",
     justifyContent: "center",
   },
-  section: {
-    color: muted,
+  search: {
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: CORES.card,
+    borderWidth: 1,
+    borderColor: CORES.cardBorda,
+    color: "#FFFFFF",
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  metrics: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 18,
+  },
+  metricCard: {
+    flex: 1,
+    minHeight: 84,
+    borderRadius: 18,
+    backgroundColor: CORES.card,
+    borderWidth: 1,
+    borderColor: CORES.cardBorda,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+  },
+  metricCardPending: {
+    backgroundColor: "#1B1E2E",
+    borderColor: CORES.amareloBorda,
+  },
+  metricValue: {
+    color: "#FFFFFF",
+    fontFamily: "Inter_700Bold",
+    fontSize: 22,
+  },
+  metricLabel: {
+    color: CORES.muted,
+    fontFamily: "Inter_500Medium",
     fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1.8,
-    marginTop: 24,
-    marginBottom: 12,
+    marginTop: 4,
+  },
+  filterScroll: {
+    gap: 10,
+    paddingBottom: 18,
+  },
+  filterPill: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: CORES.pillBg,
+    borderWidth: 1,
+    borderColor: CORES.cardBorda,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterPillActive: {
+    backgroundColor: CORES.amarelo,
+    borderColor: CORES.amarelo,
+  },
+  filterPillText: {
+    color: CORES.textoSecundario,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
+  },
+  filterPillTextActive: {
+    color: CORES.amareloTexto,
+    fontFamily: "Inter_700Bold",
+  },
+  activeDateBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: CORES.card,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 14,
+  },
+  activeDateText: {
+    color: CORES.textoSecundario,
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+  },
+  clearDateText: {
+    color: CORES.amarelo,
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
   },
   flightCard: {
-    backgroundColor: tema.superficie,
-    borderRadius: 23,
-    padding: 20,
+    backgroundColor: CORES.card,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: CORES.cardBorda,
+    padding: 18,
+  },
+  cardTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  aircraftText: {
+    flex: 1,
+    color: CORES.muted,
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  routeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 16,
+    marginBottom: 18,
+    gap: 10,
+  },
+  airportCol: {
+    minWidth: 76,
+  },
+  icaoCode: {
+    color: "#FFFFFF",
+    fontSize: 23,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.5,
+  },
+  cityText: {
+    color: CORES.muted,
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    marginTop: 2,
+  },
+  routeLineWrap: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  dashedLine: {
+    flex: 1,
+    height: 1,
+    borderBottomWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "#333D5E",
+  },
+  planeIconWrap: {
+    transform: [{ rotate: "45deg" }],
+  },
+  cardFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: CORES.cardBorda,
+  },
+  footerCol: {
+    flex: 1,
+  },
+  footerLabel: {
+    color: CORES.muted,
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+  },
+  footerValue: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    marginTop: 3,
+  },
+  fab: {
+    position: "absolute",
+    right: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: CORES.amarelo,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 999,
+    shadowColor: "#000000",
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 12,
+  },
+  fabPlus: {
+    color: CORES.amareloTexto,
+    fontSize: 20,
+    fontFamily: "Inter_700Bold",
+    lineHeight: 22,
+  },
+  fabText: {
+    color: CORES.amareloTexto,
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
   },
   between: {
     flexDirection: "row",
@@ -917,57 +1277,64 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     gap: 8,
   },
-  flightNo: { fontSize: 20, fontWeight: "800", color: "#fff" },
-  status: {
-    color: "#72dfbb",
+  section: {
+    color: CORES.muted,
     fontSize: 11,
     fontWeight: "800",
-    textTransform: "uppercase",
+    letterSpacing: 1.8,
+    marginTop: 22,
+    marginBottom: 12,
   },
-  route: {
-    fontSize: 29,
-    fontWeight: "800",
-    color: "#fff",
-    marginTop: 20,
-    marginBottom: 8,
+  secondary: {
+    fontSize: 13,
+    color: CORES.muted,
+    lineHeight: 21,
   },
-  secondary: { fontSize: 13, color: muted, lineHeight: 21 },
-  link: { color: blue, fontSize: 13, fontWeight: "700", marginTop: 8 },
-  listRow: {
-    backgroundColor: card,
-    borderRadius: 16,
-    padding: 17,
-    marginBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+  link: {
+    color: CORES.amarelo,
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 8,
   },
-  rowTitle: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  rowTitle: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
+  },
   panel: {
-    backgroundColor: card,
+    backgroundColor: CORES.card,
     borderRadius: 18,
+    borderWidth: 1,
+    borderColor: CORES.cardBorda,
     padding: 16,
     gap: 5,
     marginBottom: 10,
   },
   action: {
-    backgroundColor: card,
-    padding: 18,
+    backgroundColor: CORES.card,
+    borderWidth: 1,
+    borderColor: CORES.cardBorda,
+    padding: 16,
     borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
-  actionText: { color: "#fff", fontWeight: "700", flex: 1 },
+  actionText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    flex: 1,
+  },
   leg: {
     borderTopWidth: 1,
-    borderTopColor: border,
+    borderTopColor: CORES.cardBorda,
     marginTop: 12,
     paddingTop: 12,
     gap: 5,
   },
   error: {
     marginHorizontal: 18,
+    marginBottom: 10,
     padding: 14,
     backgroundColor: "#4b202a",
     borderRadius: 12,
@@ -976,9 +1343,9 @@ const s = StyleSheet.create({
     position: "absolute",
     left: 12,
     right: 12,
-    backgroundColor: "#14263f",
+    backgroundColor: "#141D38",
     borderWidth: 1,
-    borderColor: blue,
+    borderColor: CORES.amarelo,
     borderRadius: 22,
     padding: 18,
     elevation: 15,
@@ -991,22 +1358,25 @@ const s = StyleSheet.create({
     marginVertical: 14,
   },
   input: {
-    backgroundColor: navy,
+    backgroundColor: CORES.fundo,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: border,
+    borderColor: CORES.cardBorda,
     padding: 12,
-    color: "#fff",
+    color: "#FFFFFF",
     fontSize: 17,
   },
   primary: {
-    backgroundColor: blue,
+    backgroundColor: CORES.amarelo,
     borderRadius: 12,
     minHeight: 48,
     alignItems: "center",
     justifyContent: "center",
   },
-  primaryText: { color: navy, fontWeight: "800" },
+  primaryText: {
+    color: CORES.amareloTexto,
+    fontWeight: "800",
+  },
   modalBackdrop: {
     flex: 1,
     justifyContent: "center",
@@ -1014,15 +1384,25 @@ const s = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.72)",
   },
   monthSheet: {
-    backgroundColor: card,
+    backgroundColor: CORES.card,
     borderRadius: 24,
+    borderWidth: 1,
+    borderColor: CORES.cardBorda,
     padding: 20,
   },
-  monthSheetTitle: { color: "#fff", fontSize: 18, fontFamily: "Inter_700Bold" },
-  monthGrid: { flexDirection: "row", flexWrap: "wrap", marginTop: 18 },
+  monthSheetTitle: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+  },
+  monthGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 18,
+  },
   weekdayLabel: {
     width: `${100 / 7}%`,
-    color: muted,
+    color: CORES.muted,
     textAlign: "center",
     fontSize: 10,
     fontFamily: "Inter_600SemiBold",
@@ -1036,7 +1416,7 @@ const s = StyleSheet.create({
     borderRadius: 12,
   },
   monthCellText: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontSize: 13,
     fontFamily: "Inter_600SemiBold",
   },
@@ -1044,9 +1424,20 @@ const s = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: blue,
+    backgroundColor: CORES.amarelo,
     position: "absolute",
     bottom: 4,
   },
-  clearMonthDate: { alignItems: "center", paddingTop: 18 },
+  selectedDay: {
+    backgroundColor: CORES.amarelo,
+  },
+  calendarArrow: {
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: CORES.pillBg,
+  },
+  clearMonthDate: {
+    alignItems: "center",
+    paddingTop: 18,
+  },
 });

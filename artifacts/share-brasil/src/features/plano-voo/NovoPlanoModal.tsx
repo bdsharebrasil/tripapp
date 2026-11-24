@@ -23,7 +23,9 @@ import {
   StatusPlano,
   VooSolicitacao,
   buscarClima,
+  buscarRota,
   corMetar,
+  AeronaveSolicitacao,
   criarFormulario,
   mensagemErro,
 } from "./modelo";
@@ -46,6 +48,10 @@ export function NovoPlanoModal({
   const [voos, setVoos] = useState<VooSolicitacao[]>([]);
   const [carregandoVoos, setCarregandoVoos] = useState(false);
   const [erroVoos, setErroVoos] = useState("");
+  const [aeronaves, setAeronaves] = useState<AeronaveSolicitacao[]>([]);
+  const [carregandoAeronaves, setCarregandoAeronaves] = useState(false);
+  const [aeronaveAberta, setAeronaveAberta] = useState(false);
+  const [calculandoRota, setCalculandoRota] = useState(false);
 
   const partidaIcao = form.partida.trim().toUpperCase();
   const chegadaIcao = form.chegada.trim().toUpperCase();
@@ -88,6 +94,62 @@ export function NovoPlanoModal({
   useEffect(() => {
     if (!visivel) return;
     let ativo = true;
+    setCarregandoAeronaves(true);
+    apiFetch<{ aeronaves: Record<string, any>[] }>("/api/sharebrasil/aeronaves")
+      .then((r) => {
+        if (!ativo) return;
+        setAeronaves(
+          (r.aeronaves || []).map((row) => ({
+            id: row.id,
+            registration:
+              row.registration || row.matricula_registro || row.matricula || "",
+            matricula:
+              row.matricula || row.matricula_registro || row.registration || "",
+            matricula_registro:
+              row.matricula_registro || row.registration || row.matricula || "",
+            model: row.model || row.modelo || "",
+            modelo: row.modelo || row.model || "",
+            manufacturer: row.manufacturer || row.fabricante || "",
+            fabricante: row.fabricante || row.manufacturer || "",
+            fuel_consumption: row.fuel_consumption,
+          })),
+        );
+      })
+      .catch(async () => {
+        if (!ativo) return;
+        try {
+          const r = await apiFetch<{
+            aeronaves: Array<{
+              id: string;
+              registration?: string;
+              model?: string;
+            }>;
+          }>("/api/ctm/relatorios-manutencao");
+          setAeronaves(
+            (r.aeronaves || []).map((row) => ({
+              id: row.id,
+              registration: row.registration,
+              matricula_registro: row.registration,
+              matricula: row.registration,
+              model: row.model,
+              modelo: row.model,
+            })),
+          );
+        } catch {
+          setAeronaves([]);
+        }
+      })
+      .finally(() => {
+        if (ativo) setCarregandoAeronaves(false);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [visivel]);
+
+  useEffect(() => {
+    if (!visivel) return;
+    let ativo = true;
     setCarregandoVoos(true);
     setErroVoos("");
     apiFetch<{ voos: VooSolicitacao[] }>(
@@ -110,6 +172,54 @@ export function NovoPlanoModal({
     };
   }, [visivel]);
 
+  const selecionarAeronave = (aeronave: AeronaveSolicitacao) => {
+    setForm((atual) => ({
+      ...atual,
+      aeronaveId: aeronave.id,
+      aeronave:
+        [aeronave.manufacturer || aeronave.fabricante, aeronave.model || aeronave.modelo]
+          .filter(Boolean)
+          .join(" "),
+      matricula:
+        aeronave.registration ||
+        aeronave.matricula_registro ||
+        aeronave.matricula ||
+        "",
+    }));
+    setAeronaveAberta(false);
+  };
+
+  const calcularRota = async () => {
+    if (!icaoValidos) {
+      avisar("Rota incompleta", "Informe origem e destino com 4 letras ICAO.");
+      return;
+    }
+    setCalculandoRota(true);
+    try {
+      const rota = await buscarRota(partidaIcao, chegadaIcao);
+      if (rota.error) {
+        avisar("Não foi possível calcular", rota.error);
+        return;
+      }
+      setForm((atual) => ({
+        ...atual,
+        trecho:
+          rota.flightplan?.route ||
+          `${partidaIcao}-${chegadaIcao}`,
+        estimativaVoo:
+          rota.flightplan?.estimated_time || atual.estimativaVoo,
+        combustivelPrevisto:
+          rota.fuel?.total_required != null
+            ? String(Math.round(rota.fuel.total_required))
+            : atual.combustivelPrevisto,
+      }));
+    } catch (e) {
+      avisar("Não foi possível calcular", mensagemErro(e));
+    } finally {
+      setCalculandoRota(false);
+    }
+  };
+
   const selecionarVoo = (voo: VooSolicitacao) =>
     setForm((atual) => ({
       ...atual,
@@ -120,10 +230,13 @@ export function NovoPlanoModal({
     }));
 
   const enviar = async (status: StatusPlano) => {
-    if (!icaoValidos || !form.data.trim()) {
+    const dataValida = /^\d{4}-\d{2}-\d{2}$/.test(form.data.trim());
+    const alternativoValido =
+      !form.alternates.trim() || /^[A-Z]{4}$/.test(form.alternates.trim().toUpperCase());
+    if (!icaoValidos || !dataValida || !alternativoValido) {
       avisar(
         "Campos obrigatórios",
-        "Preencha partida e chegada (ICAO, 4 letras) e a data.",
+        "Preencha partida e chegada (ICAO, 4 letras), use data AAAA-MM-DD e informe um alternado válido com 4 letras.",
       );
       return;
     }
@@ -134,6 +247,7 @@ export function NovoPlanoModal({
       trecho: form.trecho.trim() || `${partidaIcao}-${chegadaIcao}`,
       data: form.data.trim(),
       aeronave: form.aeronave.trim(),
+      aeronaveId: form.aeronaveId,
       matricula: form.matricula.trim().toUpperCase(),
       horaPrevista: form.horaPrevista.trim(),
       estimativaVoo: form.estimativaVoo.trim(),
@@ -311,24 +425,70 @@ export function NovoPlanoModal({
             autoCapitalize="characters"
           />
 
+          <View style={mStyles.calcularLinha}>
+            <Text style={[mStyles.secaoInline, { color: colors.mutedForeground }]}>ROTA</Text>
+            <Toque
+              disabled={calculandoRota || !icaoValidos}
+              onPress={() => void calcularRota()}
+              style={[mStyles.calcularBtn, { backgroundColor: colors.primary }]}
+            >
+              {calculandoRota ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Icon name="navigation" size={16} color="#FFFFFF" />
+              )}
+              <Text style={mStyles.calcularText}>Calcular rota</Text>
+            </Toque>
+          </View>
+
           <Text style={[mStyles.secao, { color: colors.mutedForeground }]}>
             AERONAVE E DATA
           </Text>
-          <View style={mStyles.row}>
-            <Campo
-              rotulo="Aeronave"
-              colors={colors}
-              value={form.aeronave}
-              onChangeText={(v) => set("aeronave", v)}
-            />
-            <Campo
-              rotulo="Matrícula"
-              colors={colors}
-              value={form.matricula}
-              onChangeText={(v) => set("matricula", v)}
-              autoCapitalize="characters"
-            />
+          <View>
+            <Text style={[mStyles.label, { color: colors.foreground }]}>Aeronave</Text>
+            <Toque
+              accessibilityRole="button"
+              onPress={() => setAeronaveAberta((aberta) => !aberta)}
+              style={[mStyles.input, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }]}
+            >
+              <Text numberOfLines={1} style={{ color: form.aeronave ? colors.foreground : colors.mutedForeground, flex: 1 }}>
+                {carregandoAeronaves
+                  ? "Carregando aeronaves…"
+                  : form.aeronave
+                    ? `${form.matricula} · ${form.aeronave}`
+                    : "Selecionar aeronave"}
+              </Text>
+              <Icon name="chevron-down" size={18} color={colors.mutedForeground} />
+            </Toque>
+            {aeronaveAberta && (
+              <View style={{ maxHeight: 180, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, marginBottom: 10, overflow: "hidden" }}>
+                {aeronaves.map((aeronave) => (
+                  <Toque
+                    key={aeronave.id}
+                    onPress={() => selecionarAeronave(aeronave)}
+                    style={{ padding: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }}
+                  >
+                    <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14 }}>
+                      {aeronave.registration || aeronave.matricula_registro || aeronave.matricula}
+                    </Text>
+                    <Text style={{ color: colors.mutedForeground, fontSize: 12, marginTop: 2 }}>
+                      {[aeronave.manufacturer || aeronave.fabricante, aeronave.model || aeronave.modelo].filter(Boolean).join(" ")}
+                    </Text>
+                  </Toque>
+                ))}
+                {!aeronaves.length && !carregandoAeronaves && (
+                  <Text style={{ color: colors.mutedForeground, padding: 12, fontSize: 12 }}>Nenhuma aeronave disponível</Text>
+                )}
+              </View>
+            )}
           </View>
+          <Campo
+            rotulo="Matrícula"
+            colors={colors}
+            value={form.matricula}
+            editable={false}
+            autoCapitalize="characters"
+          />
           <View style={mStyles.row}>
             <Campo
               rotulo="Data *"
@@ -488,6 +648,10 @@ export const mStyles = StyleSheet.create({
     textAlignVertical: "top",
   },
   chipRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
+  calcularLinha: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12 },
+  secaoInline: { fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 1 },
+  calcularBtn: { minHeight: 38, borderRadius: 10, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 7 },
+  calcularText: { color: "#FFFFFF", fontSize: 13, fontFamily: "Inter_700Bold" },
   chip: { borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8 },
   chipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   rascunhoBtn: { borderRadius: 12, padding: 14, alignItems: "center" },

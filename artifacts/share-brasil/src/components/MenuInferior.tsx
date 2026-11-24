@@ -1,56 +1,77 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Tabs, useRouter, type Href } from "expo-router";
+import { Tabs, useRouter, useSegments, type Href } from "expo-router";
 import {
   AccessibilityInfo,
   Animated,
   Easing,
   Keyboard,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Icon, Toque, tema, type Icone } from "./ui";
+import { Icon, Toque, type Icone } from "./ui";
 
 type Props = Parameters<
   NonNullable<React.ComponentProps<typeof Tabs>["tabBar"]>
 >[0];
+
+const CORES = {
+  barra: "#10152B",
+  amarelo: "#F5CE3E",
+  bordaCentral: "#FFFFFF",
+  iconeInativo: "#8E96B0",
+};
+
+const ORDEM_ROTAS = [
+  "agenda",
+  "diario",
+  "index",
+  "plano-voo",
+  "perfil",
+] as const;
+
 const itens: Record<string, { titulo: string; icone: Icone }> = {
+  agenda: { titulo: "Voos", icone: "send" },
+  diario: { titulo: "Diário", icone: "file-text" },
   index: { titulo: "Início", icone: "home" },
-  agenda: { titulo: "Meus voos", icone: "send" },
-  "plano-voo": { titulo: "Plano de voo", icone: "map" },
-  "despesa-viagem": { titulo: "Despesas", icone: "file-text" },
-  diario: { titulo: "Diário", icone: "book-open" },
-  manutencao: { titulo: "Manutenção", icone: "tool" },
-  financeiro: { titulo: "Financeiro", icone: "credit-card" },
+  "plano-voo": { titulo: "Plano", icone: "navigation" },
   perfil: { titulo: "Perfil", icone: "user" },
 };
-const LARGURA_ITEM = 76;
+
 function Item({
   titulo,
   icone,
+  isHome,
   ativo,
   reduzir,
   onPress,
 }: {
   titulo: string;
   icone: Icone;
+  isHome: boolean;
   ativo: boolean;
   reduzir: boolean;
   onPress: () => void;
 }) {
   const anim = useRef(new Animated.Value(ativo ? 1 : 0)).current;
+
   useEffect(() => {
     const run = Animated.timing(anim, {
       toValue: ativo ? 1 : 0,
-      duration: reduzir ? 0 : 220,
+      duration: reduzir ? 0 : 200,
       easing: Easing.bezier(0.23, 1, 0.32, 1),
       useNativeDriver: true,
     });
     run.start();
     return () => run.stop();
   }, [ativo, reduzir, anim]);
+
+  const homeScale = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.96, 1.03],
+  });
+
   return (
     <Toque
       haptico="selecao"
@@ -61,34 +82,116 @@ function Item({
       onPress={onPress}
       style={s.item}
     >
-      <View style={s.iconWrap}>
-        <Animated.View
-          style={[
-            StyleSheet.absoluteFill,
-            s.indicador,
-            { opacity: anim, transform: [{ scaleX: anim }] },
-          ]}
-        />
-        <Icon
-          name={icone}
-          size={22}
-          strokeWidth={ativo ? 2.4 : 2}
-          color={ativo ? tema.destaque : tema.suave}
-        />
-      </View>
-      <Text numberOfLines={1} style={[s.label, ativo && { color: tema.texto }]}>
+      {isHome ? (
+        <View style={s.homeSlot}>
+          <Animated.View
+            style={[
+              s.homeOuter,
+              ativo && s.homeOuterAtivo,
+              { transform: [{ scale: homeScale }] },
+            ]}
+          >
+            <View style={s.homeInner}>
+              <Icon
+                name={icone}
+                size={25}
+                strokeWidth={2.5}
+                color={CORES.barra}
+              />
+            </View>
+          </Animated.View>
+        </View>
+      ) : (
+        <View style={s.iconWrap}>
+          <Icon
+            name={icone}
+            size={22}
+            strokeWidth={ativo ? 2.4 : 1.9}
+            color={ativo ? CORES.amarelo : CORES.iconeInativo}
+          />
+        </View>
+      )}
+
+      <Text
+        numberOfLines={1}
+        style={[s.label, ativo && s.labelAtivo]}
+      >
         {titulo}
       </Text>
     </Toque>
   );
 }
+
+export function MenuInferiorGlobal() {
+  const router = useRouter();
+  const segments = useSegments();
+  const insets = useSafeAreaInsets();
+  const [keyboard, setKeyboard] = useState(false);
+  const [reduzir, setReduzir] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((v) => {
+      if (active) setReduzir(v);
+    });
+    const show = Keyboard.addListener("keyboardDidShow", () => setKeyboard(true));
+    const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboard(false));
+    return () => {
+      active = false;
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
+  if (keyboard) return null;
+
+  const raiz = String(segments[0] || "");
+  const segunda = String(segments[1] || "");
+  let selected = "index";
+  if (raiz === "(tabs)") {
+    selected = itens[segunda] ? segunda : "index";
+  } else if (["diario-bordo", "novo-lancamento", "relatorio-viagem", "relatorio-voo"].includes(raiz)) {
+    selected = "diario";
+  } else if (raiz === "plano-voo") {
+    selected = "plano-voo";
+  } else if (["perfil", "minhas-horas", "ferias"].includes(raiz)) {
+    selected = "perfil";
+  } else if (raiz === "agenda") {
+    selected = "agenda";
+  }
+
+  return (
+    <View
+      accessibilityRole="tablist"
+      style={[s.bar, { zIndex: 1000, elevation: 1000, paddingBottom: Math.max(10, insets.bottom) }]}
+    >
+      <View style={s.items}>
+        {ORDEM_ROTAS.map((nome) => (
+          <Item
+            key={nome}
+            {...itens[nome]}
+            isHome={nome === "index"}
+            ativo={nome === selected}
+            reduzir={reduzir}
+            onPress={() => {
+              if (nome !== selected) {
+                const path = nome === "index" ? "/(tabs)" : `/(tabs)/${nome}`;
+                router.navigate(path as Href);
+              }
+            }}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
 export function MenuInferior({ state }: Props) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
-  const [largura, setLargura] = useState(0);
-  const [keyboard, setKeyboard] = useState(false),
-    [reduzir, setReduzir] = useState(true);
+  const [keyboard, setKeyboard] = useState(false);
+  const [reduzir, setReduzir] = useState(true);
+
   useEffect(() => {
     let active = true;
     void AccessibilityInfo.isReduceMotionEnabled().then((v) => {
@@ -111,38 +214,27 @@ export function MenuInferior({ state }: Props) {
       hide.remove();
     };
   }, []);
-  const rotas = state.routes.filter((r) => itens[r.name]);
-  const selected = state.routes[state.index].name;
-  const visible = itens[selected] ? selected : "agenda";
-  const indice = rotas.findIndex((r) => r.name === visible);
-  useEffect(() => {
-    if (keyboard || !largura || indice < 0) return;
-    const x = indice * LARGURA_ITEM - (largura - LARGURA_ITEM) / 2;
-    scroll.current?.scrollTo({ x: Math.max(0, x), animated: !reduzir });
-  }, [indice, largura, reduzir, keyboard]);
+
   if (keyboard) return null;
+
+  const rotas = ORDEM_ROTAS.map((nome) =>
+    state.routes.find((r) => r.name === nome),
+  ).filter((r): r is (typeof state.routes)[number] => Boolean(r));
+
+  const selected = state.routes[state.index]?.name ?? "index";
+  const visible = itens[selected] ? selected : "index";
+
   return (
     <View
       accessibilityRole="tablist"
-      style={[s.bar, { paddingBottom: Math.max(8, insets.bottom) }]}
-      onLayout={(e) => setLargura(e.nativeEvent.layout.width)}
+      style={[s.bar, { paddingBottom: Math.max(10, insets.bottom) }]}
     >
-      <ScrollView
-        ref={scroll}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[
-          s.items,
-          largura >= rotas.length * LARGURA_ITEM && {
-            flexGrow: 1,
-            justifyContent: "space-around",
-          },
-        ]}
-      >
+      <View style={s.items}>
         {rotas.map((route) => (
           <Item
             key={route.key}
             {...itens[route.name]}
+            isHome={route.name === "index"}
             ativo={route.name === visible}
             reduzir={reduzir}
             onPress={() => {
@@ -154,39 +246,91 @@ export function MenuInferior({ state }: Props) {
             }}
           />
         ))}
-      </ScrollView>
+      </View>
     </View>
   );
 }
+
 const s = StyleSheet.create({
   bar: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    paddingTop: 8,
-    backgroundColor: tema.superficie,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tema.borda,
+    paddingTop: 10,
+    paddingHorizontal: 10,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    backgroundColor: CORES.barra,
+    overflow: "visible",
+    shadowColor: "#000000",
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: -6 },
+    elevation: 16,
   },
-  items: { flexDirection: "row", alignItems: "center" },
+  items: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    overflow: "visible",
+  },
   item: {
-    width: LARGURA_ITEM,
-    minHeight: 56,
+    flex: 1,
+    minHeight: 54,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-end",
     gap: 4,
+    overflow: "visible",
   },
   iconWrap: {
-    width: 60,
-    height: 32,
+    width: 32,
+    height: 30,
     alignItems: "center",
     justifyContent: "center",
   },
-  indicador: { borderRadius: 16, backgroundColor: tema.destaque + "26" },
+  homeSlot: {
+    width: 68,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    overflow: "visible",
+  },
+  homeOuter: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    marginBottom: 2,
+    backgroundColor: CORES.bordaCentral,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000000",
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 10,
+  },
+  homeOuterAtivo: {
+    shadowColor: CORES.amarelo,
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  homeInner: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: CORES.amarelo,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   label: {
-    color: tema.suave,
+    color: CORES.iconeInativo,
     fontFamily: "Inter_600SemiBold",
     fontSize: 11,
+    lineHeight: 14,
+  },
+  labelAtivo: {
+    color: CORES.amarelo,
   },
 });
