@@ -54,11 +54,6 @@ type Detail = {
   jornadas: Journey[];
 };
 type Metrics = { horas_totais?: number; voos_escalados?: number };
-const BG = tema.fundo,
-  CARD = tema.superficie,
-  BORDER = tema.borda,
-  BLUE = tema.azul,
-  MUTED = "#a3b5ca";
 const date = (d?: string) =>
   d ? d.slice(0, 10).split("-").reverse().join("/") : "—";
 const time = (d?: string) => (d ? d.match(/\d{2}:\d{2}/)?.[0] || "—" : "—");
@@ -127,14 +122,14 @@ export default function RelatorioVooScreen() {
         </Toque>
       )}
       {loading ? (
-        <ActivityIndicator color={BLUE} style={{ marginTop: 35 }} />
+        <ActivityIndicator color={tema.azul} style={{ marginTop: 35 }} />
       ) : (
         <ScrollView
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => void load(true)}
-              tintColor={BLUE}
+              tintColor={tema.azul}
             />
           }
           contentContainerStyle={{
@@ -240,7 +235,7 @@ export default function RelatorioVooScreen() {
                   })
                 }
               >
-                <Icon name="book-open" color={BG} size={18} />
+                <Icon name="book-open" color={tema.fundo} size={18} />
                 <Text style={s.actionText}>
                   Completar Diário e assinar como CMTE
                 </Text>
@@ -249,7 +244,7 @@ export default function RelatorioVooScreen() {
                 style={s.action}
                 onPress={() => router.push("/(tabs)/agenda")}
               >
-                <Icon name="edit-3" color={BG} size={18} />
+                <Icon name="edit-3" color={tema.fundo} size={18} />
                 <Text style={s.actionText}>Abrir Agenda operacional</Text>
               </Toque>
             </>
@@ -260,7 +255,7 @@ export default function RelatorioVooScreen() {
   );
 }
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
+  root: { flex: 1, backgroundColor: tema.fundo },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -272,17 +267,20 @@ const s = StyleSheet.create({
     height: 44,
     width: 44,
     borderRadius: 13,
-    backgroundColor: CARD,
+    backgroundColor: tema.superficie,
     alignItems: "center",
     justifyContent: "center",
   },
-  kicker: { color: BLUE, fontSize: 10, fontWeight: "800", letterSpacing: 1.6 },
+  kicker: {
+    color: tema.azul,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1.6,
+  },
   title: { fontSize: 24, fontWeight: "800", color: "#fff", marginTop: 4 },
   card: {
-    backgroundColor: CARD,
-    borderColor: BORDER,
-    borderWidth: 1,
-    borderRadius: 17,
+    backgroundColor: tema.superficie,
+    borderRadius: 18,
     padding: 16,
     marginBottom: 12,
   },
@@ -295,11 +293,11 @@ const s = StyleSheet.create({
   flight: { fontSize: 17, fontWeight: "800", color: "#fff" },
   tag: { color: "#98e3c8", fontSize: 11, textTransform: "uppercase" },
   route: { color: "#fff", fontSize: 22, fontWeight: "800", marginVertical: 9 },
-  muted: { fontSize: 12, color: MUTED, lineHeight: 19, marginTop: 5 },
+  muted: { fontSize: 12, color: tema.suave, lineHeight: 19, marginTop: 5 },
   section: {
     fontSize: 11,
     fontWeight: "800",
-    color: MUTED,
+    color: tema.suave,
     letterSpacing: 1.3,
     marginTop: 16,
     marginBottom: 12,
@@ -315,10 +313,10 @@ const s = StyleSheet.create({
   },
   metric: { flex: 1, alignItems: "center" },
   value: { fontSize: 25, fontWeight: "800", color: "#fff" },
-  link: { fontSize: 13, color: BLUE, fontWeight: "700", marginTop: 13 },
+  link: { fontSize: 13, color: tema.azul, fontWeight: "700", marginTop: 13 },
   leg: {
     borderTopWidth: 1,
-    borderTopColor: BORDER,
+    borderTopColor: tema.borda,
     paddingTop: 13,
     marginTop: 13,
   },
@@ -331,7 +329,7 @@ const s = StyleSheet.create({
   },
   action: {
     minHeight: 55,
-    backgroundColor: BLUE,
+    backgroundColor: tema.azul,
     borderRadius: 14,
     flexDirection: "row",
     alignItems: "center",
@@ -339,5 +337,5 @@ const s = StyleSheet.create({
     gap: 10,
     marginTop: 10,
   },
-  actionText: { color: BG, fontSize: 15, fontWeight: "800" },
+  actionText: { color: tema.fundo, fontSize: 15, fontWeight: "800" },
 });

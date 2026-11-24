@@ -55,11 +55,6 @@ type Expense = {
   valorTexto?: string;
 };
 const BASE = "/api/financeiro/relatorios-despesa-viagem";
-const BG = tema.fundo,
-  CARD = tema.superficie,
-  EDGE = tema.borda,
-  BLUE = tema.azul,
-  MUTED = tema.suave;
 const CATEGORIES = [
   "Alimentação",
   "Hospedagem",
@@ -562,7 +557,7 @@ export default function RelatorioViagemScreen() {
       )}
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator color={BLUE} />
+          <ActivityIndicator color={tema.azul} />
           <Text style={styles.muted}>Carregando suas despesas…</Text>
         </View>
       ) : (
@@ -572,7 +567,7 @@ export default function RelatorioViagemScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => void load(true)}
-              tintColor={BLUE}
+              tintColor={tema.azul}
             />
           }
           keyboardShouldPersistTaps="handled"
@@ -591,7 +586,10 @@ export default function RelatorioViagemScreen() {
                     style={[styles.tab, section === t && styles.tabActive]}
                   >
                     <Text
-                      style={[styles.tabText, section === t && { color: BG }]}
+                      style={[
+                        styles.tabText,
+                        section === t && { color: tema.fundo },
+                      ]}
                     >
                       {t === "lancamentos"
                         ? "Lançar despesas"
@@ -656,7 +654,7 @@ export default function RelatorioViagemScreen() {
                         </View>
                         <View style={styles.startAction}>
                           {busy === `start-${flightNo(f)}` ? (
-                            <ActivityIndicator color={BLUE} />
+                            <ActivityIndicator color={tema.azul} />
                           ) : (
                             <>
                               <Text style={styles.link}>
@@ -669,7 +667,7 @@ export default function RelatorioViagemScreen() {
                               <Icon
                                 name="arrow-up-right"
                                 size={17}
-                                color={BLUE}
+                                color={tema.azul}
                               />
                             </>
                           )}
@@ -722,8 +720,8 @@ export default function RelatorioViagemScreen() {
                               index === 0 ||
                               (index === 1 && editable) ||
                               (index === 2 && !editable)
-                                ? BG
-                                : MUTED,
+                                ? tema.fundo
+                                : tema.suave,
                           }}
                         >
                           {index + 1}
@@ -765,7 +763,7 @@ export default function RelatorioViagemScreen() {
                     onPress={() => void viewReportPdf()}
                     style={styles.outlinedButton}
                   >
-                    <Icon name="file-text" size={17} color={BLUE} />
+                    <Icon name="file-text" size={17} color={tema.azul} />
                     <Text style={styles.link}>Abrir PDF do relatório</Text>
                   </Toque>
                 )}
@@ -782,13 +780,13 @@ export default function RelatorioViagemScreen() {
                   disabled={!!busy}
                   style={styles.primary}
                 >
-                  <Icon name="plus-circle" size={21} color={BG} />
+                  <Icon name="plus-circle" size={21} color={tema.fundo} />
                   <Text style={styles.primaryText}>Criar nova despesa</Text>
                 </Toque>
               )}
               {!items.length && (
                 <View style={styles.empty}>
-                  <Icon name="file-text" size={28} color={BLUE} />
+                  <Icon name="file-text" size={28} color={tema.azul} />
                   <Text style={styles.secondary}>
                     Nenhuma despesa registrada neste voo.
                   </Text>
@@ -819,7 +817,7 @@ export default function RelatorioViagemScreen() {
                                   : "file-text"
                         }
                         size={21}
-                        color={BLUE}
+                        color={tema.azul}
                       />
                     </View>
                     <View style={{ flex: 1 }}>
@@ -840,7 +838,7 @@ export default function RelatorioViagemScreen() {
                             : "chevron-down"
                         }
                         size={18}
-                        color={BLUE}
+                        color={tema.azul}
                       />
                     </View>
                   </Toque>
@@ -893,7 +891,10 @@ export default function RelatorioViagemScreen() {
                             <Text
                               style={{
                                 fontSize: 12,
-                                color: item.categoria === cat ? BG : MUTED,
+                                color:
+                                  item.categoria === cat
+                                    ? tema.fundo
+                                    : tema.suave,
                                 fontWeight: "700",
                               }}
                             >
@@ -931,7 +932,7 @@ export default function RelatorioViagemScreen() {
                               })
                             }
                             placeholder="0,00"
-                            placeholderTextColor={MUTED}
+                            placeholderTextColor={tema.suave}
                           />
                         </View>
                       </View>
@@ -956,7 +957,10 @@ export default function RelatorioViagemScreen() {
                             <Text
                               style={{
                                 fontSize: 12,
-                                color: item.pago_por === id ? BG : MUTED,
+                                color:
+                                  item.pago_por === id
+                                    ? tema.fundo
+                                    : tema.suave,
                                 fontWeight: "700",
                               }}
                             >
@@ -977,14 +981,14 @@ export default function RelatorioViagemScreen() {
                         value={item.descricao}
                         onChangeText={(v) => update(i, { descricao: v })}
                         placeholder="Descreva a despesa"
-                        placeholderTextColor={MUTED}
+                        placeholderTextColor={tema.suave}
                       />
                       <Text style={styles.sectionTitle}>
                         COMPROVANTES · {item.anexos.length}
                       </Text>
                       {item.anexos.map((a) => (
                         <View key={a.id} style={styles.proofRow}>
-                          <Icon name="paperclip" size={17} color={BLUE} />
+                          <Icon name="paperclip" size={17} color={tema.azul} />
                           <Toque
                             accessibilityRole="button"
                             style={{ flex: 1 }}
@@ -1013,7 +1017,7 @@ export default function RelatorioViagemScreen() {
                               onPress={() => void upload(i, "camera")}
                               style={styles.attach}
                             >
-                              <Icon name="camera" size={17} color={BLUE} />
+                              <Icon name="camera" size={17} color={tema.azul} />
                               <Text style={styles.link}>Câmera</Text>
                             </Toque>
                             <Toque
@@ -1021,7 +1025,7 @@ export default function RelatorioViagemScreen() {
                               onPress={() => void upload(i, "foto")}
                               style={styles.attach}
                             >
-                              <Icon name="image" size={17} color={BLUE} />
+                              <Icon name="image" size={17} color={tema.azul} />
                               <Text style={styles.link}>Fotos</Text>
                             </Toque>
                             <Toque
@@ -1029,7 +1033,7 @@ export default function RelatorioViagemScreen() {
                               onPress={() => void upload(i, "arquivo")}
                               style={styles.attach}
                             >
-                              <Icon name="file" size={17} color={BLUE} />
+                              <Icon name="file" size={17} color={tema.azul} />
                               <Text style={styles.link}>Arquivo</Text>
                             </Toque>
                           </View>
@@ -1061,7 +1065,7 @@ export default function RelatorioViagemScreen() {
                 </Text>
                 {arr(selected.historico_ajustes).map((h, i) => (
                   <View key={String(h.id || i)} style={styles.historyRow}>
-                    <Icon name="clock" size={15} color={BLUE} />
+                    <Icon name="clock" size={15} color={tema.azul} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.secondary}>
                         {date(h.criado_em)} · Ajuste solicitado
@@ -1098,7 +1102,7 @@ export default function RelatorioViagemScreen() {
             onPress={() => void save()}
             style={[styles.saveAction, (!dirty || !!busy) && { opacity: 0.4 }]}
           >
-            <Icon name="save" size={17} color={BG} />
+            <Icon name="save" size={17} color={tema.fundo} />
             <Text style={styles.primaryText}>
               {busy === "save" ? "Salvando…" : "Salvar despesas"}
             </Text>
@@ -1116,9 +1120,7 @@ const styles = StyleSheet.create({
     right: 16,
     padding: 13,
     borderRadius: 20,
-    backgroundColor: "#17334d",
-    borderWidth: 1,
-    borderColor: "#356184",
+    backgroundColor: tema.superficie,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -1127,7 +1129,7 @@ const styles = StyleSheet.create({
   saveAction: {
     minHeight: 48,
     paddingHorizontal: 16,
-    backgroundColor: BLUE,
+    backgroundColor: tema.azul,
     borderRadius: 13,
     flexDirection: "row",
     gap: 8,
@@ -1140,12 +1142,12 @@ const styles = StyleSheet.create({
     height: 23,
     width: 23,
     borderRadius: 9,
-    backgroundColor: CARD,
+    backgroundColor: tema.superficie,
     alignItems: "center",
     justifyContent: "center",
   },
-  stepCurrent: { backgroundColor: BLUE },
-  stepLabel: { fontSize: 10, color: MUTED },
+  stepCurrent: { backgroundColor: tema.azul },
+  stepLabel: { fontSize: 10, color: tema.suave },
   expenseSummary: { flexDirection: "row", alignItems: "center", gap: 12 },
   expenseIcon: {
     width: 42,
@@ -1161,7 +1163,7 @@ const styles = StyleSheet.create({
     gap: 7,
     padding: 9,
   },
-  root: { flex: 1, backgroundColor: BG },
+  root: { flex: 1, backgroundColor: tema.fundo },
   header: {
     paddingHorizontal: 19,
     paddingVertical: 17,
@@ -1170,12 +1172,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
-  eyebrow: { fontSize: 10, letterSpacing: 1.9, fontWeight: "800", color: BLUE },
+  eyebrow: {
+    fontSize: 10,
+    letterSpacing: 1.9,
+    fontWeight: "800",
+    color: tema.azul,
+  },
   title: { fontSize: 25, color: "#fff", fontWeight: "800", marginTop: 5 },
   iconButton: {
     width: 45,
     height: 45,
-    backgroundColor: CARD,
+    backgroundColor: tema.superficie,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 14,
@@ -1188,7 +1195,7 @@ const styles = StyleSheet.create({
   },
   tabs: {
     flexDirection: "row",
-    backgroundColor: CARD,
+    backgroundColor: tema.superficie,
     borderRadius: 15,
     padding: 5,
     marginBottom: 18,
@@ -1200,8 +1207,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 11,
   },
-  tabActive: { backgroundColor: BLUE },
-  tabText: { color: MUTED, fontSize: 14, fontWeight: "800" },
+  tabActive: { backgroundColor: tema.azul },
+  tabText: { color: tema.suave, fontSize: 14, fontWeight: "800" },
   sectionTitle: {
     color: "#91a9bd",
     fontSize: 11,
@@ -1211,19 +1218,15 @@ const styles = StyleSheet.create({
     marginBottom: 11,
   },
   reportCard: {
-    backgroundColor: CARD,
+    backgroundColor: tema.superficie,
     borderRadius: 19,
     padding: 17,
-    borderWidth: 1,
-    borderColor: EDGE,
     marginBottom: 10,
   },
   flightCard: {
     padding: 17,
-    borderWidth: 1,
-    borderColor: EDGE,
-    borderRadius: 15,
-    backgroundColor: CARD,
+    borderRadius: 18,
+    backgroundColor: tema.superficie,
     marginBottom: 10,
     flexDirection: "row",
     alignItems: "center",
@@ -1250,7 +1253,7 @@ const styles = StyleSheet.create({
   },
   amount: { color: "#fff", fontWeight: "800", fontSize: 17 },
   secondary: { color: "#b1c0d1", fontSize: 13, marginTop: 5, lineHeight: 20 },
-  muted: { color: MUTED, fontSize: 12, lineHeight: 19, marginTop: 4 },
+  muted: { color: tema.suave, fontSize: 12, lineHeight: 19, marginTop: 4 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   warning: {
     backgroundColor: "#4a2530",
@@ -1260,12 +1263,10 @@ const styles = StyleSheet.create({
   },
   warningText: { color: "#ffb5bb", fontSize: 13 },
   summaryCard: {
-    backgroundColor: "#153354",
+    backgroundColor: tema.superficie,
     padding: 20,
     borderRadius: 20,
     marginBottom: 9,
-    borderWidth: 1,
-    borderColor: "#2a6085",
   },
   bigRoute: { fontSize: 23, fontWeight: "800", color: "#fff", marginTop: 9 },
   total: { fontWeight: "800", fontSize: 20, color: "#fff" },
@@ -1276,13 +1277,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 10,
     borderRadius: 15,
-    backgroundColor: BLUE,
+    backgroundColor: tema.azul,
     marginBottom: 12,
   },
-  primaryText: { color: BG, fontSize: 15, fontWeight: "800" },
+  primaryText: { color: tema.fundo, fontSize: 15, fontWeight: "800" },
   outlinedButton: {
     borderWidth: 1,
-    borderColor: EDGE,
+    borderColor: tema.borda,
     borderRadius: 13,
     minHeight: 50,
     padding: 12,
@@ -1292,12 +1293,10 @@ const styles = StyleSheet.create({
     gap: 9,
     marginTop: 12,
   },
-  link: { color: BLUE, fontWeight: "700", fontSize: 12 },
+  link: { color: tema.azul, fontWeight: "700", fontSize: 12 },
   itemCard: {
-    backgroundColor: CARD,
-    borderColor: EDGE,
-    borderWidth: 1,
-    borderRadius: 17,
+    backgroundColor: tema.superficie,
+    borderRadius: 18,
     padding: 16,
     marginBottom: 12,
   },
@@ -1321,17 +1320,17 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: "#1b3550",
     borderWidth: 1,
-    borderColor: EDGE,
+    borderColor: tema.borda,
   },
-  chipActive: { backgroundColor: BLUE, borderColor: BLUE },
+  chipActive: { backgroundColor: tema.azul, borderColor: tema.azul },
   input: {
     borderWidth: 1,
-    borderColor: EDGE,
+    borderColor: tema.borda,
     borderRadius: 10,
     padding: 11,
     color: "#fff",
     minHeight: 46,
-    backgroundColor: BG,
+    backgroundColor: tema.fundo,
     fontSize: 15,
   },
   two: { flexDirection: "row", gap: 11 },
@@ -1341,7 +1340,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     alignItems: "center",
     borderTopWidth: 1,
-    borderTopColor: EDGE,
+    borderTopColor: tema.borda,
   },
   attachActions: { flexDirection: "row", gap: 8, marginTop: 11 },
   attach: {
@@ -1360,14 +1359,14 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 9,
     borderTopWidth: 1,
-    borderTopColor: EDGE,
+    borderTopColor: tema.borda,
   },
   rowTitle: { fontSize: 13, color: "#fff", marginTop: 5 },
   empty: {
     padding: 32,
     gap: 10,
     alignItems: "center",
-    backgroundColor: CARD,
+    backgroundColor: tema.superficie,
     borderRadius: 16,
     marginBottom: 14,
   },

@@ -468,9 +468,7 @@ const styles = StyleSheet.create({
   heading: { color: "#fff", fontSize: 23, fontWeight: "800", marginTop: 4 },
   card: {
     backgroundColor: panel,
-    borderColor: line,
-    borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 15,
     marginBottom: 11,
     marginHorizontal: 0,

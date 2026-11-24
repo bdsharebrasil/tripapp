@@ -875,10 +875,8 @@ const s = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     paddingVertical: 13,
-    borderRadius: 16,
+    borderRadius: 18,
     backgroundColor: card,
-    borderWidth: 1,
-    borderColor: border,
   },
   selectedDay: { backgroundColor: blue, borderColor: blue },
   calendarArrow: { padding: 10, borderRadius: 12, backgroundColor: card },
@@ -909,10 +907,8 @@ const s = StyleSheet.create({
     marginBottom: 12,
   },
   flightCard: {
-    backgroundColor: "#112c48",
+    backgroundColor: tema.superficie,
     borderRadius: 23,
-    borderWidth: 1,
-    borderColor: border,
     padding: 20,
   },
   between: {
@@ -950,8 +946,6 @@ const s = StyleSheet.create({
   panel: {
     backgroundColor: card,
     borderRadius: 18,
-    borderColor: border,
-    borderWidth: 1,
     padding: 16,
     gap: 5,
     marginBottom: 10,
@@ -1021,8 +1015,6 @@ const s = StyleSheet.create({
   },
   monthSheet: {
     backgroundColor: card,
-    borderColor: border,
-    borderWidth: 1,
     borderRadius: 24,
     padding: 20,
   },
