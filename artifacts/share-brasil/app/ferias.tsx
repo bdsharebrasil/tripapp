@@ -28,11 +28,6 @@ type Ferias = {
   aprovado_em?: string | null;
   criado_em?: string | null;
 };
-const BG = tema.fundo,
-  CARD = tema.superficie,
-  BORDER = tema.borda,
-  BLUE = tema.azul,
-  MUTED = "#a0b3ca";
 const localISO = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -165,14 +160,14 @@ export default function FeriasScreen() {
         </Toque>
       )}
       {loading ? (
-        <ActivityIndicator color={BLUE} style={{ marginTop: 32 }} />
+        <ActivityIndicator color={tema.azul} style={{ marginTop: 32 }} />
       ) : (
         <ScrollView
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => void load(true)}
-              tintColor={BLUE}
+              tintColor={tema.azul}
             />
           }
           contentContainerStyle={{
@@ -209,7 +204,7 @@ export default function FeriasScreen() {
                 onChangeText={setFrom}
                 style={s.input}
                 placeholder="2026-12-01"
-                placeholderTextColor={MUTED}
+                placeholderTextColor={tema.suave}
               />
               <Text style={s.label}>Data final (AAAA-MM-DD)</Text>
               <TextInput
@@ -217,7 +212,7 @@ export default function FeriasScreen() {
                 onChangeText={setTo}
                 style={s.input}
                 placeholder="2026-12-15"
-                placeholderTextColor={MUTED}
+                placeholderTextColor={tema.suave}
               />
               <Text style={s.muted}>
                 Período calculado: {days || "—"} dia(s)
@@ -229,14 +224,14 @@ export default function FeriasScreen() {
                 multiline
                 style={[s.input, { minHeight: 90, textAlignVertical: "top" }]}
                 placeholder="Informe observações ao RH"
-                placeholderTextColor={MUTED}
+                placeholderTextColor={tema.suave}
               />
               <Toque
                 disabled={saving}
                 onPress={() => void submit()}
                 style={s.primary}
               >
-                <Icon name="send" color={BG} size={18} />
+                <Icon name="send" color={tema.fundo} size={18} />
                 <Text style={s.primaryText}>
                   {saving ? "Enviando…" : "Enviar solicitação"}
                 </Text>
@@ -245,7 +240,7 @@ export default function FeriasScreen() {
           ) : (
             <>
               <Toque onPress={() => setCreating(true)} style={s.primary}>
-                <Icon name="plus-circle" color={BG} size={20} />
+                <Icon name="plus-circle" color={tema.fundo} size={20} />
                 <Text style={s.primaryText}>Solicitar férias</Text>
               </Toque>
               <Text style={s.section}>HISTÓRICO DE SOLICITAÇÕES</Text>
@@ -288,7 +283,7 @@ export default function FeriasScreen() {
   );
 }
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
+  root: { flex: 1, backgroundColor: tema.fundo },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -300,11 +295,16 @@ const s = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 13,
-    backgroundColor: CARD,
+    backgroundColor: tema.superficie,
     alignItems: "center",
     justifyContent: "center",
   },
-  kicker: { color: BLUE, fontSize: 10, letterSpacing: 1.7, fontWeight: "800" },
+  kicker: {
+    color: tema.azul,
+    fontSize: 10,
+    letterSpacing: 1.7,
+    fontWeight: "800",
+  },
   title: { fontSize: 24, color: "#fff", fontWeight: "800", marginTop: 4 },
   summary: {
     backgroundColor: "#143553",
@@ -316,17 +316,15 @@ const s = StyleSheet.create({
   },
   big: { color: "#fff", fontWeight: "800", fontSize: 36, marginTop: 13 },
   bigUnit: { color: "#bad0df", fontSize: 14 },
-  divider: { height: 1, backgroundColor: BORDER, marginVertical: 12 },
+  divider: { height: 1, backgroundColor: tema.borda, marginVertical: 12 },
   card: {
-    backgroundColor: CARD,
-    borderRadius: 17,
+    backgroundColor: tema.superficie,
+    borderRadius: 18,
     padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: BORDER,
   },
   heading: { color: "#fff", fontSize: 15, fontWeight: "700", flexShrink: 1 },
-  muted: { color: MUTED, fontSize: 12, lineHeight: 19, marginTop: 7 },
+  muted: { color: tema.suave, fontSize: 12, lineHeight: 19, marginTop: 7 },
   text: { color: "#e9f1f9", fontSize: 13, lineHeight: 20, marginTop: 11 },
   rejected: { color: "#ffada8", fontSize: 13, marginTop: 11 },
   between: {
@@ -345,7 +343,7 @@ const s = StyleSheet.create({
     fontSize: 11,
   },
   section: {
-    color: MUTED,
+    color: tema.suave,
     letterSpacing: 1.5,
     fontSize: 11,
     fontWeight: "800",
@@ -353,7 +351,7 @@ const s = StyleSheet.create({
     marginTop: 13,
   },
   label: {
-    color: MUTED,
+    color: tema.suave,
     fontSize: 12,
     fontWeight: "700",
     marginTop: 16,
@@ -361,8 +359,8 @@ const s = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: BG,
+    borderColor: tema.borda,
+    backgroundColor: tema.fundo,
     color: "#fff",
     borderRadius: 10,
     padding: 12,
@@ -375,12 +373,12 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    backgroundColor: BLUE,
+    backgroundColor: tema.azul,
     borderRadius: 15,
     marginTop: 18,
     marginBottom: 12,
   },
-  primaryText: { color: BG, fontSize: 15, fontWeight: "800" },
+  primaryText: { color: tema.fundo, fontSize: 15, fontWeight: "800" },
   alert: {
     marginHorizontal: 18,
     padding: 12,

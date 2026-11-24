@@ -73,12 +73,6 @@ type FlightDetail = {
     data_agendada?: string;
   };
 };
-const BG = tema.fundo,
-  CARD = tema.superficie,
-  LINE = tema.borda,
-  BLUE = tema.azul,
-  MUTED = "#a9b9cd",
-  GREEN = "#79dbb5";
 const API = "/api/colaborador/diario-bordo";
 const naturezas = [
   "EX - Executivo",
@@ -386,14 +380,14 @@ export default function DiarioBordoMobile() {
         </Toque>
       )}
       {loading ? (
-        <ActivityIndicator color={BLUE} style={{ marginTop: 40 }} />
+        <ActivityIndicator color={tema.azul} style={{ marginTop: 40 }} />
       ) : (
         <ScrollView
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => void fetchData(true)}
-              tintColor={BLUE}
+              tintColor={tema.azul}
             />
           }
           keyboardShouldPersistTaps="handled"
@@ -412,7 +406,7 @@ export default function DiarioBordoMobile() {
               <TextInput
                 accessibilityLabel="Buscar voo no diário"
                 placeholder="Número, matrícula ou rota"
-                placeholderTextColor={MUTED}
+                placeholderTextColor={tema.suave}
                 style={[s.input, { marginVertical: 14 }]}
                 value={busca}
                 onChangeText={setBusca}
@@ -441,7 +435,7 @@ export default function DiarioBordoMobile() {
                       <Text style={s.heading}>
                         {v.numero_voo || "Voo"} · {v.matricula_registro || "—"}
                       </Text>
-                      <Icon name="chevron-right" size={20} color={MUTED} />
+                      <Icon name="chevron-right" size={20} color={tema.suave} />
                     </View>
                     <Text style={s.note}>
                       {v.origem || "—"} → {v.destino || "—"} ·{" "}
@@ -485,8 +479,8 @@ export default function DiarioBordoMobile() {
                             {
                               color:
                                 r.status_lancamento === "ASSINADO"
-                                  ? GREEN
-                                  : BLUE,
+                                  ? tema.verde
+                                  : tema.azul,
                             },
                           ]}
                         >
@@ -511,7 +505,11 @@ export default function DiarioBordoMobile() {
                           {Number(r.tempo_total || 0).toFixed(2)} h
                         </Text>
                         {r.status_lancamento === "ASSINADO" ? (
-                          <Icon name="check-circle" size={21} color={GREEN} />
+                          <Icon
+                            name="check-circle"
+                            size={21}
+                            color={tema.verde}
+                          />
                         ) : null}
                       </View>
                       {r.lancamento_id ? (
@@ -532,14 +530,14 @@ export default function DiarioBordoMobile() {
                                 : "edit-3"
                             }
                             size={17}
-                            color={BLUE}
+                            color={tema.azul}
                           />
                           <Text style={s.link}>
                             {r.status_lancamento === "ASSINADO"
                               ? "Visualizar assinatura"
                               : "Complementar lançamento"}
                           </Text>
-                          <Icon name="chevron-right" color={MUTED} />
+                          <Icon name="chevron-right" color={tema.suave} />
                         </Toque>
                       ) : (
                         <Text style={s.note}>
@@ -561,7 +559,7 @@ export default function DiarioBordoMobile() {
                     style={s.primary}
                     onPress={() => void sync()}
                   >
-                    <Icon name="refresh-cw" size={18} color={BG} />
+                    <Icon name="refresh-cw" size={18} color={tema.fundo} />
                     <Text style={s.primaryText}>
                       {busy === "sync"
                         ? "Sincronizando…"
@@ -577,7 +575,10 @@ export default function DiarioBordoMobile() {
                         {selected.origem} → {selected.destino}
                       </Text>
                       <Text
-                        style={[s.badge, { color: readonly ? GREEN : BLUE }]}
+                        style={[
+                          s.badge,
+                          { color: readonly ? tema.verde : tema.azul },
+                        ]}
                       >
                         {selected.status_lancamento}
                       </Text>
@@ -623,7 +624,10 @@ export default function DiarioBordoMobile() {
                       >
                         <Text
                           style={{
-                            color: draft.natureza_voo === n ? BG : MUTED,
+                            color:
+                              draft.natureza_voo === n
+                                ? tema.fundo
+                                : tema.suave,
                             fontSize: 11,
                             fontWeight: "700",
                           }}
@@ -655,7 +659,7 @@ export default function DiarioBordoMobile() {
                               placeholder={
                                 c.keyboard ? "0,00" : "Informe quando aplicável"
                               }
-                              placeholderTextColor={MUTED}
+                              placeholderTextColor={tema.suave}
                               multiline={c.multiline}
                             />
                           </View>
@@ -665,7 +669,7 @@ export default function DiarioBordoMobile() {
                   ))}
                   {selected.status_lancamento === "ASSINADO" ? (
                     <View style={s.signed}>
-                      <Icon name="check-circle" size={23} color={GREEN} />
+                      <Icon name="check-circle" size={23} color={tema.verde} />
                       <View style={{ flex: 1 }}>
                         <Text style={s.heading}>Assinado pelo comandante</Text>
                         <Text style={s.note}>
@@ -684,7 +688,7 @@ export default function DiarioBordoMobile() {
                           (!changed.length || readonly) && { opacity: 0.48 },
                         ]}
                       >
-                        <Icon name="save" size={18} color={BG} />
+                        <Icon name="save" size={18} color={tema.fundo} />
                         <Text style={s.primaryText}>
                           {busy === "save"
                             ? "Salvando…"
@@ -697,7 +701,11 @@ export default function DiarioBordoMobile() {
                           onPress={sign}
                           style={s.sign}
                         >
-                          <Icon name="check-circle" size={19} color={GREEN} />
+                          <Icon
+                            name="check-circle"
+                            size={19}
+                            color={tema.verde}
+                          />
                           <Text style={s.signText}>
                             {busy === "sign"
                               ? "Assinando…"
@@ -722,7 +730,7 @@ export default function DiarioBordoMobile() {
   );
 }
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
+  root: { flex: 1, backgroundColor: tema.fundo },
   header: {
     paddingHorizontal: 17,
     paddingVertical: 14,
@@ -731,14 +739,19 @@ const s = StyleSheet.create({
     gap: 12,
   },
   icon: {
-    backgroundColor: CARD,
+    backgroundColor: tema.superficie,
     width: 43,
     height: 43,
     borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
   },
-  kicker: { color: BLUE, fontSize: 10, fontWeight: "800", letterSpacing: 1.6 },
+  kicker: {
+    color: tema.azul,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1.6,
+  },
   title: { color: "#fff", fontSize: 24, fontWeight: "800", marginTop: 5 },
   summary: {
     backgroundColor: "#143553",
@@ -750,10 +763,10 @@ const s = StyleSheet.create({
   },
   big: { fontSize: 22, color: "#fff", fontWeight: "800", marginTop: 8 },
   route: { fontSize: 19, color: "#fff", fontWeight: "700", marginTop: 7 },
-  note: { fontSize: 12, color: MUTED, lineHeight: 19, marginTop: 7 },
+  note: { fontSize: 12, color: tema.suave, lineHeight: 19, marginTop: 7 },
   section: {
     fontSize: 11,
-    color: MUTED,
+    color: tema.suave,
     fontWeight: "800",
     letterSpacing: 1.4,
     marginTop: 19,
@@ -761,10 +774,8 @@ const s = StyleSheet.create({
   },
   card: {
     padding: 16,
-    borderRadius: 16,
-    backgroundColor: CARD,
-    borderWidth: 1,
-    borderColor: LINE,
+    borderRadius: 18,
+    backgroundColor: tema.superficie,
     marginBottom: 12,
   },
   between: {
@@ -792,15 +803,15 @@ const s = StyleSheet.create({
     flexDirection: "row",
     gap: 9,
     borderTopWidth: 1,
-    borderTopColor: LINE,
+    borderTopColor: tema.borda,
     marginTop: 12,
     paddingTop: 12,
   },
-  link: { color: BLUE, fontSize: 13, fontWeight: "800", flex: 1 },
+  link: { color: tema.azul, fontSize: 13, fontWeight: "800", flex: 1 },
   primary: {
     minHeight: 55,
     borderRadius: 14,
-    backgroundColor: BLUE,
+    backgroundColor: tema.azul,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
@@ -808,10 +819,10 @@ const s = StyleSheet.create({
     marginTop: 14,
     marginBottom: 12,
   },
-  primaryText: { fontSize: 14, color: BG, fontWeight: "800" },
+  primaryText: { fontSize: 14, color: tema.fundo, fontWeight: "800" },
   sign: {
     minHeight: 55,
-    borderColor: GREEN,
+    borderColor: tema.verde,
     borderWidth: 1,
     borderRadius: 14,
     backgroundColor: "#143d37",
@@ -821,27 +832,27 @@ const s = StyleSheet.create({
     gap: 10,
     marginTop: 6,
   },
-  signText: { color: GREEN, fontSize: 14, fontWeight: "800" },
+  signText: { color: tema.verde, fontSize: 14, fontWeight: "800" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
   chip: {
     backgroundColor: "#1d344c",
-    borderColor: LINE,
+    borderColor: tema.borda,
     borderWidth: 1,
     borderRadius: 9,
     paddingHorizontal: 10,
     paddingVertical: 9,
   },
-  chipActive: { backgroundColor: BLUE, borderColor: BLUE },
+  chipActive: { backgroundColor: tema.azul, borderColor: tema.azul },
   fieldLabel: {
-    color: MUTED,
+    color: tema.suave,
     fontSize: 12,
     fontWeight: "700",
     marginBottom: 6,
   },
   input: {
     color: "#fff",
-    backgroundColor: BG,
-    borderColor: LINE,
+    backgroundColor: tema.fundo,
+    borderColor: tema.borda,
     borderWidth: 1,
     borderRadius: 10,
     minHeight: 46,
@@ -852,7 +863,7 @@ const s = StyleSheet.create({
     borderRadius: 13,
     backgroundColor: "#173c35",
     borderWidth: 1,
-    borderColor: GREEN,
+    borderColor: tema.verde,
     padding: 15,
     flexDirection: "row",
     alignItems: "center",

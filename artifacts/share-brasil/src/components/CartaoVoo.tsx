@@ -367,8 +367,6 @@ export function CartaoVoo({
 const s = StyleSheet.create({
   card: {
     backgroundColor: tema.superficie,
-    borderColor: tema.borda,
-    borderWidth: 1,
     borderRadius: 23,
     marginBottom: 12,
   },

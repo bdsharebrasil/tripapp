@@ -58,11 +58,6 @@ type Salary = {
   holerite_url?: string | null;
   comprovante_url?: string | null;
 };
-const BG = tema.fundo,
-  CARD = tema.superficie,
-  BORDER = tema.borda,
-  ACCENT = tema.destaque,
-  MUTED = tema.suave;
 const tabs = [
   { id: "dados", label: "Dados", icon: "user" },
   { id: "licencas", label: "Licenças", icon: "shield" },
@@ -363,7 +358,7 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
           onPress={() => void load(true)}
           style={styles.iconBtn}
         >
-          <Icon name="refresh-cw" color={ACCENT} size={18} />
+          <Icon name="refresh-cw" color={tema.destaque} size={18} />
         </Toque>
         <Toque
           accessibilityRole="button"
@@ -401,8 +396,14 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
               onPress={() => setTab(t.id)}
               style={[styles.tab, tab === t.id && styles.tabActive]}
             >
-              <Icon name={t.icon} size={17} color={tab === t.id ? BG : MUTED} />
-              <Text style={[styles.tabText, tab === t.id && { color: BG }]}>
+              <Icon
+                name={t.icon}
+                size={17}
+                color={tab === t.id ? tema.fundo : tema.suave}
+              />
+              <Text
+                style={[styles.tabText, tab === t.id && { color: tema.fundo }]}
+              >
                 {t.label}
               </Text>
             </Toque>
@@ -412,14 +413,14 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
           <ErroConsulta mensagem={error} atualizar={() => void load(true)} />
         )}
         {loading ? (
-          <ActivityIndicator color={ACCENT} style={{ marginTop: 36 }} />
+          <ActivityIndicator color={tema.destaque} style={{ marginTop: 36 }} />
         ) : (
           <ScrollView
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={() => void load(true)}
-                tintColor={ACCENT}
+                tintColor={tema.destaque}
               />
             }
             keyboardShouldPersistTaps="handled"
@@ -544,12 +545,12 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                       <Icon
                         name={icon}
                         size={17}
-                        color={licencasTab === id ? BG : MUTED}
+                        color={licencasTab === id ? tema.fundo : tema.suave}
                       />
                       <Text
                         style={[
                           styles.tabText,
-                          licencasTab === id && { color: BG },
+                          licencasTab === id && { color: tema.fundo },
                         ]}
                       >
                         {label}
@@ -666,7 +667,11 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                           )
                         }
                       >
-                        <Icon name="file-text" color={ACCENT} size={16} />
+                        <Icon
+                          name="file-text"
+                          color={tema.destaque}
+                          size={16}
+                        />
                         <Text style={styles.link}>Abrir holerite</Text>
                       </Toque>
                     )}
@@ -681,7 +686,11 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                           )
                         }
                       >
-                        <Icon name="paperclip" color={ACCENT} size={16} />
+                        <Icon
+                          name="paperclip"
+                          color={tema.destaque}
+                          size={16}
+                        />
                         <Text style={styles.link}>Comprovante</Text>
                       </Toque>
                     )}
@@ -703,7 +712,7 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                   style={styles.primary}
                   onPress={() => router.push("/ferias")}
                 >
-                  <Icon name="calendar" color={BG} size={17} />
+                  <Icon name="calendar" color={tema.fundo} size={17} />
                   <Text style={styles.primaryText}>
                     Consultar e solicitar férias
                   </Text>
@@ -744,7 +753,8 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                       >
                         <Text
                           style={{
-                            color: docCategory === cat ? BG : MUTED,
+                            color:
+                              docCategory === cat ? tema.fundo : tema.suave,
                             fontSize: 12,
                             fontWeight: "700",
                           }}
@@ -759,7 +769,7 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                     disabled={!!busy}
                     onPress={() => void uploadDoc()}
                   >
-                    <Icon name="upload" size={17} color={BG} />
+                    <Icon name="upload" size={17} color={tema.fundo} />
                     <Text style={styles.primaryText}>
                       {busy === "doc"
                         ? "Enviando…"
@@ -781,7 +791,7 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                 )}
                 {docs.map((d) => (
                   <View key={d.id} style={styles.docRow}>
-                    <Icon name="file" size={20} color={ACCENT} />
+                    <Icon name="file" size={20} color={tema.destaque} />
                     <Toque
                       style={{ flex: 1 }}
                       onPress={() =>
@@ -824,10 +834,10 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                 style={styles.footerPill}
               >
                 {busy === "foto" ? (
-                  <ActivityIndicator size="small" color={ACCENT} />
+                  <ActivityIndicator size="small" color={tema.destaque} />
                 ) : (
                   <>
-                    <Icon name="camera" size={16} color={ACCENT} />
+                    <Icon name="camera" size={16} color={tema.destaque} />
                     <Text style={styles.link}>Atualizar foto do perfil</Text>
                   </>
                 )}
@@ -841,7 +851,7 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
 }
 export default PerfilScreen;
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
+  root: { flex: 1, backgroundColor: tema.fundo },
   header: {
     paddingHorizontal: 18,
     paddingTop: 10,
@@ -852,7 +862,7 @@ const styles = StyleSheet.create({
   headerCopy: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 20 },
   sheet: {
     flex: 1,
-    backgroundColor: CARD,
+    backgroundColor: tema.superficie,
     borderTopLeftRadius: 28,
     paddingTop: 18,
     overflow: "hidden",
@@ -860,31 +870,29 @@ const styles = StyleSheet.create({
   tabsScroll: { flexGrow: 0 },
   kicker: {
     fontSize: 9,
-    color: ACCENT,
+    color: tema.destaque,
     letterSpacing: 1.5,
     fontWeight: "800",
   },
   title: { fontSize: 24, fontWeight: "800", color: tema.texto, marginTop: 4 },
-  headerSubtitle: { fontSize: 11, color: MUTED, marginTop: 2 },
+  headerSubtitle: { fontSize: 11, color: tema.suave, marginTop: 2 },
   iconBtn: {
     height: 44,
     width: 44,
-    borderRadius: 14,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: CARD,
-    borderWidth: 1,
-    borderColor: BORDER,
+    backgroundColor: tema.superficie,
   },
   hero: {
-    backgroundColor: BG,
+    backgroundColor: tema.fundo,
     borderRadius: 24,
     padding: 20,
     flexDirection: "row",
     alignItems: "center",
     gap: 15,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: tema.borda,
   },
   avatar: {
     width: 66,
@@ -897,7 +905,7 @@ const styles = StyleSheet.create({
   avatarImage: { width: 66, height: 66, borderRadius: 20 },
   avatarText: { color: tema.texto, fontWeight: "800", fontSize: 22 },
   name: { fontSize: 19, fontWeight: "800", color: tema.texto },
-  secondary: { fontSize: 13, color: MUTED, marginTop: 6, lineHeight: 19 },
+  secondary: { fontSize: 13, color: tema.suave, marginTop: 6, lineHeight: 19 },
   tabs: { flexDirection: "row", gap: 8, paddingBottom: 18 },
   tab: {
     paddingHorizontal: 15,
@@ -907,27 +915,27 @@ const styles = StyleSheet.create({
     minHeight: 46,
     borderRadius: 13,
     gap: 7,
-    backgroundColor: BG,
+    backgroundColor: tema.fundo,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: tema.borda,
   },
-  tabActive: { backgroundColor: ACCENT, borderColor: ACCENT },
+  tabActive: { backgroundColor: tema.destaque, borderColor: tema.destaque },
   tabText: {
     fontSize: 11,
     fontWeight: "700",
-    color: MUTED,
+    color: tema.suave,
     textAlign: "center",
   },
   card: {
-    backgroundColor: BG,
+    backgroundColor: tema.fundo,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: tema.borda,
     borderRadius: 17,
     padding: 16,
     marginBottom: 12,
   },
   heading: { color: tema.texto, fontWeight: "800", fontSize: 16 },
-  muted: { color: MUTED, fontSize: 12, lineHeight: 19, marginTop: 4 },
+  muted: { color: tema.suave, fontSize: 12, lineHeight: 19, marginTop: 4 },
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -935,7 +943,7 @@ const styles = StyleSheet.create({
     gap: 9,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: BORDER,
+    borderBottomColor: tema.borda,
   },
   infoValue: {
     color: tema.texto,
@@ -951,16 +959,16 @@ const styles = StyleSheet.create({
     gap: 9,
   },
   label: {
-    color: MUTED,
+    color: tema.suave,
     fontSize: 12,
     fontWeight: "700",
     marginTop: 15,
     marginBottom: 6,
   },
   input: {
-    backgroundColor: BG,
+    backgroundColor: tema.fundo,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: tema.borda,
     color: tema.texto,
     fontSize: 15,
     padding: 12,
@@ -969,7 +977,7 @@ const styles = StyleSheet.create({
   },
   primary: {
     minHeight: 52,
-    backgroundColor: ACCENT,
+    backgroundColor: tema.destaque,
     borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
@@ -977,9 +985,9 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 15,
   },
-  primaryText: { color: BG, fontSize: 14, fontWeight: "800" },
+  primaryText: { color: tema.fundo, fontSize: 14, fontWeight: "800" },
   outline: {
-    borderColor: BORDER,
+    borderColor: tema.borda,
     borderWidth: 1,
     borderRadius: 11,
     alignItems: "center",
@@ -989,7 +997,7 @@ const styles = StyleSheet.create({
     minHeight: 47,
     marginTop: 13,
   },
-  link: { color: ACCENT, fontSize: 13, fontWeight: "700" },
+  link: { color: tema.destaque, fontSize: 13, fontWeight: "700" },
   status: {
     fontSize: 11,
     color: "#9be6c7",
@@ -1003,7 +1011,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 1.4,
-    color: MUTED,
+    color: tema.suave,
     marginTop: 13,
     marginBottom: 12,
   },
@@ -1013,20 +1021,18 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     paddingHorizontal: 10,
     paddingVertical: 9,
-    borderWidth: 1,
-    borderColor: BORDER,
     backgroundColor: tema.elevado,
   },
-  chipActive: { backgroundColor: ACCENT, borderColor: ACCENT },
+  chipActive: { backgroundColor: tema.destaque, borderColor: tema.destaque },
   docRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: BG,
+    backgroundColor: tema.fundo,
     borderRadius: 14,
     padding: 15,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: tema.borda,
     marginBottom: 9,
   },
   metrics: { flexDirection: "row", gap: 9, marginBottom: 12 },
@@ -1036,9 +1042,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 12,
     justifyContent: "space-between",
-    backgroundColor: BG,
+    backgroundColor: tema.fundo,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: tema.borda,
   },
   metricValue: { color: tema.texto, fontSize: 18, fontWeight: "800" },
   footer: {
@@ -1056,8 +1062,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     backgroundColor: tema.elevado,
-    borderWidth: 1,
-    borderColor: BORDER,
   },
   error: {
     padding: 13,
