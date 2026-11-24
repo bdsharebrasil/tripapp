@@ -223,9 +223,6 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
               <Text style={s.greeting}>Olá, {nome.split(" ")[0]}</Text>
-              <Text style={s.tagline}>
-                Sua operação de hoje, em um só lugar.
-              </Text>
             </LinearGradient>
           </ImageBackground>
           <Secao titulo="Acesso rápido" />
@@ -340,13 +337,6 @@ const s = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     fontSize: 30,
     marginTop: 25,
-  },
-  tagline: {
-    color: "#d7d9de",
-    fontSize: 14,
-    marginTop: 7,
-    maxWidth: 240,
-    lineHeight: 21,
   },
   identity: {
     flexDirection: "row",
