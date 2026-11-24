@@ -1,6 +1,5 @@
 packages:
   - artifacts/share-brasil
-  - artifacts/share-brasil-pwa
 
 minimumReleaseAge: 1440
 autoInstallPeers: false

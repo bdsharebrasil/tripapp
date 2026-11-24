@@ -14,7 +14,6 @@ O único endereço de serviço configurado no app é `EXPO_PUBLIC_API_URL` (padr
 ## Arquitetura
 
 - `artifacts/share-brasil`: telas, componentes, sessão e cliente da API.
-- `artifacts/share-brasil-pwa`: exportação web da mesma aplicação; saída em `dist`.
 - O Worker `backend-share` é o único servidor consumido pelo app.
 - Dados de negócio e perfis ficam no D1; fotos, comprovantes e PDFs ficam no R2, acessados pelo Worker.
 - O serviço de identidade já usado pelas contas existentes fica exclusivamente atrás do Worker. O app não contém SDK nem chaves do provedor.
@@ -33,13 +32,12 @@ A sessão nativa é cifrada com AES-GCM; a chave fica no SecureStore. A versão 
 pnpm typecheck
 pnpm test
 pnpm test:web
-pnpm build
 pnpm build:native
 ```
 
 `test:web` compila a aplicação e testa seus fluxos em DOM com API isolada. As fixtures ficam em `tests` e não entram no bundle. Câmera, compartilhamento e apresentação visual devem ser conferidos em aparelho.
 
-O build web mantém a saída em `artifacts/share-brasil-pwa/dist`, com manifesto e regras SPA para Cloudflare Pages. O domínio publicado deve estar autorizado no CORS do Worker. Para iOS/Android, use o fluxo Expo/EAS do projeto.
+Para iOS/Android, use o fluxo Expo/EAS do projeto.
 
 Publique primeiro a atualização de autenticação e arquivos do `backend-share`, depois este aplicativo. Não há migração de banco. Usuários da versão anterior precisam entrar novamente após a atualização da sessão.
 
