@@ -4,7 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  ImageBackground,
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -197,11 +197,12 @@ export default function HomeScreen() {
           }
           contentContainerStyle={s.content}
         >
-          <ImageBackground
-            source={require("../../assets/images/ceu-asa.jpg")}
-            style={s.hero}
-            imageStyle={{ opacity: 0.8 }}
-          >
+          <View style={s.hero}>
+            <Image
+              source={require("../../assets/images/ceu-asa.jpg")}
+              style={s.heroImage}
+              resizeMode="cover"
+            />
             <LinearGradient
               colors={["rgba(8,13,24,0.25)", "rgba(8,13,24,0.45)", "#080D18"]}
               style={s.heroShade}
@@ -224,7 +225,7 @@ export default function HomeScreen() {
               </View>
               <Text style={s.greeting}>Olá, {nome.split(" ")[0]}</Text>
             </LinearGradient>
-          </ImageBackground>
+          </View>
           <Secao titulo="Acesso rápido" />
           <View style={s.shortcuts}>
             {shortcuts.map((x) => (
@@ -331,6 +332,14 @@ export default function HomeScreen() {
 const s = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingBottom: 120 },
   hero: { minHeight: 220, borderRadius: 24, overflow: "hidden" },
+  heroImage: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    opacity: 0.8,
+  },
   heroShade: { padding: 20, paddingTop: 14, paddingBottom: 24, flex: 1 },
   greeting: {
     color: tema.texto,
