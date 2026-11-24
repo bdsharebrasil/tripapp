@@ -1,6 +1,1 @@
-import React from "react";
-import { PerfilScreen } from "./perfil";
-
-export default function FinanceiroScreen() {
-  return <PerfilScreen initialTab="salario" />;
-}
+export { FinanceiroScreen as default } from "@/src/features/financeiro/FinanceiroScreen";
