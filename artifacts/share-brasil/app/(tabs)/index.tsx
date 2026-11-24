@@ -204,7 +204,8 @@ export default function HomeScreen() {
               resizeMode="cover"
             />
             <LinearGradient
-              colors={["rgba(8,13,24,0.25)", "rgba(8,13,24,0.45)", "#080D18"]}
+              colors={["rgba(8,13,24,0)", "rgba(8,13,24,0.25)", "rgba(8,13,24,0.85)"]}
+              locations={[0, 0.45, 1]}
               style={s.heroShade}
             >
               <View style={s.between}>
@@ -340,7 +341,14 @@ const s = StyleSheet.create({
     left: 0,
     opacity: 0.8,
   },
-  heroShade: { padding: 20, paddingTop: 14, paddingBottom: 24, flex: 1 },
+  heroShade: {
+    padding: 20,
+    paddingTop: 14,
+    paddingBottom: 24,
+    flex: 1,
+    marginTop: 6,
+    marginBottom: 6,
+  },
   greeting: {
     color: tema.texto,
     fontFamily: "Inter_700Bold",
