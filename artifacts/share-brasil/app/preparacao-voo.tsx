@@ -1,18 +1,19 @@
-import { Cabecalho, tema } from "@/src/components/ui";
+import { Cabecalho, tema, Icon, Toque } from "@/src/components/ui";
 import { avisar, confirmar } from "@/src/lib/confirmar";
-import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { apiFetch } from "@/src/lib/api";
 import { abrirBriefingPdf } from "@/src/lib/briefing-pdf";
 
@@ -202,7 +203,7 @@ export default function PreparacaoVoo() {
   const statePicker = (value: Estado, change: (v: Estado) => void) => (
     <View style={styles.states}>
       {states.map((s) => (
-        <Pressable
+        <Toque
           key={s.id}
           disabled={readonly}
           onPress={() => change(s.id)}
@@ -213,13 +214,13 @@ export default function PreparacaoVoo() {
           >
             {s.label}
           </Text>
-        </Pressable>
+        </Toque>
       ))}
     </View>
   );
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
+    <SafeAreaView edges={["top"]} style={[styles.root, { paddingTop: 8 }]}>
       <Cabecalho
         titulo="Preparação do voo"
         apoio="CHECKLIST E BRIEFING"
@@ -240,9 +241,9 @@ export default function PreparacaoVoo() {
       ) : error ? (
         <View style={styles.card}>
           <Text style={styles.description}>{error}</Text>
-          <Pressable onPress={() => void load()} style={styles.button}>
+          <Toque onPress={() => void load()} style={styles.button}>
             <Text style={styles.buttonText}>Tentar novamente</Text>
-          </Pressable>
+          </Toque>
         </View>
       ) : snapshot && draft ? (
         <>
@@ -270,27 +271,27 @@ export default function PreparacaoVoo() {
                   Voo encerrado: somente leitura
                 </Text>
               ) : null}
-              <Pressable
+              <Toque
                 accessibilityRole="button"
                 disabled={openingPdf || busy}
                 onPress={() => void openPdf()}
                 style={styles.pdfButton}
               >
-                <Feather name="file-text" size={18} color={accent} />
+                <Icon name="file-text" size={18} color={accent} />
                 <Text style={styles.pdfText}>
                   {openingPdf ? "Abrindo briefing…" : "Abrir briefing em PDF"}
                 </Text>
-                <Feather name="external-link" size={16} color={accent} />
-              </Pressable>
+                <Icon name="external-link" size={16} color={accent} />
+              </Toque>
             </View>
             <View style={styles.tabs}>
               {(["aeronave", "tripulacao"] as const).map((t) => (
-                <Pressable
+                <Toque
                   key={t}
                   onPress={() => setTab(t)}
                   style={[styles.tab, tab === t && styles.tabActive]}
                 >
-                  <Feather
+                  <Icon
                     name={t === "aeronave" ? "send" : "users"}
                     color={tab === t ? bg : muted}
                     size={17}
@@ -298,7 +299,7 @@ export default function PreparacaoVoo() {
                   <Text style={[styles.tabText, tab === t && { color: bg }]}>
                     {t === "aeronave" ? "Aeronave" : "Tripulação"}
                   </Text>
-                </Pressable>
+                </Toque>
               ))}
             </View>
             {sections.map((sec) => (
@@ -409,7 +410,7 @@ export default function PreparacaoVoo() {
                 { paddingBottom: Math.max(insets.bottom, 12) },
               ]}
             >
-              <Pressable
+              <Toque
                 disabled={busy || !dirty}
                 onPress={() => void save(false)}
                 style={[
@@ -419,8 +420,8 @@ export default function PreparacaoVoo() {
                 ]}
               >
                 <Text style={styles.buttonText}>Salvar</Text>
-              </Pressable>
-              <Pressable
+              </Toque>
+              <Toque
                 disabled={busy}
                 onPress={() => void save(true)}
                 style={[
@@ -432,12 +433,12 @@ export default function PreparacaoVoo() {
                 <Text style={styles.buttonText}>
                   {busy ? "Salvando…" : "Concluir"}
                 </Text>
-              </Pressable>
+              </Toque>
             </View>
           )}
         </>
       ) : null}
-    </View>
+    </SafeAreaView>
   );
 }
 const styles = StyleSheet.create({

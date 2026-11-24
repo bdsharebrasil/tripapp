@@ -1,5 +1,4 @@
 import { valorDespesa, payloadDespesas } from "@/src/lib/despesas";
-import { Feather } from "@expo/vector-icons";
 import { randomUUID } from "expo-crypto";
 import { useLocalSearchParams, useFocusEffect } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
@@ -13,7 +12,6 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -21,9 +19,19 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { ApiError, apiFetch } from "@/src/lib/api";
-import { Cabecalho, ErroConsulta, Vazio, tema } from "@/src/components/ui";
+import {
+  Cabecalho,
+  ErroConsulta,
+  Vazio,
+  tema,
+  Icon,
+  Toque,
+} from "@/src/components/ui";
 import { avisar, confirmar } from "@/src/lib/confirmar";
 import { anexarArquivo } from "@/src/lib/upload";
 import { abrirArquivoPrivado } from "@/src/lib/arquivo-privado";
@@ -508,7 +516,7 @@ export default function RelatorioViagemScreen() {
   };
 
   const showReport = (r: Obj) => (
-    <Pressable
+    <Toque
       accessibilityRole="button"
       key={reportId(r)}
       onPress={() => open(reportId(r))}
@@ -538,11 +546,11 @@ export default function RelatorioViagemScreen() {
           Reembolso: {r.pagamento_status} · {money(r.pagamento_valor)}
         </Text>
       ) : null}
-    </Pressable>
+    </Toque>
   );
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 10 }]}>
+    <SafeAreaView edges={["top"]} style={[styles.root, { paddingTop: 10 }]}>
       <Cabecalho
         titulo={selected ? "Relatório por voo" : "Despesas de viagem"}
         apoio="PRESTAÇÃO DE CONTAS"
@@ -577,7 +585,7 @@ export default function RelatorioViagemScreen() {
             <>
               <View style={styles.tabs}>
                 {(["lancamentos", "historico"] as const).map((t) => (
-                  <Pressable
+                  <Toque
                     key={t}
                     onPress={() => setSection(t)}
                     style={[styles.tab, section === t && styles.tabActive]}
@@ -589,7 +597,7 @@ export default function RelatorioViagemScreen() {
                         ? "Lançar despesas"
                         : "Meus relatórios"}
                     </Text>
-                  </Pressable>
+                  </Toque>
                 ))}
               </View>
               {section === "lancamentos" ? (
@@ -624,7 +632,7 @@ export default function RelatorioViagemScreen() {
                             String(f.socio_id || "")),
                     );
                     return (
-                      <Pressable
+                      <Toque
                         accessibilityRole="button"
                         key={String(f.solicitacao_id || f.id || flightNo(f))}
                         onPress={() =>
@@ -658,7 +666,7 @@ export default function RelatorioViagemScreen() {
                                     : "Ver relatório"
                                   : "Iniciar"}
                               </Text>
-                              <Feather
+                              <Icon
                                 name="arrow-up-right"
                                 size={17}
                                 color={BLUE}
@@ -666,7 +674,7 @@ export default function RelatorioViagemScreen() {
                             </>
                           )}
                         </View>
-                      </Pressable>
+                      </Toque>
                     );
                   })}
                   {!flights.length && (
@@ -752,14 +760,14 @@ export default function RelatorioViagemScreen() {
                     </Text>
                   )}
                 {!!(selected.pdf_path || selected.pdf_url) && (
-                  <Pressable
+                  <Toque
                     accessibilityRole="button"
                     onPress={() => void viewReportPdf()}
                     style={styles.outlinedButton}
                   >
-                    <Feather name="file-text" size={17} color={BLUE} />
+                    <Icon name="file-text" size={17} color={BLUE} />
                     <Text style={styles.link}>Abrir PDF do relatório</Text>
-                  </Pressable>
+                  </Toque>
                 )}
               </View>
               <View style={styles.between}>
@@ -768,19 +776,19 @@ export default function RelatorioViagemScreen() {
                 </Text>
               </View>
               {editable && (
-                <Pressable
+                <Toque
                   accessibilityRole="button"
                   onPress={add}
                   disabled={!!busy}
                   style={styles.primary}
                 >
-                  <Feather name="plus-circle" size={21} color={BG} />
+                  <Icon name="plus-circle" size={21} color={BG} />
                   <Text style={styles.primaryText}>Criar nova despesa</Text>
-                </Pressable>
+                </Toque>
               )}
               {!items.length && (
                 <View style={styles.empty}>
-                  <Feather name="file-text" size={28} color={BLUE} />
+                  <Icon name="file-text" size={28} color={BLUE} />
                   <Text style={styles.secondary}>
                     Nenhuma despesa registrada neste voo.
                   </Text>
@@ -788,7 +796,7 @@ export default function RelatorioViagemScreen() {
               )}
               {items.map((item, i) => (
                 <View key={item.id} style={styles.itemCard}>
-                  <Pressable
+                  <Toque
                     accessibilityRole="button"
                     accessibilityLabel={`Despesa ${i + 1}: ${item.categoria}`}
                     accessibilityState={{ expanded: expandedItem === item.id }}
@@ -798,7 +806,7 @@ export default function RelatorioViagemScreen() {
                     style={styles.expenseSummary}
                   >
                     <View style={styles.expenseIcon}>
-                      <Feather
+                      <Icon
                         name={
                           item.categoria === "Combustível"
                             ? "droplet"
@@ -825,7 +833,7 @@ export default function RelatorioViagemScreen() {
                     </View>
                     <View style={{ alignItems: "flex-end", gap: 10 }}>
                       <Text style={styles.amount}>{money(item.valor)}</Text>
-                      <Feather
+                      <Icon
                         name={
                           expandedItem === item.id
                             ? "chevron-up"
@@ -835,13 +843,13 @@ export default function RelatorioViagemScreen() {
                         color={BLUE}
                       />
                     </View>
-                  </Pressable>
+                  </Toque>
                   {expandedItem === item.id && (
                     <>
                       <View style={[styles.between, { marginTop: 14 }]}>
                         <Text style={styles.eyebrow}>DESPESA {i + 1}</Text>
                         {editable && (
-                          <Pressable
+                          <Toque
                             accessibilityRole="button"
                             accessibilityLabel="Remover despesa"
                             onPress={() =>
@@ -858,12 +866,12 @@ export default function RelatorioViagemScreen() {
                               )
                             }
                           >
-                            <Feather
+                            <Icon
                               name="trash-2"
                               size={18}
                               color={tema.perigo}
                             />
-                          </Pressable>
+                          </Toque>
                         )}
                       </View>
                       {label("Categoria")}
@@ -873,7 +881,7 @@ export default function RelatorioViagemScreen() {
                         contentContainerStyle={styles.chips}
                       >
                         {CATEGORIES.map((cat) => (
-                          <Pressable
+                          <Toque
                             key={cat}
                             disabled={!editable}
                             onPress={() => update(i, { categoria: cat })}
@@ -891,7 +899,7 @@ export default function RelatorioViagemScreen() {
                             >
                               {cat}
                             </Text>
-                          </Pressable>
+                          </Toque>
                         ))}
                       </ScrollView>
                       <View style={styles.two}>
@@ -936,7 +944,7 @@ export default function RelatorioViagemScreen() {
                         {PAYERS.filter(
                           ([id]) => id !== "tripulante_2" || hasSecondCrew,
                         ).map(([id, name]) => (
-                          <Pressable
+                          <Toque
                             key={id}
                             disabled={!editable}
                             onPress={() => update(i, { pago_por: id })}
@@ -954,7 +962,7 @@ export default function RelatorioViagemScreen() {
                             >
                               {name}
                             </Text>
-                          </Pressable>
+                          </Toque>
                         ))}
                       </ScrollView>
                       {label("Descrição")}
@@ -976,8 +984,8 @@ export default function RelatorioViagemScreen() {
                       </Text>
                       {item.anexos.map((a) => (
                         <View key={a.id} style={styles.proofRow}>
-                          <Feather name="paperclip" size={17} color={BLUE} />
-                          <Pressable
+                          <Icon name="paperclip" size={17} color={BLUE} />
+                          <Toque
                             accessibilityRole="button"
                             style={{ flex: 1 }}
                             disabled={!!busy}
@@ -986,15 +994,11 @@ export default function RelatorioViagemScreen() {
                             <Text style={styles.link} numberOfLines={2}>
                               {a.nome_arquivo || "Abrir comprovante"}
                             </Text>
-                          </Pressable>
+                          </Toque>
                           {editable && (
-                            <Pressable onPress={() => removeProof(a)}>
-                              <Feather
-                                name="x-circle"
-                                size={19}
-                                color="#fb8d8d"
-                              />
-                            </Pressable>
+                            <Toque onPress={() => removeProof(a)}>
+                              <Icon name="x-circle" size={19} color="#fb8d8d" />
+                            </Toque>
                           )}
                         </View>
                       ))}
@@ -1004,30 +1008,30 @@ export default function RelatorioViagemScreen() {
                             Salve a despesa antes de anexar comprovantes.
                           </Text>
                           <View style={styles.attachActions}>
-                            <Pressable
+                            <Toque
                               disabled={!!busy}
                               onPress={() => void upload(i, "camera")}
                               style={styles.attach}
                             >
-                              <Feather name="camera" size={17} color={BLUE} />
+                              <Icon name="camera" size={17} color={BLUE} />
                               <Text style={styles.link}>Câmera</Text>
-                            </Pressable>
-                            <Pressable
+                            </Toque>
+                            <Toque
                               disabled={!!busy}
                               onPress={() => void upload(i, "foto")}
                               style={styles.attach}
                             >
-                              <Feather name="image" size={17} color={BLUE} />
+                              <Icon name="image" size={17} color={BLUE} />
                               <Text style={styles.link}>Fotos</Text>
-                            </Pressable>
-                            <Pressable
+                            </Toque>
+                            <Toque
                               disabled={!!busy}
                               onPress={() => void upload(i, "arquivo")}
                               style={styles.attach}
                             >
-                              <Feather name="file" size={17} color={BLUE} />
+                              <Icon name="file" size={17} color={BLUE} />
                               <Text style={styles.link}>Arquivo</Text>
-                            </Pressable>
+                            </Toque>
                           </View>
                         </>
                       )}
@@ -1037,17 +1041,17 @@ export default function RelatorioViagemScreen() {
               ))}
               {editable && (
                 <>
-                  <Pressable
+                  <Toque
                     disabled={!!busy}
                     accessibilityRole="button"
                     onPress={finalize}
                     style={styles.outlinedButton}
                   >
-                    <Feather name="check-circle" size={19} color="#69d9a3" />
+                    <Icon name="check-circle" size={19} color="#69d9a3" />
                     <Text style={[styles.link, { color: "#69d9a3" }]}>
                       Finalizar relatório
                     </Text>
-                  </Pressable>
+                  </Toque>
                 </>
               )}
               <Text style={styles.sectionTitle}>HISTÓRICO E APROVAÇÃO</Text>
@@ -1057,7 +1061,7 @@ export default function RelatorioViagemScreen() {
                 </Text>
                 {arr(selected.historico_ajustes).map((h, i) => (
                   <View key={String(h.id || i)} style={styles.historyRow}>
-                    <Feather name="clock" size={15} color={BLUE} />
+                    <Icon name="clock" size={15} color={BLUE} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.secondary}>
                         {date(h.criado_em)} · Ajuste solicitado
@@ -1088,20 +1092,20 @@ export default function RelatorioViagemScreen() {
             </Text>
             <Text style={styles.amount}>{money(total)}</Text>
           </View>
-          <Pressable
+          <Toque
             accessibilityRole="button"
             disabled={!dirty || !!busy}
             onPress={() => void save()}
             style={[styles.saveAction, (!dirty || !!busy) && { opacity: 0.4 }]}
           >
-            <Feather name="save" size={17} color={BG} />
+            <Icon name="save" size={17} color={BG} />
             <Text style={styles.primaryText}>
               {busy === "save" ? "Salvando…" : "Salvar despesas"}
             </Text>
-          </Pressable>
+          </Toque>
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

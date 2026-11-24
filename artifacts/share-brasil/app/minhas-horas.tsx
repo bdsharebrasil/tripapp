@@ -1,14 +1,17 @@
 import React from "react";
 import { ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { Cabecalho, u } from "@/src/components/ui";
 import { HorasVoo } from "@/src/components/HorasVoo";
 export default function MinhasHoras() {
   const router = useRouter(),
     insets = useSafeAreaInsets();
   return (
-    <View style={[u.root, { paddingTop: insets.top }]}>
+    <SafeAreaView edges={["top"]} style={u.root}>
       <Cabecalho
         titulo="Minhas horas"
         apoio="HISTÓRICO DE VOO"
@@ -23,6 +26,6 @@ export default function MinhasHoras() {
       >
         <HorasVoo />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }

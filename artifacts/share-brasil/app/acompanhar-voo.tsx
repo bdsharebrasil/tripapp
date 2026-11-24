@@ -2,14 +2,16 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import * as Location from "expo-location";
 import { apiFetch, ApiError } from "@/src/lib/api";
 import { Cabecalho, Botao, tema, u } from "@/src/components/ui";
@@ -324,7 +326,7 @@ export default function AcompanharVoo() {
       )
     : null;
   return (
-    <View style={[u.root, { paddingTop: insets.top }]}>
+    <SafeAreaView edges={["top"]} style={u.root}>
       <Cabecalho
         titulo={voo?.numero_voo || "Acompanhar voo"}
         apoio={voo?.matricula_registro || "MEUS VOOS"}
@@ -477,7 +479,7 @@ export default function AcompanharVoo() {
           </View>
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 const s = StyleSheet.create({

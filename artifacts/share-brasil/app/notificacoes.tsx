@@ -1,17 +1,15 @@
-import { Cabecalho } from "@/src/components/ui";
-import { Feather } from "@expo/vector-icons";
+import { Cabecalho, Icon, Toque } from "@/src/components/ui";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { ApiError, apiFetch } from "@/src/lib/api";
 import { useColors } from "@/hooks/useColors";
 
@@ -49,7 +47,6 @@ function formatDate(value?: string | null) {
 export default function NotificationsScreen() {
   const router = useRouter();
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -116,10 +113,11 @@ export default function NotificationsScreen() {
   const unreadCount = notifications.filter((item) => !isRead(item)).length;
 
   return (
-    <View
+    <SafeAreaView
+      edges={["top"]}
       style={[
         styles.container,
-        { backgroundColor: colors.background, paddingTop: insets.top + 12 },
+        { backgroundColor: colors.background, paddingTop: 12 },
       ]}
     >
       <Cabecalho
@@ -135,7 +133,7 @@ export default function NotificationsScreen() {
         ]}
       >
         <View style={styles.summaryLabel}>
-          <Feather name="inbox" size={16} color={colors.mutedForeground} />
+          <Icon name="inbox" size={16} color={colors.mutedForeground} />
           <Text style={[styles.summaryText, { color: colors.foreground }]}>
             {notifications.length} avisos
           </Text>
@@ -165,7 +163,7 @@ export default function NotificationsScreen() {
           <Text style={[styles.errorText, { color: colors.destructive }]}>
             {error}
           </Text>
-          <Pressable
+          <Toque
             onPress={() => void loadNotifications()}
             accessibilityRole="button"
             accessibilityLabel="Tentar carregar notificações novamente"
@@ -173,7 +171,7 @@ export default function NotificationsScreen() {
             <Text style={[styles.retryText, { color: colors.primary }]}>
               Tentar novamente
             </Text>
-          </Pressable>
+          </Toque>
         </View>
       ) : null}
 
@@ -208,11 +206,7 @@ export default function NotificationsScreen() {
               <View
                 style={[styles.emptyIcon, { backgroundColor: colors.muted }]}
               >
-                <Feather
-                  name="inbox"
-                  size={23}
-                  color={colors.mutedForeground}
-                />
+                <Icon name="inbox" size={23} color={colors.mutedForeground} />
               </View>
               <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
                 Tudo em dia
@@ -246,7 +240,7 @@ export default function NotificationsScreen() {
                     },
                   ]}
                 >
-                  <Feather
+                  <Icon
                     name={read ? "check" : "bell"}
                     size={16}
                     color={read ? colors.mutedForeground : colors.secondary}
@@ -258,7 +252,7 @@ export default function NotificationsScreen() {
                       "Você recebeu uma nova notificação."}
                   </Text>
                   <View style={styles.itemFooter}>
-                    <Feather
+                    <Icon
                       name="clock"
                       size={13}
                       color={colors.mutedForeground}
@@ -270,7 +264,7 @@ export default function NotificationsScreen() {
                     </Text>
                   </View>
                   {!read && (
-                    <Pressable
+                    <Toque
                       style={[
                         styles.readButton,
                         { borderColor: colors.secondary + "60" },
@@ -296,7 +290,7 @@ export default function NotificationsScreen() {
                           ? "Salvando…"
                           : "Marcar como lida"}
                       </Text>
-                    </Pressable>
+                    </Toque>
                   )}
                 </View>
               </View>
@@ -304,7 +298,7 @@ export default function NotificationsScreen() {
           }}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

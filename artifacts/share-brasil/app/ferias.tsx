@@ -1,11 +1,9 @@
 import { avisar } from "@/src/lib/confirmar";
-import { Cabecalho, tema } from "@/src/components/ui";
-import { Feather } from "@expo/vector-icons";
+import { Cabecalho, tema, Icon, Toque } from "@/src/components/ui";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -13,7 +11,10 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { apiFetch } from "@/src/lib/api";
 
 type Ferias = {
@@ -152,16 +153,16 @@ export default function FeriasScreen() {
   };
 
   return (
-    <View style={[s.root, { paddingTop: insets.top + 8 }]}>
+    <SafeAreaView edges={["top"]} style={[s.root, { paddingTop: 8 }]}>
       <Cabecalho
         titulo={creating ? "Solicitar férias" : "Minhas férias"}
         apoio="Férias"
         voltar={() => (creating ? setCreating(false) : router.back())}
       />
       {!!error && (
-        <Pressable style={s.alert} onPress={() => void load(true)}>
+        <Toque style={s.alert} onPress={() => void load(true)}>
           <Text style={s.text}>{error} · Atualizar</Text>
-        </Pressable>
+        </Toque>
       )}
       {loading ? (
         <ActivityIndicator color={BLUE} style={{ marginTop: 32 }} />
@@ -230,23 +231,23 @@ export default function FeriasScreen() {
                 placeholder="Informe observações ao RH"
                 placeholderTextColor={MUTED}
               />
-              <Pressable
+              <Toque
                 disabled={saving}
                 onPress={() => void submit()}
                 style={s.primary}
               >
-                <Feather name="send" color={BG} size={18} />
+                <Icon name="send" color={BG} size={18} />
                 <Text style={s.primaryText}>
                   {saving ? "Enviando…" : "Enviar solicitação"}
                 </Text>
-              </Pressable>
+              </Toque>
             </View>
           ) : (
             <>
-              <Pressable onPress={() => setCreating(true)} style={s.primary}>
-                <Feather name="plus-circle" color={BG} size={20} />
+              <Toque onPress={() => setCreating(true)} style={s.primary}>
+                <Icon name="plus-circle" color={BG} size={20} />
                 <Text style={s.primaryText}>Solicitar férias</Text>
-              </Pressable>
+              </Toque>
               <Text style={s.section}>HISTÓRICO DE SOLICITAÇÕES</Text>
               {!requests.length && (
                 <View style={s.card}>
@@ -283,7 +284,7 @@ export default function FeriasScreen() {
           )}
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 const s = StyleSheet.create({

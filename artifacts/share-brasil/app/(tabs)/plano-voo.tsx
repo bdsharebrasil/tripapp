@@ -1,4 +1,3 @@
-import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -6,7 +5,6 @@ import {
   FlatList,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,6 +18,7 @@ import { MapaVoo } from "@/src/components/MapaVoo";
 import type { Icone } from "@/src/components/ui";
 import { apiFetch } from "@/src/lib/api";
 import { avisar, confirmar } from "@/src/lib/confirmar";
+import { Icon, Toque } from "@/src/components/ui";
 
 type Cores = ReturnType<typeof useColors>;
 type StatusPlano = "rascunho" | "enviado" | "aprovado" | "cancelado";
@@ -213,7 +212,7 @@ function CartaoClima({
 
   return (
     <View style={[wStyles.card, { backgroundColor: colors.card }]}>
-      <Pressable style={wStyles.header} onPress={() => setExpandido((v) => !v)}>
+      <Toque style={wStyles.header} onPress={() => setExpandido((v) => !v)}>
         <View style={wStyles.titleRow}>
           <View
             style={[wStyles.dot, { backgroundColor: corMetar(dados?.metar) }]}
@@ -229,12 +228,12 @@ function CartaoClima({
             />
           )}
         </View>
-        <Feather
+        <Icon
           name={expandido ? "chevron-up" : "chevron-down"}
           size={16}
           color={colors.mutedForeground}
         />
-      </Pressable>
+      </Toque>
 
       {dados?.error ? (
         <Text style={[wStyles.errorText, { color: colors.destructive }]}>
@@ -415,13 +414,13 @@ function DetalheVoo({
             },
           ]}
         >
-          <Pressable
+          <Toque
             accessibilityRole="button"
             accessibilityLabel="Fechar"
             onPress={onFechar}
           >
-            <Feather name="x" size={22} color={colors.foreground} />
-          </Pressable>
+            <Icon name="x" size={22} color={colors.foreground} />
+          </Toque>
           <View style={dStyles.headerCenter}>
             <Text style={[dStyles.headerTitle, { color: colors.foreground }]}>
               {plano.partida} → {plano.chegada}
@@ -460,11 +459,7 @@ function DetalheVoo({
             <View
               style={[dStyles.mapLoader, { backgroundColor: colors.muted }]}
             >
-              <Feather
-                name="alert-circle"
-                size={24}
-                color={colors.destructive}
-              />
+              <Icon name="alert-circle" size={24} color={colors.destructive} />
               <Text style={[dStyles.errorMsg, { color: colors.destructive }]}>
                 {erroRota}
               </Text>
@@ -499,7 +494,7 @@ function DetalheVoo({
                     {rota.departure?.name ?? ""}
                   </Text>
                 </View>
-                <Feather
+                <Icon
                   name="arrow-right"
                   size={16}
                   color={colors.mutedForeground}
@@ -525,11 +520,7 @@ function DetalheVoo({
 
               <View style={[dStyles.infoRow, { backgroundColor: colors.card }]}>
                 <View style={dStyles.infoItem}>
-                  <Feather
-                    name="navigation"
-                    size={14}
-                    color={colors.secondary}
-                  />
+                  <Icon name="navigation" size={14} color={colors.secondary} />
                   <Text
                     style={[dStyles.infoValue, { color: colors.foreground }]}
                   >
@@ -548,7 +539,7 @@ function DetalheVoo({
                   style={[dStyles.divider, { backgroundColor: colors.border }]}
                 />
                 <View style={dStyles.infoItem}>
-                  <Feather name="clock" size={14} color={colors.secondary} />
+                  <Icon name="clock" size={14} color={colors.secondary} />
                   <Text
                     style={[dStyles.infoValue, { color: colors.foreground }]}
                   >
@@ -567,7 +558,7 @@ function DetalheVoo({
                   style={[dStyles.divider, { backgroundColor: colors.border }]}
                 />
                 <View style={dStyles.infoItem}>
-                  <Feather name="droplet" size={14} color={colors.secondary} />
+                  <Icon name="droplet" size={14} color={colors.secondary} />
                   <Text
                     style={[dStyles.infoValue, { color: colors.foreground }]}
                   >
@@ -612,11 +603,7 @@ function DetalheVoo({
                   <Text
                     style={[dStyles.altTitle, { color: colors.foreground }]}
                   >
-                    <Feather
-                      name="anchor"
-                      size={13}
-                      color={colors.foreground}
-                    />{" "}
+                    <Icon name="anchor" size={13} color={colors.foreground} />{" "}
                     Alternados próximos
                   </Text>
                   {rota.alternates.map((a) => (
@@ -688,11 +675,7 @@ function DetalheVoo({
                   { borderBottomColor: colors.border },
                 ]}
               >
-                <Feather
-                  name={icone}
-                  size={13}
-                  color={colors.mutedForeground}
-                />
+                <Icon name={icone} size={13} color={colors.mutedForeground} />
                 <Text
                   style={[
                     dStyles.detailLabel,
@@ -836,7 +819,7 @@ function CartaoPlano({
 }) {
   const cfg = STATUS_CONFIG[plano.status];
   return (
-    <Pressable
+    <Toque
       style={[
         pStyles.card,
         { backgroundColor: colors.card, borderColor: colors.border },
@@ -848,7 +831,7 @@ function CartaoPlano({
           <Text style={[pStyles.iata, { color: colors.foreground }]}>
             {plano.partida}
           </Text>
-          <Feather
+          <Icon
             name="arrow-right"
             size={16}
             color={colors.mutedForeground}
@@ -869,19 +852,19 @@ function CartaoPlano({
       </Text>
       <View style={pStyles.detailRow}>
         <View style={pStyles.detail}>
-          <Feather name="calendar" size={12} color={colors.mutedForeground} />
+          <Icon name="calendar" size={12} color={colors.mutedForeground} />
           <Text style={[pStyles.detailText, { color: colors.mutedForeground }]}>
             {formatarData(plano.data)}
           </Text>
         </View>
         <View style={pStyles.detail}>
-          <Feather name="clock" size={12} color={colors.mutedForeground} />
+          <Icon name="clock" size={12} color={colors.mutedForeground} />
           <Text style={[pStyles.detailText, { color: colors.mutedForeground }]}>
             {plano.horaPrevista || "—"} · {plano.estimativaVoo || "—"}h
           </Text>
         </View>
         <View style={pStyles.detail}>
-          <Feather name="users" size={12} color={colors.mutedForeground} />
+          <Icon name="users" size={12} color={colors.mutedForeground} />
           <Text style={[pStyles.detailText, { color: colors.mutedForeground }]}>
             {plano.passageiros} pax
           </Text>
@@ -889,7 +872,7 @@ function CartaoPlano({
       </View>
       {plano.piloto || plano.copiloto ? (
         <View style={[pStyles.crewRow, { backgroundColor: colors.muted }]}>
-          <Feather name="user" size={12} color={colors.mutedForeground} />
+          <Icon name="user" size={12} color={colors.mutedForeground} />
           <Text style={[pStyles.crewText, { color: colors.mutedForeground }]}>
             {plano.piloto}
             {plano.copiloto ? ` / ${plano.copiloto}` : ""}
@@ -898,21 +881,21 @@ function CartaoPlano({
       ) : null}
       <View style={pStyles.actions}>
         <View style={pStyles.tapHintRow}>
-          <Feather name="map" size={12} color={colors.mutedForeground} />
+          <Icon name="map" size={12} color={colors.mutedForeground} />
           <Text style={[pStyles.tapHint, { color: colors.mutedForeground }]}>
             Ver rota e meteorologia
           </Text>
         </View>
-        <Pressable
+        <Toque
           accessibilityRole="button"
           accessibilityLabel="Excluir plano de voo"
           style={[pStyles.deleteBtn, { backgroundColor: colors.muted }]}
           onPress={onExcluir}
         >
-          <Feather name="trash-2" size={13} color={colors.destructive} />
-        </Pressable>
+          <Icon name="trash-2" size={13} color={colors.destructive} />
+        </Toque>
       </View>
-    </Pressable>
+    </Toque>
   );
 }
 
@@ -1033,7 +1016,7 @@ function SeletorSolicitacao({
           { backgroundColor: colors.card, borderColor: colors.border },
         ]}
       >
-        <Feather name="search" size={16} color={colors.mutedForeground} />
+        <Icon name="search" size={16} color={colors.mutedForeground} />
         <TextInput
           accessibilityLabel="Buscar solicitação de voo"
           value={busca}
@@ -1065,7 +1048,7 @@ function SeletorSolicitacao({
         >
           {resultados.length ? (
             resultados.map((voo, i) => (
-              <Pressable
+              <Toque
                 key={`${voo.numero_voo}-${i}`}
                 accessibilityRole="button"
                 onPress={() => escolher(voo)}
@@ -1082,7 +1065,7 @@ function SeletorSolicitacao({
                     ? ` · ${formatarData(voo.data_agendada.slice(0, 10))}`
                     : ""}
                 </Text>
-              </Pressable>
+              </Toque>
             ))
           ) : (
             <Text style={[cStyles.msg, { color: colors.mutedForeground }]}>
@@ -1276,17 +1259,17 @@ function NovoPlanoModal({
             },
           ]}
         >
-          <Pressable
+          <Toque
             accessibilityRole="button"
             accessibilityLabel="Fechar"
             onPress={onFechar}
           >
-            <Feather name="x" size={22} color={colors.foreground} />
-          </Pressable>
+            <Icon name="x" size={22} color={colors.foreground} />
+          </Toque>
           <Text style={[mStyles.title, { color: colors.foreground }]}>
             Novo plano de voo
           </Text>
-          <Pressable
+          <Toque
             disabled={salvando}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1300,7 +1283,7 @@ function NovoPlanoModal({
                 Enviar
               </Text>
             )}
-          </Pressable>
+          </Toque>
         </View>
 
         <ScrollView
@@ -1348,7 +1331,7 @@ function NovoPlanoModal({
               style={[mStyles.wxPreview, { backgroundColor: colors.muted }]}
             >
               <View style={mStyles.wxRow}>
-                <Feather name="cloud" size={14} color={colors.secondary} />
+                <Icon name="cloud" size={14} color={colors.secondary} />
                 <Text style={[mStyles.wxTitle, { color: colors.foreground }]}>
                   Meteorologia
                 </Text>
@@ -1509,7 +1492,7 @@ function NovoPlanoModal({
             {CONDICOES.map((c) => {
               const ativo = form.condicoes === c;
               return (
-                <Pressable
+                <Toque
                   key={c}
                   accessibilityRole="button"
                   onPress={() => set("condicoes", c)}
@@ -1526,7 +1509,7 @@ function NovoPlanoModal({
                   >
                     {c}
                   </Text>
-                </Pressable>
+                </Toque>
               );
             })}
           </View>
@@ -1540,7 +1523,7 @@ function NovoPlanoModal({
             onChangeText={(v) => set("observacoes", v)}
             placeholder="Informações adicionais..."
           />
-          <Pressable
+          <Toque
             disabled={salvando}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1551,7 +1534,7 @@ function NovoPlanoModal({
             <Text style={[mStyles.rascunhoText, { color: colors.foreground }]}>
               Salvar como rascunho
             </Text>
-          </Pressable>
+          </Toque>
         </ScrollView>
       </View>
     </Modal>
@@ -1703,7 +1686,7 @@ export default function PlanoVooScreen() {
           Plano de Voo
         </Text>
         <View style={styles.headerActions}>
-          <Pressable
+          <Toque
             accessibilityRole="button"
             accessibilityLabel="Atualizar planos"
             style={[styles.iconBtn, { backgroundColor: colors.muted }]}
@@ -1712,9 +1695,9 @@ export default function PlanoVooScreen() {
               void carregar();
             }}
           >
-            <Feather name="refresh-cw" size={18} color={colors.foreground} />
-          </Pressable>
-          <Pressable
+            <Icon name="refresh-cw" size={18} color={colors.foreground} />
+          </Toque>
+          <Toque
             accessibilityRole="button"
             accessibilityLabel="Novo plano de voo"
             style={[styles.iconBtn, { backgroundColor: colors.primary }]}
@@ -1723,8 +1706,8 @@ export default function PlanoVooScreen() {
               setMostrarNovo(true);
             }}
           >
-            <Feather name="plus" size={20} color="#FFFFFF" />
-          </Pressable>
+            <Icon name="plus" size={20} color="#FFFFFF" />
+          </Toque>
         </View>
       </View>
 
@@ -1760,7 +1743,7 @@ export default function PlanoVooScreen() {
           ListEmptyComponent={
             erro ? undefined : (
               <View style={styles.empty}>
-                <Feather
+                <Icon
                   name="navigation"
                   size={40}
                   color={colors.mutedForeground}

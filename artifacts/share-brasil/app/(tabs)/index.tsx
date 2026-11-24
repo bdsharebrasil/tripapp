@@ -1,26 +1,27 @@
-import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Image,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { apiFetch } from "@/src/lib/api";
 import { PerfilCompleto, hoje, moeda, dataBr } from "@/src/lib/perfil";
 import { Avatar } from "@/src/components/Avatar";
 import {
-  Cabecalho,
+  BotaoIcone,
   ErroConsulta,
   Etiqueta,
+  Icon,
+  ItemLista,
   Secao,
+  Toque,
   Vazio,
   tema,
   u,
@@ -45,8 +46,7 @@ type Relatorio = {
   pagamento_valor?: number;
 };
 export default function HomeScreen() {
-  const router = useRouter(),
-    insets = useSafeAreaInsets();
+  const router = useRouter();
   const [perfil, setPerfil] = useState<PerfilCompleto | null>(null),
     [voos, setVoos] = useState<Voo[] | null>(null),
     [relatorios, setRelatorios] = useState<Relatorio[] | null>(null);
@@ -178,13 +178,17 @@ export default function HomeScreen() {
       path: "/manutencao",
     },
   ];
+  const proximo = voosRelevantes[0];
+  const horario = (v?: Voo) =>
+    v?.horario_previsto_agendamento?.match(/\d{2}:\d{2}/)?.[0] || "A definir";
+  const cores = [tema.destaque, tema.verde, "#7AA2FF"];
   return (
-    <View style={[u.root, { paddingTop: insets.top + 4 }]}>
+    <SafeAreaView edges={["top"]} style={u.root}>
       {!!error && (
         <ErroConsulta mensagem={error} atualizar={() => void load()} />
       )}
       {loading ? (
-        <ActivityIndicator color={tema.azul} style={{ marginTop: 50 }} />
+        <ActivityIndicator color={tema.destaque} style={{ marginTop: 50 }} />
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -192,102 +196,162 @@ export default function HomeScreen() {
             <RefreshControl
               refreshing={loading}
               onRefresh={() => void load()}
-              tintColor={tema.azul}
+              tintColor={tema.destaque}
             />
           }
           contentContainerStyle={s.content}
         >
-          <View style={s.hero}>
+          <View style={s.topo}>
+            <Toque
+              accessibilityLabel="Abrir perfil"
+              accessibilityRole="button"
+              onPress={() => router.push("/(tabs)/perfil")}
+            >
+              <Avatar nome={nome} disponivel={!!p?.foto_url} tamanho={48} />
+            </Toque>
+            <View style={{ flex: 1 }}>
+              <Text style={s.hello}>Bem-vindo de volta</Text>
+              <Text style={s.greeting} numberOfLines={1}>
+                Olá, {nome.split(" ")[0]}
+              </Text>
+            </View>
+            <BotaoIcone
+              icone="bell"
+              rotulo="Abrir notificações"
+              onPress={() => router.push("/notificacoes")}
+            />
+          </View>
+
+          <Toque
+            accessibilityRole="button"
+            accessibilityLabel={
+              proximo
+                ? `Próximo voo ${proximo.numero_voo || ""}`
+                : "Abrir minha agenda"
+            }
+            onPress={() =>
+              proximo
+                ? router.push({
+                    pathname: "/(tabs)/agenda",
+                    params: { vooId: proximo.id },
+                  })
+                : router.push("/(tabs)/agenda")
+            }
+            style={s.hero}
+          >
             <Image
               source={require("../../assets/images/ceu-asa.jpg")}
               style={s.heroImage}
               resizeMode="cover"
             />
             <LinearGradient
-              colors={["rgba(8,13,24,0)", "rgba(8,13,24,0.25)", "rgba(8,13,24,0.85)"]}
+              colors={[
+                "rgba(10,16,32,0.15)",
+                "rgba(10,16,32,0.55)",
+                "rgba(10,16,32,0.95)",
+              ]}
               locations={[0, 0.45, 1]}
               style={s.heroShade}
             >
               <View style={s.between}>
-                <View style={{ flex: 1 }}></View>
-                <Pressable
-                  accessibilityLabel="Abrir notificações"
-                  onPress={() => router.push("/notificacoes")}
-                  style={u.icon}
-                >
-                  <Feather name="bell" size={21} color={tema.texto} />
-                </Pressable>
-                <Pressable
-                  accessibilityLabel="Abrir perfil"
-                  onPress={() => router.push("/(tabs)/perfil")}
-                >
-                  <Avatar nome={nome} disponivel={!!p?.foto_url} tamanho={46} />
-                </Pressable>
+                <Text style={s.heroKicker}>
+                  {proximo ? "Próximo voo" : "Sua agenda"}
+                </Text>
+                {proximo && <Etiqueta texto={rotuloStatus(proximo.status)} />}
               </View>
-              <Text style={s.greeting}>Olá, {nome.split(" ")[0]}</Text>
+              {proximo ? (
+                <>
+                  <View style={s.route}>
+                    <Text style={s.airport}>{proximo.origem || "—"}</Text>
+                    <View style={s.track}>
+                      <View style={s.line} />
+                      <Icon name="airplane" size={18} color={tema.destaque} />
+                      <View style={s.line} />
+                    </View>
+                    <Text style={s.airport}>{proximo.destino || "—"}</Text>
+                  </View>
+                  <View style={s.heroMeta}>
+                    <View>
+                      <Text style={s.metaLabel}>Data</Text>
+                      <Text style={s.metaValue}>
+                        {dataBr(proximo.data_agendada)}
+                      </Text>
+                    </View>
+                    <View>
+                      <Text style={s.metaLabel}>Horário</Text>
+                      <Text style={s.metaValue}>{horario(proximo)}</Text>
+                    </View>
+                    <View>
+                      <Text style={s.metaLabel}>Voo</Text>
+                      <Text style={s.metaValue}>
+                        {proximo.numero_voo || "—"}
+                      </Text>
+                    </View>
+                  </View>
+                </>
+              ) : (
+                <Text style={s.heroVazio}>
+                  {voos
+                    ? "Nenhum voo ativo ou confirmado no momento."
+                    : "Agenda indisponível. Puxe para atualizar."}
+                </Text>
+              )}
             </LinearGradient>
-          </View>
+          </Toque>
+
           <Secao titulo="Acesso rápido" />
           <View style={s.shortcuts}>
-            {shortcuts.map((x) => (
-              <Pressable
+            {shortcuts.map((x, i) => (
+              <Toque
                 key={x.nome}
                 accessibilityLabel={x.nome}
                 accessibilityHint={x.texto}
                 accessibilityRole="button"
                 onPress={() => router.push(x.path as any)}
-                style={({ pressed }) => [
-                  s.shortcut,
-                  pressed && { backgroundColor: tema.elevado },
-                ]}
+                style={s.shortcut}
               >
-                <Feather name={x.icone} size={16} color={tema.destaque} />
+                <View
+                  style={[
+                    s.shortcutIcon,
+                    { backgroundColor: cores[i % cores.length] + "1F" },
+                  ]}
+                >
+                  <Icon
+                    name={x.icone}
+                    size={20}
+                    color={cores[i % cores.length]}
+                  />
+                </View>
                 <Text numberOfLines={1} style={s.shortcutTitle}>
                   {x.rotulo}
                 </Text>
-              </Pressable>
+              </Toque>
             ))}
           </View>
+
           <Secao
-            titulo="Próximo voo e voos ativos"
-            acao="Minha agenda"
+            titulo="Voos ativos e confirmados"
+            acao="Agenda"
             onPress={() => router.push("/(tabs)/agenda")}
           />
           {voosRelevantes.length ? (
-            <View style={s.upcoming}>
-              {voosRelevantes.map((v) => (
-                <Pressable
+            <View style={s.lista}>
+              {voosRelevantes.map((v, i) => (
+                <ItemLista
                   key={v.id}
-                  accessibilityRole="button"
+                  icone="send"
+                  cor="#7AA2FF"
+                  titulo={`${v.origem || "—"} → ${v.destino || "—"}`}
+                  apoio={`${v.numero_voo || "Voo programado"} · ${dataBr(v.data_agendada)} · ${horario(v)}${v.matricula_registro ? ` · ${v.matricula_registro}` : ""}`}
+                  direita={<Etiqueta texto={rotuloStatus(v.status)} />}
+                  ultimo={i === voosRelevantes.length - 1}
                   onPress={() =>
                     router.push({
                       pathname: "/(tabs)/agenda",
                       params: { vooId: v.id },
                     })
                   }
-                  style={s.nextFlight}
-                >
-                  <Feather name="send" size={19} color={tema.azul} />
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <View style={s.between}>
-                      <Text style={s.flightNo}>
-                        {v.numero_voo || "Voo programado"}
-                      </Text>
-                      <Etiqueta texto={rotuloStatus(v.status)} />
-                    </View>
-                    <Text style={s.hello}>
-                      {v.origem || "—"} → {v.destino || "—"} ·{" "}
-                      {dataBr(v.data_agendada)}
-                    </Text>
-                    <Text style={s.hello}>
-                      {v.horario_previsto_agendamento?.match(
-                        /\d{2}:\d{2}/,
-                      )?.[0] || "Horário a definir"}
-                      {v.matricula_registro ? ` · ${v.matricula_registro}` : ""}
-                    </Text>
-                  </View>
-                  <Feather name="chevron-right" color={tema.suave} size={18} />
-                </Pressable>
+                />
               ))}
             </View>
           ) : (
@@ -303,69 +367,54 @@ export default function HomeScreen() {
               }
             />
           )}
+
           <Secao
-            titulo="Suas despesas de viagem"
+            titulo="Despesas de viagem"
             acao="Abrir"
             onPress={() => router.push("/(tabs)/despesa-viagem")}
           />
           <View style={s.summary}>
             <View style={s.summaryItem}>
+              <Icon name="edit-3" size={18} color={tema.suave} />
               <Text style={s.stat}>{rascunhos ?? "—"}</Text>
-              <Text style={s.hello}>Rascunhos</Text>
+              <Text style={s.statLabel}>Rascunhos</Text>
             </View>
             <View style={s.summaryItem}>
+              <Icon name="clock" size={18} color={tema.destaque} />
               <Text style={s.stat}>{aprovacao ?? "—"}</Text>
-              <Text style={s.hello}>Em aprovação</Text>
+              <Text style={s.statLabel}>Em aprovação</Text>
             </View>
             <View style={s.summaryItem}>
-              <Feather name="credit-card" size={20} color={tema.verde} />
-              <Text style={[s.hello, { marginTop: 6 }]}>
-                {reembolso == null ? "Indisponível" : moeda(reembolso)}
+              <Icon name="credit-card" size={18} color={tema.verde} />
+              <Text
+                style={[s.stat, s.statMoeda]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {reembolso == null ? "—" : moeda(reembolso)}
               </Text>
-              <Text style={s.shortcutNote}>A receber</Text>
+              <Text style={s.statLabel}>A receber</Text>
             </View>
           </View>
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 const s = StyleSheet.create({
-  content: { paddingHorizontal: 20, paddingBottom: 120 },
-  hero: { minHeight: 220, borderRadius: 24, overflow: "hidden" },
-  heroImage: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    opacity: 0.8,
+  content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 130 },
+  topo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginBottom: 20,
   },
-  heroShade: {
-    padding: 20,
-    paddingTop: 14,
-    paddingBottom: 24,
-    flex: 1,
-    marginTop: 6,
-    marginBottom: 6,
-  },
+  hello: { color: tema.suave, fontSize: 14, fontFamily: "Inter_400Regular" },
   greeting: {
     color: tema.texto,
     fontFamily: "Inter_700Bold",
-    fontSize: 30,
-    marginTop: 25,
-  },
-  identity: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 8,
-  },
-  hello: { color: tema.suave, fontSize: 11, lineHeight: 18 },
-  name: {
-    color: tema.texto,
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 16,
+    fontSize: 26,
+    letterSpacing: -0.6,
     marginTop: 2,
   },
   between: {
@@ -374,108 +423,109 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  flight: {
-    padding: 20,
-    borderRadius: 24,
-    borderColor: tema.borda,
-    borderWidth: 1,
+  hero: {
+    minHeight: 210,
+    borderRadius: 26,
+    overflow: "hidden",
+    backgroundColor: tema.superficie,
   },
-  flightNo: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
+  heroImage: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  heroShade: { flex: 1, padding: 20, justifyContent: "space-between" },
+  heroKicker: {
     color: tema.texto,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+    opacity: 0.9,
+  },
+  heroVazio: {
+    color: tema.texto,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 18,
+    lineHeight: 25,
+    marginTop: 60,
   },
   route: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 25,
-    marginBottom: 21,
-    gap: 10,
+    marginTop: 34,
+    gap: 12,
   },
   airport: {
     fontSize: 30,
-    letterSpacing: -1,
+    letterSpacing: -0.8,
     fontFamily: "Inter_700Bold",
     color: tema.texto,
   },
   track: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
-  line: { height: 1, backgroundColor: tema.borda, flex: 1 },
-  meta: { fontSize: 11, lineHeight: 18, color: tema.suave },
-  flightFooter: {
+  line: {
+    height: 1,
+    flex: 1,
     borderTopWidth: 1,
-    borderTopColor: tema.borda,
-    marginTop: 17,
-    paddingTop: 16,
+    borderStyle: "dashed",
+    borderColor: "rgba(242,244,250,0.45)",
+  },
+  heroMeta: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    marginTop: 20,
   },
-  cta: { color: tema.destaque, fontSize: 12, fontFamily: "Inter_600SemiBold" },
-  shortcuts: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    paddingBottom: 2,
+  metaLabel: { color: tema.suave, fontSize: 12 },
+  metaValue: {
+    color: tema.texto,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+    marginTop: 3,
   },
+  shortcuts: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   shortcut: {
     flexBasis: "30%",
     flexGrow: 1,
-    minHeight: 76,
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    flexDirection: "column",
-    justifyContent: "center",
+    minHeight: 96,
+    padding: 12,
     alignItems: "center",
-    gap: 6,
-    borderRadius: 17,
+    justifyContent: "center",
+    gap: 10,
+    borderRadius: 20,
     backgroundColor: tema.superficie,
-    borderWidth: 1,
-    borderColor: tema.borda,
+  },
+  shortcutIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
   },
   shortcutTitle: {
     color: tema.texto,
     fontFamily: "Inter_600SemiBold",
-    fontSize: 10,
-    flexShrink: 1,
+    fontSize: 13,
   },
-  shortcutNote: {
-    color: tema.suave,
-    fontSize: 10,
-    lineHeight: 16,
-    marginTop: 4,
-  },
-  upcoming: {
-    borderWidth: 1,
-    borderColor: tema.borda,
+  lista: {
     backgroundColor: tema.superficie,
-    borderRadius: 18,
-    paddingHorizontal: 14,
+    borderRadius: 22,
+    paddingHorizontal: 16,
   },
-  nextFlight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 15,
-  },
-  summary: {
-    backgroundColor: tema.superficie,
-    borderRadius: 20,
-    paddingVertical: 18,
-    flexDirection: "row",
-    borderWidth: 1,
-    borderColor: tema.borda,
-  },
+  summary: { flexDirection: "row", gap: 10 },
   summaryItem: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 5,
+    backgroundColor: tema.superficie,
+    borderRadius: 20,
+    padding: 14,
+    gap: 6,
   },
   stat: {
-    fontSize: 23,
+    fontSize: 24,
     fontFamily: "Inter_700Bold",
     color: tema.texto,
-    marginBottom: 4,
+    marginTop: 6,
   },
+  statMoeda: { fontSize: 16, marginTop: 10, marginBottom: 4 },
+  statLabel: { color: tema.suave, fontSize: 12 },
 });

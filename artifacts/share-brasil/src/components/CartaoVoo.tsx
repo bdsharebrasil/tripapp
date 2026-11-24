@@ -5,14 +5,12 @@ import {
   AccessibilityInfo,
   Animated,
   Easing,
-  Pressable,
   StyleSheet,
   Text,
   View,
   type TextStyle,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { tema } from "./ui";
+import { tema, Icon, Toque } from "./ui";
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 export type DadosCartaoVoo = {
   id: string;
@@ -276,7 +274,7 @@ export function CartaoVoo({
       ? tema.verde
       : tema.azul;
   return (
-    <Pressable
+    <Toque
       onPress={onPress}
       disabled={!onPress}
       accessibilityRole={onPress ? "button" : undefined}
@@ -291,7 +289,7 @@ export function CartaoVoo({
         <View style={s.row}>
           <View style={[s.row, { flex: 1, justifyContent: "flex-start" }]}>
             <View style={s.icon}>
-              <Ionicons name="airplane" size={15} color={tema.fundo} />
+              <Icon name="airplane" size={15} color={tema.fundo} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.number}>{voo.numero_voo || "Voo programado"}</Text>
@@ -312,7 +310,7 @@ export function CartaoVoo({
           </View>
           <View style={s.track}>
             <View style={s.dash} />
-            <Ionicons name="airplane" size={20} color={tema.suave} />
+            <Icon name="airplane" size={20} color={tema.suave} />
             <View style={s.dash} />
           </View>
           <View style={{ flex: 1, alignItems: "flex-end" }}>
@@ -363,7 +361,7 @@ export function CartaoVoo({
           </Text>
         </View>
       </View>
-    </Pressable>
+    </Toque>
   );
 }
 const s = StyleSheet.create({

@@ -1,19 +1,17 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Tabs, useRouter, type Href } from "expo-router";
-import { Feather } from "@expo/vector-icons";
 import {
   AccessibilityInfo,
   Animated,
   Easing,
   Keyboard,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { tema, type Icone } from "./ui";
+import { Icon, Toque, tema, type Icone } from "./ui";
 
 type Props = Parameters<
   NonNullable<React.ComponentProps<typeof Tabs>["tabBar"]>
@@ -22,96 +20,73 @@ const itens: Record<string, { titulo: string; icone: Icone }> = {
   index: { titulo: "Início", icone: "home" },
   agenda: { titulo: "Meus voos", icone: "send" },
   "plano-voo": { titulo: "Plano de voo", icone: "map" },
-  "despesa-viagem": { titulo: "Despesa viagem", icone: "file-text" },
-  diario: { titulo: "Diário de bordo", icone: "book-open" },
+  "despesa-viagem": { titulo: "Despesas", icone: "file-text" },
+  diario: { titulo: "Diário", icone: "book-open" },
   manutencao: { titulo: "Manutenção", icone: "tool" },
   financeiro: { titulo: "Financeiro", icone: "credit-card" },
   perfil: { titulo: "Perfil", icone: "user" },
 };
+const LARGURA_ITEM = 76;
 function Item({
   titulo,
   icone,
   ativo,
   reduzir,
   onPress,
-  onLongPress,
 }: {
   titulo: string;
   icone: Icone;
   ativo: boolean;
   reduzir: boolean;
   onPress: () => void;
-  onLongPress: () => void;
 }) {
   const anim = useRef(new Animated.Value(ativo ? 1 : 0)).current;
   useEffect(() => {
     const run = Animated.timing(anim, {
       toValue: ativo ? 1 : 0,
-      duration: reduzir ? 0 : 260,
+      duration: reduzir ? 0 : 220,
       easing: Easing.bezier(0.23, 1, 0.32, 1),
-      useNativeDriver: false,
+      useNativeDriver: true,
     });
     run.start();
     return () => run.stop();
   }, [ativo, reduzir, anim]);
   return (
-    <Animated.View
-      style={{
-        minWidth: 44,
-        width: anim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [44, 150],
-        }),
-      }}
+    <Toque
+      haptico="selecao"
+      accessibilityRole="tab"
+      accessibilityLabel={titulo}
+      accessibilityState={{ selected: ativo }}
+      aria-selected={ativo}
+      onPress={onPress}
+      style={s.item}
     >
-      <Pressable
-        accessibilityRole="tab"
-        accessibilityLabel={titulo}
-        accessibilityState={{ selected: ativo }}
-        aria-selected={ativo}
-        onPress={onPress}
-        onLongPress={onLongPress}
-        style={({ pressed }) => [
-          s.item,
-          { backgroundColor: ativo ? tema.azul : tema.elevado },
-          pressed && { opacity: 0.75 },
-        ]}
-      >
-        <Feather
-          name={icone}
-          size={21}
-          color={ativo ? tema.texto : tema.suave}
-        />
+      <View style={s.iconWrap}>
         <Animated.View
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-          style={{
-            overflow: "hidden",
-            flexShrink: 1,
-            maxWidth: anim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 104],
-            }),
-            opacity: anim,
-            marginLeft: anim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 8],
-            }),
-          }}
-        >
-          {ativo && (
-            <Text numberOfLines={1} style={s.label}>
-              {titulo}
-            </Text>
-          )}
-        </Animated.View>
-      </Pressable>
-    </Animated.View>
+          style={[
+            StyleSheet.absoluteFill,
+            s.indicador,
+            { opacity: anim, transform: [{ scaleX: anim }] },
+          ]}
+        />
+        <Icon
+          name={icone}
+          size={22}
+          strokeWidth={ativo ? 2.4 : 2}
+          color={ativo ? tema.destaque : tema.suave}
+        />
+      </View>
+      <Text numberOfLines={1} style={[s.label, ativo && { color: tema.texto }]}>
+        {titulo}
+      </Text>
+    </Toque>
   );
 }
 export function MenuInferior({ state }: Props) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const [largura, setLargura] = useState(0);
   const [keyboard, setKeyboard] = useState(false),
     [reduzir, setReduzir] = useState(true);
   useEffect(() => {
@@ -136,43 +111,49 @@ export function MenuInferior({ state }: Props) {
       hide.remove();
     };
   }, []);
-  if (keyboard) return null;
+  const rotas = state.routes.filter((r) => itens[r.name]);
   const selected = state.routes[state.index].name;
   const visible = itens[selected] ? selected : "agenda";
+  const indice = rotas.findIndex((r) => r.name === visible);
+  useEffect(() => {
+    if (!largura || indice < 0) return;
+    const x = indice * LARGURA_ITEM - (largura - LARGURA_ITEM) / 2;
+    scroll.current?.scrollTo({ x: Math.max(0, x), animated: !reduzir });
+  }, [indice, largura, reduzir]);
+  if (keyboard) return null;
   return (
     <View
       accessibilityRole="tablist"
-      style={[s.bar, { bottom: Math.max(10, insets.bottom) }]}
+      style={[s.bar, { paddingBottom: Math.max(8, insets.bottom) }]}
+      onLayout={(e) => setLargura(e.nativeEvent.layout.width)}
     >
       <ScrollView
+        ref={scroll}
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.items}
+        contentContainerStyle={[
+          s.items,
+          largura >= rotas.length * LARGURA_ITEM && {
+            flexGrow: 1,
+            justifyContent: "space-around",
+          },
+        ]}
       >
-        {state.routes
-          .filter((r) => itens[r.name])
-          .map((route) => {
-            const item = itens[route.name],
-              ativo = route.name === visible;
-            return (
-              <Item
-                key={route.key}
-                {...item}
-                ativo={ativo}
-                reduzir={reduzir}
-                onPress={() => {
-                  if (route.name !== selected) {
-                    const path =
-                      route.name === "index"
-                        ? "/(tabs)"
-                        : `/(tabs)/${route.name}`;
-                    router.navigate(path as Href);
-                  }
-                }}
-                onLongPress={() => undefined}
-              />
-            );
-          })}
+        {rotas.map((route) => (
+          <Item
+            key={route.key}
+            {...itens[route.name]}
+            ativo={route.name === visible}
+            reduzir={reduzir}
+            onPress={() => {
+              if (route.name !== selected) {
+                const path =
+                  route.name === "index" ? "/(tabs)" : `/(tabs)/${route.name}`;
+                router.navigate(path as Href);
+              }
+            }}
+          />
+        ))}
       </ScrollView>
     </View>
   );
@@ -180,23 +161,32 @@ export function MenuInferior({ state }: Props) {
 const s = StyleSheet.create({
   bar: {
     position: "absolute",
-    left: 15,
-    right: 15,
-    padding: 8,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: 8,
     backgroundColor: tema.superficie,
-    borderWidth: 1,
-    borderColor: tema.borda,
-    borderRadius: 32,
-    elevation: 0,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: tema.borda,
   },
-  items: { flexDirection: "row", alignItems: "center", gap: 6 },
+  items: { flexDirection: "row", alignItems: "center" },
   item: {
-    height: 48,
-    borderRadius: 24,
-    flexDirection: "row",
+    width: LARGURA_ITEM,
+    minHeight: 56,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 10,
+    gap: 4,
   },
-  label: { color: tema.texto, fontFamily: "Inter_600SemiBold", fontSize: 12 },
+  iconWrap: {
+    width: 60,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  indicador: { borderRadius: 16, backgroundColor: tema.destaque + "26" },
+  label: {
+    color: tema.suave,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
+  },
 });

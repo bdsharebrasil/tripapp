@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
+import { PanResponder, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, G, Path, Text as SvgText } from "react-native-svg";
 import terra from "../lib/terra.json";
 import {
@@ -9,7 +9,7 @@ import {
   type Coord,
   type Posicao,
 } from "../lib/acompanhamento";
-import { tema } from "./ui";
+import { tema, Toque } from "./ui";
 const mundo = terra
   .map(
     (r) =>
@@ -183,7 +183,7 @@ export function MapaVoo({
             },
           },
         ].map((b) => (
-          <Pressable
+          <Toque
             key={b.label}
             accessibilityRole="button"
             accessibilityLabel={b.label}
@@ -191,7 +191,7 @@ export function MapaVoo({
             style={s.button}
           >
             <Text style={s.buttonText}>{b.text}</Text>
-          </Pressable>
+          </Toque>
         ))}
       </View>
       <Text style={s.credit}>

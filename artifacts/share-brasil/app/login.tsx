@@ -1,5 +1,4 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -9,7 +8,6 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -30,16 +28,17 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { signIn } from "@/src/lib/session";
+import { Icon, Toque } from "@/src/components/ui";
 
 const EMAIL_DOMAIN = "share-brasil.com";
 const C = {
-  bg: "#080D18",
-  bgMid: "#141E42",
-  bgEnd: "#182142",
-  card: "rgba(24,33,66,0.94)",
-  accent: "#F4D532",
-  accentPressed: "#FFE45C",
-  onAccent: "#111835",
+  bg: "#0A1020",
+  bgMid: "#101A33",
+  bgEnd: "#141C2F",
+  card: "rgba(20,28,47,0.92)",
+  accent: "#F4C542",
+  accentPressed: "#FFD563",
+  onAccent: "#0A1020",
   text: "#EBEDFC",
   textSoft: "#D4D8EF",
   textMuted: "#B7BED7",
@@ -90,7 +89,7 @@ function FlightPlane({
       pointerEvents="none"
       style={[{ position: "absolute", left: 0, top: screenH * y }, style]}
     >
-      <MaterialCommunityIcons name="airplane" size={size} color={C.accent} />
+      <Icon name="airplane" size={size} color={C.accent} />
     </Animated.View>
   );
 }
@@ -229,8 +228,8 @@ export default function LoginScreen() {
 
             <Text style={styles.label}>Usuário</Text>
             <View style={[styles.field, userFocused && styles.fieldFocused]}>
-              <Ionicons
-                name="person-outline"
+              <Icon
+                name="user"
                 size={20}
                 color={userFocused ? C.accent : "rgba(255,255,255,0.55)"}
               />
@@ -266,8 +265,8 @@ export default function LoginScreen() {
 
             <Text style={[styles.label, styles.passwordLabel]}>Senha</Text>
             <View style={[styles.field, passFocused && styles.fieldFocused]}>
-              <Ionicons
-                name="lock-closed-outline"
+              <Icon
+                name="lock"
                 size={20}
                 color={passFocused ? C.accent : "rgba(255,255,255,0.55)"}
               />
@@ -293,7 +292,7 @@ export default function LoginScreen() {
                 accessibilityLabel="Senha"
                 style={styles.input}
               />
-              <Pressable
+              <Toque
                 onPress={() => setShowPassword((shown) => !shown)}
                 hitSlop={12}
                 disabled={submitting}
@@ -302,15 +301,15 @@ export default function LoginScreen() {
                   showPassword ? "Ocultar senha" : "Mostrar senha"
                 }
               >
-                <Ionicons
-                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                <Icon
+                  name={showPassword ? "eye-off" : "eye"}
                   size={21}
                   color="rgba(255,255,255,0.7)"
                 />
-              </Pressable>
+              </Toque>
             </View>
 
-            <Pressable
+            <Toque
               onPress={() => setRemember((value) => !value)}
               disabled={submitting}
               style={styles.rememberRow}
@@ -319,12 +318,10 @@ export default function LoginScreen() {
               accessibilityLabel="Lembrar meu acesso"
             >
               <View style={[styles.checkbox, remember && styles.checkboxOn]}>
-                {remember && (
-                  <Ionicons name="checkmark" size={15} color={C.onAccent} />
-                )}
+                {remember && <Icon name="check" size={15} color={C.onAccent} />}
               </View>
               <Text style={styles.rememberText}>Lembrar meu acesso</Text>
-            </Pressable>
+            </Toque>
 
             {error && (
               <Text
@@ -335,7 +332,7 @@ export default function LoginScreen() {
                 {error}
               </Text>
             )}
-            <Pressable
+            <Toque
               onPress={() => void submit()}
               disabled={!canSubmit}
               accessibilityRole="button"
@@ -359,7 +356,7 @@ export default function LoginScreen() {
                   Entrar
                 </Text>
               )}
-            </Pressable>
+            </Toque>
           </Animated.View>
           <Text style={styles.footer} maxFontSizeMultiplier={1.5}>
             Share Brasil · Portal do Tripulante
@@ -418,7 +415,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   fieldFocused: {
-    borderColor: "rgba(244,213,50,0.8)",
+    borderColor: "rgba(244,197,66,0.8)",
     backgroundColor: "rgba(255,255,255,0.1)",
   },
   input: {

@@ -1,10 +1,8 @@
-import { Feather } from "@expo/vector-icons";
 import { reloadAppAsync } from "expo";
 import React, { useState } from "react";
 import {
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { Icon, Toque } from "@/src/components/ui";
 
 export type ErrorFallbackProps = {
   error: Error;
@@ -51,7 +50,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {__DEV__ ? (
-        <Pressable
+        <Toque
           onPress={() => setIsModalVisible(true)}
           accessibilityLabel="Ver detalhes do erro"
           accessibilityRole="button"
@@ -64,8 +63,8 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
             },
           ]}
         >
-          <Feather name="alert-circle" size={20} color={colors.foreground} />
-        </Pressable>
+          <Icon name="alert-circle" size={20} color={colors.foreground} />
+        </Toque>
       ) : null}
 
       <View style={styles.content}>
@@ -77,7 +76,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
           Reabra o aplicativo para tentar novamente.
         </Text>
 
-        <Pressable
+        <Toque
           onPress={handleRestart}
           style={({ pressed }) => [
             styles.button,
@@ -89,14 +88,11 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
           ]}
         >
           <Text
-            style={[
-              styles.buttonText,
-              { color: colors.primaryForeground },
-            ]}
+            style={[styles.buttonText, { color: colors.primaryForeground }]}
           >
             Tentar novamente
           </Text>
-        </Pressable>
+        </Toque>
       </View>
 
       {__DEV__ ? (
@@ -122,7 +118,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
                 <Text style={[styles.modalTitle, { color: colors.foreground }]}>
                   Detalhes do erro
                 </Text>
-                <Pressable
+                <Toque
                   onPress={() => setIsModalVisible(false)}
                   accessibilityLabel="Fechar detalhes do erro"
                   accessibilityRole="button"
@@ -131,8 +127,8 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
                     { opacity: pressed ? 0.6 : 1 },
                   ]}
                 >
-                  <Feather name="x" size={24} color={colors.foreground} />
-                </Pressable>
+                  <Icon name="x" size={24} color={colors.foreground} />
+                </Toque>
               </View>
 
               <ScrollView

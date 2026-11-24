@@ -1,5 +1,4 @@
 import { avisar } from "@/src/lib/confirmar";
-import { Feather } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
@@ -7,7 +6,6 @@ import {
   FlatList,
   Image,
   Modal,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -15,9 +13,13 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { ApiError, apiFetch } from "@/src/lib/api";
 import { useColors } from "@/hooks/useColors";
+import { Icon, Toque } from "@/src/components/ui";
 
 type Severity = "low" | "medium" | "high" | "critical";
 type ReportStatus = "open" | "in_analysis" | "in_maintenance" | "resolved";
@@ -147,7 +149,7 @@ function ReportCard({
       </Text>
       {report.reporter?.full_name ? (
         <View style={styles.reporter}>
-          <Feather name="user" size={13} color={colors.mutedForeground} />
+          <Icon name="user" size={13} color={colors.mutedForeground} />
           <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
             {report.reporter.full_name}
           </Text>
@@ -244,12 +246,13 @@ function NewReportModal({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View
+      <SafeAreaView
+        edges={["top"]}
         style={[
           styles.modal,
           {
             backgroundColor: colors.background,
-            paddingTop: insets.top + 8,
+            paddingTop: 8,
             paddingBottom: Math.max(insets.bottom, 16),
           },
         ]}
@@ -257,17 +260,17 @@ function NewReportModal({
         <View
           style={[styles.modalHeader, { borderBottomColor: colors.border }]}
         >
-          <Pressable
+          <Toque
             onPress={onClose}
             accessibilityRole="button"
             accessibilityLabel="Fechar formulário"
           >
-            <Feather name="x" size={23} color={colors.foreground} />
-          </Pressable>
+            <Icon name="x" size={23} color={colors.foreground} />
+          </Toque>
           <Text style={[styles.modalTitle, { color: colors.foreground }]}>
             Novo report
           </Text>
-          <Pressable
+          <Toque
             onPress={() => void submit()}
             disabled={saving}
             accessibilityRole="button"
@@ -275,7 +278,7 @@ function NewReportModal({
             <Text style={[styles.saveText, { color: colors.primary }]}>
               {saving ? "Salvando…" : "Salvar"}
             </Text>
-          </Pressable>
+          </Toque>
         </View>
         <ScrollView
           contentContainerStyle={styles.form}
@@ -292,7 +295,7 @@ function NewReportModal({
               {aircraft.map((plane) => {
                 const selected = aircraftId === plane.id;
                 return (
-                  <Pressable
+                  <Toque
                     key={plane.id}
                     onPress={() => setAircraftId(plane.id)}
                     style={[
@@ -323,7 +326,7 @@ function NewReportModal({
                     >
                       {plane.model}
                     </Text>
-                  </Pressable>
+                  </Toque>
                 );
               })}
             </ScrollView>
@@ -362,7 +365,7 @@ function NewReportModal({
               const option = severityInfo[value];
               const selected = severity === value;
               return (
-                <Pressable
+                <Toque
                   key={value}
                   onPress={() => setSeverity(value)}
                   style={[
@@ -378,7 +381,7 @@ function NewReportModal({
                   >
                     {option.label}
                   </Text>
-                </Pressable>
+                </Toque>
               );
             })}
           </View>
@@ -403,7 +406,7 @@ function NewReportModal({
               A descrição é obrigatória.
             </Text>
           ) : null}
-          <Pressable
+          <Toque
             onPress={() => void submit()}
             disabled={!canSave}
             style={[
@@ -416,9 +419,9 @@ function NewReportModal({
             ) : (
               <Text style={styles.submitText}>Enviar report</Text>
             )}
-          </Pressable>
+          </Toque>
         </ScrollView>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }
@@ -547,14 +550,15 @@ export default function ManutencaoScreen() {
   };
 
   return (
-    <View
+    <SafeAreaView
+      edges={["top"]}
       style={[
         styles.container,
-        { backgroundColor: colors.background, paddingTop: insets.top + 12 },
+        { backgroundColor: colors.background, paddingTop: 12 },
       ]}
     >
       <View style={styles.header}>
-        <Pressable
+        <Toque
           onPress={goBack}
           accessibilityRole="button"
           accessibilityLabel={
@@ -565,8 +569,8 @@ export default function ManutencaoScreen() {
             { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
-          <Feather name="arrow-left" size={20} color={colors.foreground} />
-        </Pressable>
+          <Icon name="arrow-left" size={20} color={colors.foreground} />
+        </Toque>
         <View style={styles.heading}>
           <Text style={[styles.eyebrow, { color: colors.secondary }]}>
             OCORRÊNCIAS DA AERONAVE
@@ -581,7 +585,7 @@ export default function ManutencaoScreen() {
             Histórico e reports técnicos
           </Text>
         </View>
-        <Pressable
+        <Toque
           onPress={() => setShowModal(true)}
           disabled={!aircraft.length || saving}
           accessibilityRole="button"
@@ -595,8 +599,8 @@ export default function ManutencaoScreen() {
             },
           ]}
         >
-          <Feather name="plus" size={22} color={colors.secondaryForeground} />
-        </Pressable>
+          <Icon name="plus" size={22} color={colors.secondaryForeground} />
+        </Toque>
       </View>
 
       <View
@@ -606,19 +610,19 @@ export default function ManutencaoScreen() {
         ]}
       >
         <View style={styles.summaryBit}>
-          <Feather name="send" size={15} color={colors.primary} />
+          <Icon name="send" size={15} color={colors.primary} />
           <Text style={[styles.summaryText, { color: colors.foreground }]}>
             {reports.length} reports
           </Text>
         </View>
         <View style={styles.summaryBit}>
-          <Feather name="tool" size={15} color={colors.secondary} />
+          <Icon name="tool" size={15} color={colors.secondary} />
           <Text style={[styles.summaryText, { color: colors.foreground }]}>
             {activeCount} em aberto
           </Text>
         </View>
         <View style={styles.summaryBit}>
-          <Feather name="airplay" size={15} color={colors.mutedForeground} />
+          <Icon name="airplay" size={15} color={colors.mutedForeground} />
           <Text style={[styles.summaryText, { color: colors.foreground }]}>
             {aircraft.length} aeronaves
           </Text>
@@ -631,7 +635,7 @@ export default function ManutencaoScreen() {
           { backgroundColor: colors.card, borderColor: colors.border },
         ]}
       >
-        <Feather name="search" size={17} color={colors.mutedForeground} />
+        <Icon name="search" size={17} color={colors.mutedForeground} />
         <TextInput
           style={[styles.searchInput, { color: colors.foreground }]}
           value={query}
@@ -645,12 +649,9 @@ export default function ManutencaoScreen() {
           returnKeyType="search"
         />
         {!!query && (
-          <Pressable
-            onPress={() => setQuery("")}
-            accessibilityLabel="Limpar busca"
-          >
-            <Feather name="x-circle" size={17} color={colors.mutedForeground} />
-          </Pressable>
+          <Toque onPress={() => setQuery("")} accessibilityLabel="Limpar busca">
+            <Icon name="x-circle" size={17} color={colors.mutedForeground} />
+          </Toque>
         )}
       </View>
       {!!selectedAircraftId && (
@@ -661,7 +662,7 @@ export default function ManutencaoScreen() {
           contentContainerStyle={styles.filters}
         >
           {STATUSES.map((filter) => (
-            <Pressable
+            <Toque
               key={filter}
               onPress={() => setStatusFilter(filter)}
               style={[
@@ -685,7 +686,7 @@ export default function ManutencaoScreen() {
               >
                 {filterLabels[filter]}
               </Text>
-            </Pressable>
+            </Toque>
           ))}
         </ScrollView>
       )}
@@ -703,11 +704,11 @@ export default function ManutencaoScreen() {
           <Text style={[styles.errorText, { color: colors.destructive }]}>
             {error}
           </Text>
-          <Pressable onPress={() => void loadReports()}>
+          <Toque onPress={() => void loadReports()}>
             <Text style={[styles.retryText, { color: colors.primary }]}>
               Tentar novamente
             </Text>
-          </Pressable>
+          </Toque>
         </View>
       ) : null}
       {loading ? (
@@ -748,7 +749,7 @@ export default function ManutencaoScreen() {
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) =>
             !selectedAircraftId ? (
-              <Pressable
+              <Toque
                 accessibilityRole="button"
                 accessibilityLabel={`Abrir pasta ${item.aircraft.registration}`}
                 onPress={() => {
@@ -781,7 +782,7 @@ export default function ManutencaoScreen() {
                       resizeMode="cover"
                     />
                   ) : (
-                    <Feather name="folder" size={36} color={colors.primary} />
+                    <Icon name="folder" size={36} color={colors.primary} />
                   )}
                   <View
                     style={{
@@ -824,7 +825,7 @@ export default function ManutencaoScreen() {
                     </Text>
                   )}
                 </View>
-              </Pressable>
+              </Toque>
             ) : (
               <View style={styles.aircraftGroup}>
                 <View
@@ -849,7 +850,7 @@ export default function ManutencaoScreen() {
                         resizeMode="cover"
                       />
                     ) : (
-                      <Feather name="send" size={17} color={colors.primary} />
+                      <Icon name="send" size={17} color={colors.primary} />
                     )}
                   </View>
                   <View style={styles.aircraftInfo}>
@@ -920,7 +921,7 @@ export default function ManutencaoScreen() {
                 { borderColor: colors.border, backgroundColor: colors.card },
               ]}
             >
-              <Feather name="tool" size={28} color={colors.mutedForeground} />
+              <Icon name="tool" size={28} color={colors.mutedForeground} />
               <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
                 {reports.length
                   ? "Nada encontrado"
@@ -947,7 +948,7 @@ export default function ManutencaoScreen() {
         colors={colors}
         insets={insets}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
