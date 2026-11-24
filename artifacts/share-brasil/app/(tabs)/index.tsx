@@ -178,9 +178,15 @@ export default function HomeScreen() {
       path: "/manutencao",
     },
   ];
-  const proximo = voosRelevantes[0];
   const horario = (v?: Voo) =>
     v?.horario_previsto_agendamento?.match(/\d{2}:\d{2}/)?.[0] || "A definir";
+  const partida = (v: Voo) =>
+    `${String(v.data_agendada || "").slice(0, 10)} ${horario(v)}`;
+  const proximo =
+    voosRelevantes.find((v) => emAndamento.has(normalizarStatus(v.status))) ??
+    [...voosRelevantes].sort((a, b) => partida(a).localeCompare(partida(b)))[0];
+  const proximoAtivo =
+    !!proximo && emAndamento.has(normalizarStatus(proximo.status));
   const cores = [tema.destaque, tema.verde, "#7AA2FF"];
   return (
     <SafeAreaView edges={["top"]} style={u.root}>
@@ -226,7 +232,7 @@ export default function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel={
               proximo
-                ? `Próximo voo ${proximo.numero_voo || ""}`
+                ? `${proximoAtivo ? "Voo em operação" : "Próximo voo"} ${proximo.numero_voo || ""}`
                 : "Abrir minha agenda"
             }
             onPress={() =>
@@ -255,7 +261,11 @@ export default function HomeScreen() {
             >
               <View style={s.between}>
                 <Text style={s.heroKicker}>
-                  {proximo ? "Próximo voo" : "Sua agenda"}
+                  {proximo
+                    ? proximoAtivo
+                      ? "Voo em operação"
+                      : "Próximo voo"
+                    : "Sua agenda"}
                 </Text>
                 {proximo && <Etiqueta texto={rotuloStatus(proximo.status)} />}
               </View>
