@@ -1,11 +1,9 @@
 import { avisar, confirmar } from "@/src/lib/confirmar";
-import { Cabecalho, tema } from "@/src/components/ui";
-import { Feather } from "@expo/vector-icons";
+import { Cabecalho, tema, Icon, Toque } from "@/src/components/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -13,7 +11,10 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { apiFetch } from "@/src/lib/api";
 
 type Lancamento = {
@@ -367,7 +368,7 @@ export default function DiarioBordoMobile() {
   };
   const voo = detail?.voo;
   return (
-    <View style={[s.root, { paddingTop: insets.top + 10 }]}>
+    <SafeAreaView edges={["top"]} style={[s.root, { paddingTop: 10 }]}>
       <Cabecalho
         titulo={
           !vooId
@@ -380,9 +381,9 @@ export default function DiarioBordoMobile() {
         voltar={() => (active ? close() : router.back())}
       />
       {!!error && (
-        <Pressable style={s.warn} onPress={() => void fetchData(true)}>
+        <Toque style={s.warn} onPress={() => void fetchData(true)}>
           <Text style={s.note}>{error} · Tocar para atualizar</Text>
-        </Pressable>
+        </Toque>
       )}
       {loading ? (
         <ActivityIndicator color={BLUE} style={{ marginTop: 40 }} />
@@ -424,7 +425,7 @@ export default function DiarioBordoMobile() {
                     .includes(busca.toLowerCase()),
                 )
                 .map((v) => (
-                  <Pressable
+                  <Toque
                     key={v.id}
                     style={s.card}
                     accessibilityRole="button"
@@ -440,14 +441,14 @@ export default function DiarioBordoMobile() {
                       <Text style={s.heading}>
                         {v.numero_voo || "Voo"} · {v.matricula_registro || "—"}
                       </Text>
-                      <Feather name="chevron-right" size={20} color={MUTED} />
+                      <Icon name="chevron-right" size={20} color={MUTED} />
                     </View>
                     <Text style={s.note}>
                       {v.origem || "—"} → {v.destino || "—"} ·{" "}
                       {date(v.data_agendada)}
                     </Text>
                     <Text style={s.note}>{v.cliente_razao_social || ""}</Text>
-                  </Pressable>
+                  </Toque>
                 ))}
               {!voos.length && !error && (
                 <Text style={s.note}>Nenhum voo disponível no seu diário.</Text>
@@ -510,15 +511,11 @@ export default function DiarioBordoMobile() {
                           {Number(r.tempo_total || 0).toFixed(2)} h
                         </Text>
                         {r.status_lancamento === "ASSINADO" ? (
-                          <Feather
-                            name="check-circle"
-                            size={21}
-                            color={GREEN}
-                          />
+                          <Icon name="check-circle" size={21} color={GREEN} />
                         ) : null}
                       </View>
                       {r.lancamento_id ? (
-                        <Pressable
+                        <Toque
                           accessibilityRole="button"
                           accessibilityLabel={
                             r.status_lancamento === "ASSINADO"
@@ -528,7 +525,7 @@ export default function DiarioBordoMobile() {
                           style={s.action}
                           onPress={() => open(r)}
                         >
-                          <Feather
+                          <Icon
                             name={
                               r.status_lancamento === "ASSINADO"
                                 ? "eye"
@@ -542,8 +539,8 @@ export default function DiarioBordoMobile() {
                               ? "Visualizar assinatura"
                               : "Complementar lançamento"}
                           </Text>
-                          <Feather name="chevron-right" color={MUTED} />
-                        </Pressable>
+                          <Icon name="chevron-right" color={MUTED} />
+                        </Toque>
                       ) : (
                         <Text style={s.note}>
                           Registre AC em Minha Agenda ou sincronize os horários
@@ -559,18 +556,18 @@ export default function DiarioBordoMobile() {
                       </Text>
                     </View>
                   ) : null}
-                  <Pressable
+                  <Toque
                     disabled={!!busy}
                     style={s.primary}
                     onPress={() => void sync()}
                   >
-                    <Feather name="refresh-cw" size={18} color={BG} />
+                    <Icon name="refresh-cw" size={18} color={BG} />
                     <Text style={s.primaryText}>
                       {busy === "sync"
                         ? "Sincronizando…"
                         : "Sincronizar rascunhos existentes"}
                     </Text>
-                  </Pressable>
+                  </Toque>
                 </>
               ) : selected ? (
                 <>
@@ -615,7 +612,7 @@ export default function DiarioBordoMobile() {
                   <Text style={s.section}>NATUREZA DO VOO</Text>
                   <View style={s.chips}>
                     {naturezas.map((n) => (
-                      <Pressable
+                      <Toque
                         key={n}
                         disabled={readonly}
                         onPress={() => set("natureza_voo", n)}
@@ -633,7 +630,7 @@ export default function DiarioBordoMobile() {
                         >
                           {n}
                         </Text>
-                      </Pressable>
+                      </Toque>
                     ))}
                   </View>
                   {grupos.map((g) => (
@@ -668,7 +665,7 @@ export default function DiarioBordoMobile() {
                   ))}
                   {selected.status_lancamento === "ASSINADO" ? (
                     <View style={s.signed}>
-                      <Feather name="check-circle" size={23} color={GREEN} />
+                      <Icon name="check-circle" size={23} color={GREEN} />
                       <View style={{ flex: 1 }}>
                         <Text style={s.heading}>Assinado pelo comandante</Text>
                         <Text style={s.note}>
@@ -679,7 +676,7 @@ export default function DiarioBordoMobile() {
                     </View>
                   ) : (
                     <>
-                      <Pressable
+                      <Toque
                         disabled={!!busy || readonly || !changed.length}
                         onPress={() => void save()}
                         style={[
@@ -687,30 +684,26 @@ export default function DiarioBordoMobile() {
                           (!changed.length || readonly) && { opacity: 0.48 },
                         ]}
                       >
-                        <Feather name="save" size={18} color={BG} />
+                        <Icon name="save" size={18} color={BG} />
                         <Text style={s.primaryText}>
                           {busy === "save"
                             ? "Salvando…"
                             : "Salvar complementos"}
                         </Text>
-                      </Pressable>
+                      </Toque>
                       {response?.pode_assinar ? (
-                        <Pressable
+                        <Toque
                           disabled={!!busy || readonly}
                           onPress={sign}
                           style={s.sign}
                         >
-                          <Feather
-                            name="check-circle"
-                            size={19}
-                            color={GREEN}
-                          />
+                          <Icon name="check-circle" size={19} color={GREEN} />
                           <Text style={s.signText}>
                             {busy === "sign"
                               ? "Assinando…"
                               : "Conferir e assinar como CMTE"}
                           </Text>
-                        </Pressable>
+                        </Toque>
                       ) : (
                         <Text style={s.note}>
                           A assinatura eletrônica fica disponível somente para o
@@ -725,7 +718,7 @@ export default function DiarioBordoMobile() {
           )}
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 const s = StyleSheet.create({

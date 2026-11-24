@@ -1,17 +1,18 @@
-import { Cabecalho, tema } from "@/src/components/ui";
-import { Feather } from "@expo/vector-icons";
+import { Cabecalho, tema, Icon, Toque } from "@/src/components/ui";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { apiFetch } from "@/src/lib/api";
 
 type Flight = {
@@ -114,16 +115,16 @@ export default function RelatorioVooScreen() {
   const jornadas =
     detail?.jornadas?.filter((j) => !j.jornada_principal_id) || [];
   return (
-    <View style={[s.root, { paddingTop: insets.top + 10 }]}>
+    <SafeAreaView edges={["top"]} style={[s.root, { paddingTop: 10 }]}>
       <Cabecalho
         titulo={detail ? "Voo registrado" : "Histórico de voos"}
         apoio="Histórico de voos"
         voltar={() => (detail ? setDetail(null) : router.back())}
       />
       {!!error && (
-        <Pressable style={s.error} onPress={() => void load(true)}>
+        <Toque style={s.error} onPress={() => void load(true)}>
           <Text style={s.muted}>{error} · Atualizar</Text>
-        </Pressable>
+        </Toque>
       )}
       {loading ? (
         <ActivityIndicator color={BLUE} style={{ marginTop: 35 }} />
@@ -157,7 +158,7 @@ export default function RelatorioVooScreen() {
               </View>
               <Text style={s.section}>VOOS ATRIBUÍDOS · {flights.length}</Text>
               {flights.map((f) => (
-                <Pressable
+                <Toque
                   key={f.id}
                   style={s.card}
                   onPress={() => void open(f.id)}
@@ -174,7 +175,7 @@ export default function RelatorioVooScreen() {
                     {date(f.data_agendada)}
                   </Text>
                   <Text style={s.link}>Consultar jornadas e horários</Text>
-                </Pressable>
+                </Toque>
               ))}
               {!flights.length && (
                 <View style={s.card}>
@@ -230,7 +231,7 @@ export default function RelatorioVooScreen() {
                   </Text>
                 </View>
               )}
-              <Pressable
+              <Toque
                 style={s.action}
                 onPress={() =>
                   router.push({
@@ -239,23 +240,23 @@ export default function RelatorioVooScreen() {
                   })
                 }
               >
-                <Feather name="book-open" color={BG} size={18} />
+                <Icon name="book-open" color={BG} size={18} />
                 <Text style={s.actionText}>
                   Completar Diário e assinar como CMTE
                 </Text>
-              </Pressable>
-              <Pressable
+              </Toque>
+              <Toque
                 style={s.action}
                 onPress={() => router.push("/(tabs)/agenda")}
               >
-                <Feather name="edit-3" color={BG} size={18} />
+                <Icon name="edit-3" color={BG} size={18} />
                 <Text style={s.actionText}>Abrir Agenda operacional</Text>
-              </Pressable>
+              </Toque>
             </>
           )}
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 const s = StyleSheet.create({

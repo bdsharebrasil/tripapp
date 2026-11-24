@@ -1,8 +1,11 @@
-import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StyleSheet, Text, View } from "react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { Icon, Toque } from "@/src/components/ui";
 
 /**
  * O antigo formulário inventava aeronave, matrícula e lançamentos locais.
@@ -13,20 +16,18 @@ export default function NovoLancamentoScreen() {
   const router = useRouter(),
     insets = useSafeAreaInsets();
   return (
-    <View
-      style={[
-        s.root,
-        { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 30 },
-      ]}
+    <SafeAreaView
+      edges={["top"]}
+      style={[s.root, { paddingTop: 20, paddingBottom: insets.bottom + 30 }]}
     >
       <View style={s.header}>
-        <Pressable onPress={() => router.back()}>
-          <Feather name="arrow-left" size={24} color="#fff" />
-        </Pressable>
+        <Toque onPress={() => router.back()}>
+          <Icon name="arrow-left" size={24} color="#fff" />
+        </Toque>
         <Text style={s.heading}>Registro operacional</Text>
       </View>
       <View style={s.card}>
-        <Feather name="book-open" size={30} color="#27b9f5" />
+        <Icon name="book-open" size={30} color="#27b9f5" />
         <Text style={s.title}>Lançamentos de voo</Text>
         <Text style={s.note}>
           Registre AC, DEP, POU e COR na agenda do voo. Os horários criam
@@ -36,15 +37,15 @@ export default function NovoLancamentoScreen() {
           Depois, complete os dados do lançamento e assine como comandante no
           Diário de Bordo.
         </Text>
-        <Pressable
+        <Toque
           onPress={() => router.replace("/(tabs)/agenda")}
           style={s.button}
         >
-          <Feather name="send" size={18} color="#071323" />
+          <Icon name="send" size={18} color="#071323" />
           <Text style={s.buttonText}>Abrir Minha Agenda</Text>
-        </Pressable>
+        </Toque>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 const s = StyleSheet.create({

@@ -1,13 +1,11 @@
 import { useLocalSearchParams } from "expo-router";
 import { HorasVoo } from "@/src/components/HorasVoo";
-import { Feather } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -15,12 +13,22 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { apiFetch } from "@/src/lib/api";
 import { signOut } from "@/src/lib/session";
 import { useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "@/src/components/Avatar";
-import { Etiqueta, ErroConsulta, tema, u } from "@/src/components/ui";
+import {
+  Etiqueta,
+  ErroConsulta,
+  tema,
+  u,
+  Icon,
+  Toque,
+} from "@/src/components/ui";
 import { PerfilCompleto, situacaoValidade } from "@/src/lib/perfil";
 import { avisar, confirmar } from "@/src/lib/confirmar";
 import { anexarArquivo } from "@/src/lib/upload";
@@ -345,9 +353,9 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
   );
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
+    <SafeAreaView edges={["top"]} style={[styles.root, { paddingTop: 8 }]}>
       <View style={styles.header}>
-        <Pressable
+        <Toque
           accessibilityRole="button"
           accessibilityLabel="Atualizar perfil"
           accessibilityState={{ busy: refreshing || loading }}
@@ -355,9 +363,9 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
           onPress={() => void load(true)}
           style={styles.iconBtn}
         >
-          <Feather name="refresh-cw" color={ACCENT} size={18} />
-        </Pressable>
-        <Pressable
+          <Icon name="refresh-cw" color={ACCENT} size={18} />
+        </Toque>
+        <Toque
           accessibilityRole="button"
           accessibilityLabel="Sair da conta"
           accessibilityState={{ disabled: !!busy, busy: busy === "logout" }}
@@ -368,9 +376,9 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
           {busy === "logout" ? (
             <ActivityIndicator size="small" color={tema.perigo} />
           ) : (
-            <Feather name="log-out" color={tema.perigo} size={18} />
+            <Icon name="log-out" color={tema.perigo} size={18} />
           )}
-        </Pressable>
+        </Toque>
       </View>
       <View style={styles.headerCopy}>
         <Text style={styles.title}>Meu perfil</Text>
@@ -386,22 +394,18 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
           contentContainerStyle={[styles.tabs, { paddingHorizontal: 17 }]}
         >
           {tabs.map((t) => (
-            <Pressable
+            <Toque
               key={t.id}
               accessibilityRole="button"
               accessibilityState={{ selected: tab === t.id }}
               onPress={() => setTab(t.id)}
               style={[styles.tab, tab === t.id && styles.tabActive]}
             >
-              <Feather
-                name={t.icon}
-                size={17}
-                color={tab === t.id ? BG : MUTED}
-              />
+              <Icon name={t.icon} size={17} color={tab === t.id ? BG : MUTED} />
               <Text style={[styles.tabText, tab === t.id && { color: BG }]}>
                 {t.label}
               </Text>
-            </Pressable>
+            </Toque>
           ))}
         </ScrollView>
         {!!error && (
@@ -425,30 +429,24 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
             }}
           >
             <View style={styles.metrics}>
-              <Pressable
-                style={styles.metric}
-                onPress={() => setTab("licencas")}
-              >
+              <Toque style={styles.metric} onPress={() => setTab("licencas")}>
                 <Text style={styles.metricValue}>
                   {situacaoValidade(data?.cma?.validade)}
                 </Text>
                 <Text style={styles.muted}>CMA</Text>
-              </Pressable>
-              <Pressable
-                style={styles.metric}
-                onPress={() => setTab("licencas")}
-              >
+              </Toque>
+              <Toque style={styles.metric} onPress={() => setTab("licencas")}>
                 <Text style={styles.metricValue}>
                   {data?.habilitacoes?.length ?? "—"}
                 </Text>
                 <Text style={styles.muted}>Habilitações</Text>
-              </Pressable>
-              <Pressable style={styles.metric} onPress={() => setTab("docs")}>
+              </Toque>
+              <Toque style={styles.metric} onPress={() => setTab("docs")}>
                 <Text style={styles.metricValue}>
                   {documentsError ? "—" : docs.length}
                 </Text>
                 <Text style={styles.muted}>Documentos</Text>
-              </Pressable>
+              </Toque>
             </View>
             {tab === "dados" && (
               <>
@@ -474,11 +472,11 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                 <View style={styles.card}>
                   <View style={styles.between}>
                     <Text style={styles.heading}>Dados pessoais</Text>
-                    <Pressable onPress={() => setEditing(!editing)}>
+                    <Toque onPress={() => setEditing(!editing)}>
                       <Text style={styles.link}>
                         {editing ? "Cancelar" : "Editar"}
                       </Text>
-                    </Pressable>
+                    </Toque>
                   </View>
                   {editing ? (
                     <>
@@ -495,7 +493,7 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                         keyboardType="phone-pad"
                         onChangeText={setPhone}
                       />
-                      <Pressable
+                      <Toque
                         style={styles.primary}
                         disabled={!!busy}
                         onPress={() => void saveProfile()}
@@ -505,7 +503,7 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                             ? "Salvando…"
                             : "Salvar alterações"}
                         </Text>
-                      </Pressable>
+                      </Toque>
                     </>
                   ) : (
                     <>
@@ -533,7 +531,7 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                       ["horas", "Minhas horas", "bar-chart-2"],
                     ] as const
                   ).map(([id, label, icon]) => (
-                    <Pressable
+                    <Toque
                       key={id}
                       accessibilityRole="tab"
                       accessibilityState={{ selected: licencasTab === id }}
@@ -543,7 +541,7 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                         licencasTab === id && styles.tabActive,
                       ]}
                     >
-                      <Feather
+                      <Icon
                         name={icon}
                         size={17}
                         color={licencasTab === id ? BG : MUTED}
@@ -556,7 +554,7 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                       >
                         {label}
                       </Text>
-                    </Pressable>
+                    </Toque>
                   ))}
                 </View>
                 {licencasTab === "horas" ? (
@@ -658,7 +656,7 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                       Pagamento: {date(x.data_pagamento || x.data_prevista)}
                     </Text>
                     {x.holerite_url && (
-                      <Pressable
+                      <Toque
                         style={styles.outline}
                         onPress={() =>
                           void openPrivate(
@@ -668,12 +666,12 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                           )
                         }
                       >
-                        <Feather name="file-text" color={ACCENT} size={16} />
+                        <Icon name="file-text" color={ACCENT} size={16} />
                         <Text style={styles.link}>Abrir holerite</Text>
-                      </Pressable>
+                      </Toque>
                     )}
                     {x.comprovante_url && (
-                      <Pressable
+                      <Toque
                         style={styles.outline}
                         onPress={() =>
                           void openPrivate(
@@ -683,9 +681,9 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                           )
                         }
                       >
-                        <Feather name="paperclip" color={ACCENT} size={16} />
+                        <Icon name="paperclip" color={ACCENT} size={16} />
                         <Text style={styles.link}>Comprovante</Text>
-                      </Pressable>
+                      </Toque>
                     )}
                   </View>
                 ))}
@@ -701,15 +699,15 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                 <Text style={styles.muted}>
                   *O saldo depende do fechamento do RH.
                 </Text>
-                <Pressable
+                <Toque
                   style={styles.primary}
                   onPress={() => router.push("/ferias")}
                 >
-                  <Feather name="calendar" color={BG} size={17} />
+                  <Icon name="calendar" color={BG} size={17} />
                   <Text style={styles.primaryText}>
                     Consultar e solicitar férias
                   </Text>
-                </Pressable>
+                </Toque>
                 {(data?.ferias || []).slice(0, 3).map((f) => (
                   <View key={f.id} style={styles.infoRow}>
                     <Text style={styles.muted}>
@@ -736,7 +734,7 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                       "Licença",
                       "Outros",
                     ].map((cat) => (
-                      <Pressable
+                      <Toque
                         key={cat}
                         style={[
                           styles.chip,
@@ -753,21 +751,21 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                         >
                           {cat}
                         </Text>
-                      </Pressable>
+                      </Toque>
                     ))}
                   </View>
-                  <Pressable
+                  <Toque
                     style={styles.primary}
                     disabled={!!busy}
                     onPress={() => void uploadDoc()}
                   >
-                    <Feather name="upload" size={17} color={BG} />
+                    <Icon name="upload" size={17} color={BG} />
                     <Text style={styles.primaryText}>
                       {busy === "doc"
                         ? "Enviando…"
                         : "Selecionar e enviar arquivo"}
                     </Text>
-                  </Pressable>
+                  </Toque>
                 </View>
                 <Text style={styles.section}>
                   MEUS DOCUMENTOS · {documentsError ? "—" : docs.length}
@@ -783,8 +781,8 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                 )}
                 {docs.map((d) => (
                   <View key={d.id} style={styles.docRow}>
-                    <Feather name="file" size={20} color={ACCENT} />
-                    <Pressable
+                    <Icon name="file" size={20} color={ACCENT} />
+                    <Toque
                       style={{ flex: 1 }}
                       onPress={() =>
                         void openPrivate(
@@ -802,10 +800,10 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                         {d.tipo_documento || d.categoria || "Documento"} ·{" "}
                         {date(d.criado_em)}
                       </Text>
-                    </Pressable>
-                    <Pressable onPress={() => removeDoc(d)}>
-                      <Feather name="trash-2" color="#ff9a9a" size={18} />
-                    </Pressable>
+                    </Toque>
+                    <Toque onPress={() => removeDoc(d)}>
+                      <Icon name="trash-2" color="#ff9a9a" size={18} />
+                    </Toque>
                   </View>
                 ))}
               </>
@@ -817,7 +815,7 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                 versao={photoVersion}
                 tamanho={46}
               />
-              <Pressable
+              <Toque
                 accessibilityRole="button"
                 accessibilityLabel="Atualizar foto do perfil"
                 accessibilityState={{ disabled: !!busy }}
@@ -829,16 +827,16 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                   <ActivityIndicator size="small" color={ACCENT} />
                 ) : (
                   <>
-                    <Feather name="camera" size={16} color={ACCENT} />
+                    <Icon name="camera" size={16} color={ACCENT} />
                     <Text style={styles.link}>Atualizar foto do perfil</Text>
                   </>
                 )}
-              </Pressable>
+              </Toque>
             </View>
           </ScrollView>
         )}
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 export default PerfilScreen;

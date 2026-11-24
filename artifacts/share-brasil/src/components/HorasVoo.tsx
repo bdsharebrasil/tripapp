@@ -2,13 +2,21 @@ import React, { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { Botao, ErroConsulta, Painel, Secao, Vazio, tema, u } from "./ui";
+import {
+  Botao,
+  ErroConsulta,
+  Painel,
+  Secao,
+  Vazio,
+  tema,
+  u,
+  Toque,
+} from "./ui";
 import { apiFetch } from "../lib/api";
 import { abrirArquivoPrivado } from "../lib/arquivo-privado";
 import { avisar } from "../lib/confirmar";
@@ -185,7 +193,7 @@ export function HorasVoo() {
           </View>
         </View>
         <View style={{ flexDirection: "row", gap: 18, marginVertical: 16 }}>
-          <Pressable
+          <Toque
             onPress={() => {
               const d = hoje();
               setInicio(d.slice(0, 7) + "-01");
@@ -194,8 +202,8 @@ export function HorasVoo() {
             }}
           >
             <Text style={u.link}>Este mês</Text>
-          </Pressable>
-          <Pressable
+          </Toque>
+          <Toque
             onPress={() => {
               setInicio("");
               setFim("");
@@ -204,7 +212,7 @@ export function HorasVoo() {
             }}
           >
             <Text style={u.link}>Todo o histórico</Text>
-          </Pressable>
+          </Toque>
         </View>
         <ScrollView
           horizontal
@@ -215,7 +223,7 @@ export function HorasVoo() {
             { id: "", matricula: "Todas as aeronaves" },
             ...(data?.aeronaves || []),
           ].map((a) => (
-            <Pressable
+            <Toque
               key={a.id}
               accessibilityRole="button"
               accessibilityState={{ selected: aeronave === a.id }}
@@ -231,7 +239,7 @@ export function HorasVoo() {
               <Text style={{ color: tema.texto, fontSize: 12 }}>
                 {a.matricula}
               </Text>
-            </Pressable>
+            </Toque>
           ))}
         </ScrollView>
         <Botao
