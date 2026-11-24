@@ -907,10 +907,8 @@ const s = StyleSheet.create({
     marginBottom: 12,
   },
   flightCard: {
-    backgroundColor: "#112c48",
+    backgroundColor: tema.superficie,
     borderRadius: 23,
-    borderWidth: 1,
-    borderColor: border,
     padding: 20,
   },
   between: {

@@ -754,11 +754,9 @@ const s = StyleSheet.create({
   },
   title: { color: "#fff", fontSize: 24, fontWeight: "800", marginTop: 5 },
   summary: {
-    backgroundColor: "#143553",
-    borderWidth: 1,
-    borderColor: "#326181",
+    backgroundColor: tema.superficie,
     padding: 18,
-    borderRadius: 18,
+    borderRadius: 20,
     marginBottom: 15,
   },
   big: { fontSize: 22, color: "#fff", fontWeight: "800", marginTop: 8 },
