@@ -61,9 +61,7 @@ const BG = tema.fundo,
   ACCENT = tema.destaque,
   MUTED = tema.suave;
 const tabs = [
-  { id: "horas", label: "Minhas horas", icon: "bar-chart-2" },
   { id: "licencas", label: "Licenças", icon: "shield" },
-  { id: "dados", label: "Dados", icon: "user" },
   { id: "salario", label: "Salário", icon: "credit-card" },
   { id: "ferias", label: "Férias", icon: "sun" },
   { id: "docs", label: "Docs", icon: "file-text" },
@@ -94,12 +92,10 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
     router = useRouter();
   const { secao } = useLocalSearchParams<{ secao?: string }>();
   const [tab, setTab] = useState<Tab>(
-    initialTab ??
-      (secao === "horas"
-        ? "horas"
-        : secao === "salario"
-          ? "salario"
-          : "licencas"),
+    initialTab ?? (secao === "salario" ? "salario" : "licencas"),
+  );
+  const [licencasTab, setLicencasTab] = useState<"licencas" | "horas">(
+    secao === "horas" ? "horas" : "licencas",
   );
   const queryClient = useQueryClient();
   const [data, setData] = useState<Info | null>(null);
@@ -434,6 +430,62 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
               )}
             </Pressable>
           </View>
+          <View style={styles.card}>
+            <View style={styles.between}>
+              <Text style={styles.heading}>Dados pessoais</Text>
+              <Pressable onPress={() => setEditing(!editing)}>
+                <Text style={styles.link}>
+                  {editing ? "Cancelar" : "Editar"}
+                </Text>
+              </Pressable>
+            </View>
+            {editing ? (
+              <>
+                <Text style={styles.label}>Nome de exibição</Text>
+                <TextInput
+                  style={styles.input}
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                />
+                <Text style={styles.label}>Telefone</Text>
+                <TextInput
+                  style={styles.input}
+                  value={phone}
+                  keyboardType="phone-pad"
+                  onChangeText={setPhone}
+                />
+                <Pressable
+                  style={styles.primary}
+                  disabled={!!busy}
+                  onPress={() => void saveProfile()}
+                >
+                  <Text style={styles.primaryText}>
+                    {busy === "profile" ? "Salvando…" : "Salvar alterações"}
+                  </Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                {row("Nome completo", p?.nome_completo)}
+                {row("E-mail", p?.email_envio || p?.email)}
+                {row("Telefone", p?.telefone)}
+                {row("CANAC", p?.canac || data?.tripulante?.canac)}
+                {row("Tipo de licença", data?.tripulante?.tipo_licenca)}
+                {row("Cidade/UF", [p?.cidade, p?.uf].filter(Boolean).join(" / "))}
+                {row("Admissão", date(p?.data_admissao))}
+              </>
+            )}
+            <Pressable
+              style={styles.outline}
+              disabled={!!busy}
+              onPress={() => void uploadPhoto()}
+            >
+              <Feather name="camera" color={ACCENT} size={17} />
+              <Text style={styles.link}>
+                {busy === "foto" ? "Enviando…" : "Atualizar foto do perfil"}
+              </Text>
+            </Pressable>
+          </View>
           <View style={styles.stats}>
             <View style={styles.stat}>
               <Text style={styles.statValue}>
@@ -474,9 +526,43 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
               </Pressable>
             ))}
           </ScrollView>
-          {tab === "horas" && <HorasVoo />}
           {tab === "licencas" && (
             <>
+              <View style={styles.tabs}>
+                {([
+                  ["licencas", "Licenças", "shield"],
+                  ["horas", "Minhas horas", "bar-chart-2"],
+                ] as const).map(([id, label, icon]) => (
+                  <Pressable
+                    key={id}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: licencasTab === id }}
+                    onPress={() => setLicencasTab(id)}
+                    style={[
+                      styles.tab,
+                      licencasTab === id && styles.tabActive,
+                    ]}
+                  >
+                    <Feather
+                      name={icon}
+                      size={17}
+                      color={licencasTab === id ? BG : MUTED}
+                    />
+                    <Text
+                      style={[
+                        styles.tabText,
+                        licencasTab === id && { color: BG },
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              {licencasTab === "horas" ? (
+                <HorasVoo />
+              ) : (
+                <>
               <View style={styles.card}>
                 <View style={styles.between}>
                   <View>
@@ -531,68 +617,9 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
                   </View>
                 ))
               )}
-            </>
-          )}
-          {tab === "dados" && (
-            <View style={styles.card}>
-              <View style={styles.between}>
-                <Text style={styles.heading}>Dados pessoais</Text>
-                <Pressable onPress={() => setEditing(!editing)}>
-                  <Text style={styles.link}>
-                    {editing ? "Cancelar" : "Editar"}
-                  </Text>
-                </Pressable>
-              </View>
-              {editing ? (
-                <>
-                  <Text style={styles.label}>Nome de exibição</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={displayName}
-                    onChangeText={setDisplayName}
-                  />
-                  <Text style={styles.label}>Telefone</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={phone}
-                    keyboardType="phone-pad"
-                    onChangeText={setPhone}
-                  />
-                  <Pressable
-                    style={styles.primary}
-                    disabled={!!busy}
-                    onPress={() => void saveProfile()}
-                  >
-                    <Text style={styles.primaryText}>
-                      {busy === "profile" ? "Salvando…" : "Salvar alterações"}
-                    </Text>
-                  </Pressable>
-                </>
-              ) : (
-                <>
-                  {row("Nome completo", p?.nome_completo)}
-                  {row("E-mail", p?.email_envio || p?.email)}
-                  {row("Telefone", p?.telefone)}
-                  {row("CANAC", p?.canac || data?.tripulante?.canac)}
-                  {row("Tipo de licença", data?.tripulante?.tipo_licenca)}
-                  {row(
-                    "Cidade/UF",
-                    [p?.cidade, p?.uf].filter(Boolean).join(" / "),
-                  )}
-                  {row("Admissão", date(p?.data_admissao))}
                 </>
               )}
-              <Pressable
-                style={styles.outline}
-                disabled={!!busy}
-                onPress={() => void uploadPhoto()}
-              >
-                <Feather name="camera" color={ACCENT} size={17} />
-                <Text style={styles.link}>
-                  {busy === "foto" ? "Enviando…" : "Atualizar foto do perfil"}
-                </Text>
-              </Pressable>
-            </View>
+            </>
           )}
           {tab === "salario" && (
             <>
