@@ -347,13 +347,6 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
   return (
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
-        <View style={styles.headerCopy}>
-          <Text style={styles.kicker}>MINHA CONTA</Text>
-          <Text style={styles.title}>Meu perfil</Text>
-          <Text style={styles.headerSubtitle}>
-            Dados e documentos da tripulação
-          </Text>
-        </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Atualizar perfil"
@@ -379,421 +372,472 @@ export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
           )}
         </Pressable>
       </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tabs}
-      >
-        {tabs.map((t) => (
-          <Pressable
-            key={t.id}
-            accessibilityRole="button"
-            accessibilityState={{ selected: tab === t.id }}
-            onPress={() => setTab(t.id)}
-            style={[styles.tab, tab === t.id && styles.tabActive]}
-          >
-            <Feather
-              name={t.icon}
-              size={17}
-              color={tab === t.id ? BG : MUTED}
-            />
-            <Text style={[styles.tabText, tab === t.id && { color: BG }]}>
-              {t.label}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-      {!!error && (
-        <ErroConsulta mensagem={error} atualizar={() => void load(true)} />
-      )}
-      {loading ? (
-        <ActivityIndicator color={ACCENT} style={{ marginTop: 36 }} />
-      ) : (
+      <View style={styles.headerCopy}>
+        <Text style={styles.title}>Meu perfil</Text>
+        <Text style={styles.headerSubtitle}>
+          Dados e documentos da tripulação
+        </Text>
+      </View>
+      <View style={styles.sheet}>
         <ScrollView
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => void load(true)}
-              tintColor={ACCENT}
-            />
-          }
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{
-            padding: 17,
-            paddingBottom: insets.bottom + 110,
-          }}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.tabsScroll}
+          contentContainerStyle={[styles.tabs, { paddingHorizontal: 17 }]}
         >
-          {tab === "dados" && (
-            <>
-              <View style={styles.hero}>
-                <Avatar
-                  nome={fullName}
-                  disponivel={!!p?.foto_url}
-                  versao={photoVersion}
-                  tamanho={76}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.name}>{fullName}</Text>
-                  <Text style={styles.secondary}>
-                    {p?.departamento || p?.tipo_user || "Tripulação"}
-                  </Text>
-                  <Text style={styles.kicker}>
-                    {p?.canac || data?.tripulante?.canac
-                      ? `CANAC ${p?.canac || data?.tripulante?.canac}`
-                      : "CANAC não informado"}
-                  </Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Atualizar foto do perfil"
-                  accessibilityState={{ disabled: !!busy }}
-                  disabled={!!busy}
-                  onPress={() => void uploadPhoto()}
-                  style={styles.heroAction}
-                >
-                  {busy === "foto" ? (
-                    <ActivityIndicator size="small" color={ACCENT} />
-                  ) : (
-                    <Feather name="camera" size={18} color={ACCENT} />
-                  )}
-                </Pressable>
-              </View>
-              <View style={styles.card}>
-                <View style={styles.between}>
-                  <Text style={styles.heading}>Dados pessoais</Text>
-                  <Pressable onPress={() => setEditing(!editing)}>
-                    <Text style={styles.link}>
-                      {editing ? "Cancelar" : "Editar"}
-                    </Text>
-                  </Pressable>
-                </View>
-                {editing ? (
-                  <>
-                    <Text style={styles.label}>Nome de exibição</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={displayName}
-                      onChangeText={setDisplayName}
-                    />
-                    <Text style={styles.label}>Telefone</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={phone}
-                      keyboardType="phone-pad"
-                      onChangeText={setPhone}
-                    />
-                    <Pressable
-                      style={styles.primary}
-                      disabled={!!busy}
-                      onPress={() => void saveProfile()}
-                    >
-                      <Text style={styles.primaryText}>
-                        {busy === "profile" ? "Salvando…" : "Salvar alterações"}
-                      </Text>
-                    </Pressable>
-                  </>
-                ) : (
-                  <>
-                    {row("Nome completo", p?.nome_completo)}
-                    {row("E-mail", p?.email_envio || p?.email)}
-                    {row("Telefone", p?.telefone)}
-                    {row("CANAC", p?.canac || data?.tripulante?.canac)}
-                    {row("Tipo de licença", data?.tripulante?.tipo_licenca)}
-                    {row(
-                      "Cidade/UF",
-                      [p?.cidade, p?.uf].filter(Boolean).join(" / "),
-                    )}
-                    {row("Admissão", date(p?.data_admissao))}
-                  </>
-                )}
-              </View>
-            </>
-          )}
-          {tab === "licencas" && (
-            <>
-              <View style={styles.tabs}>
-                {(
-                  [
-                    ["licencas", "Licenças", "shield"],
-                    ["horas", "Minhas horas", "bar-chart-2"],
-                  ] as const
-                ).map(([id, label, icon]) => (
-                  <Pressable
-                    key={id}
-                    accessibilityRole="tab"
-                    accessibilityState={{ selected: licencasTab === id }}
-                    onPress={() => setLicencasTab(id)}
-                    style={[styles.tab, licencasTab === id && styles.tabActive]}
-                  >
-                    <Feather
-                      name={icon}
-                      size={17}
-                      color={licencasTab === id ? BG : MUTED}
-                    />
-                    <Text
-                      style={[
-                        styles.tabText,
-                        licencasTab === id && { color: BG },
-                      ]}
-                    >
-                      {label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-              {licencasTab === "horas" ? (
-                <HorasVoo />
-              ) : (
-                <>
-                  <View style={styles.card}>
-                    <View style={styles.between}>
-                      <View>
-                        <Text style={styles.kicker}>CERTIFICADO MÉDICO</Text>
-                        <Text style={[styles.heading, { marginTop: 8 }]}>
-                          CMA
-                        </Text>
-                      </View>
-                      <Etiqueta
-                        texto={situacaoValidade(data?.cma?.validade)}
-                        alerta={
-                          situacaoValidade(data?.cma?.validade) === "Vencido"
-                        }
-                      />
-                    </View>
-                    {row("Classe", data?.cma?.classe)}
-                    {row("Validade", date(data?.cma?.validade))}
-                    {!data?.cma && (
-                      <Text style={styles.muted}>
-                        Nenhum CMA cadastrado. Solicite a atualização à equipe
-                        responsável.
-                      </Text>
-                    )}
-                  </View>
-                  <Text style={styles.section}>
-                    MINHAS HABILITAÇÕES · {data?.habilitacoes?.length ?? "—"}
-                  </Text>
-                  {data?.habilitacoes === undefined ? (
-                    <View style={styles.card}>
-                      <Text style={styles.muted}>
-                        Não foi possível consultar as habilitações. Atualize o
-                        aplicativo e tente novamente.
-                      </Text>
-                    </View>
-                  ) : !data.habilitacoes.length ? (
-                    <View style={styles.card}>
-                      <Text style={styles.muted}>
-                        Nenhuma habilitação cadastrada.
-                      </Text>
-                    </View>
-                  ) : (
-                    data.habilitacoes.map((h) => (
-                      <View key={h.id} style={styles.card}>
-                        <View style={styles.between}>
-                          <View>
-                            <Text style={styles.heading}>
-                              {h.tipo_habilitacao}
-                            </Text>
-                            <Text style={styles.secondary}>
-                              Validade: {date(h.data_validade)}
-                            </Text>
-                          </View>
-                          <Etiqueta
-                            texto={situacaoValidade(h.data_validade)}
-                            alerta={
-                              situacaoValidade(h.data_validade) === "Vencido"
-                            }
-                          />
-                        </View>
-                      </View>
-                    ))
-                  )}
-                </>
-              )}
-            </>
-          )}
-          {tab === "salario" && (
-            <>
-              <Text style={styles.section}>MEUS PAGAMENTOS</Text>
-              {!salaries.length && (
-                <View style={styles.card}>
-                  <Text style={styles.muted}>
-                    {paymentsError
-                      ? "Não foi possível consultar seus pagamentos."
-                      : "Nenhum pagamento registrado."}
-                  </Text>
-                </View>
-              )}
-              {salaries.map((x) => (
-                <View key={x.id} style={styles.card}>
-                  <View style={styles.between}>
-                    <Text style={styles.heading}>
-                      {x.rotulo || x.tipo_pagamento || "Pagamento"}
-                    </Text>
-                    <Text style={styles.status}>{x.status}</Text>
-                  </View>
-                  <Text style={styles.amount}>{money(x.valor_centavos)}</Text>
-                  <Text style={styles.secondary}>
-                    Competência {String(x.competencia_mes).padStart(2, "0")}/
-                    {x.competencia_ano}
-                  </Text>
-                  <Text style={styles.muted}>
-                    Pagamento: {date(x.data_pagamento || x.data_prevista)}
-                  </Text>
-                  {x.holerite_url && (
-                    <Pressable
-                      style={styles.outline}
-                      onPress={() =>
-                        void openPrivate(
-                          x.holerite_url || undefined,
-                          "Holerite",
-                          "application/pdf",
-                        )
-                      }
-                    >
-                      <Feather name="file-text" color={ACCENT} size={16} />
-                      <Text style={styles.link}>Abrir holerite</Text>
-                    </Pressable>
-                  )}
-                  {x.comprovante_url && (
-                    <Pressable
-                      style={styles.outline}
-                      onPress={() =>
-                        void openPrivate(
-                          x.comprovante_url || undefined,
-                          "Comprovante de pagamento",
-                          mimeFromPath(x.comprovante_url || ""),
-                        )
-                      }
-                    >
-                      <Feather name="paperclip" color={ACCENT} size={16} />
-                      <Text style={styles.link}>Comprovante</Text>
-                    </Pressable>
-                  )}
-                </View>
-              ))}
-            </>
-          )}
-          {tab === "ferias" && (
-            <View style={styles.card}>
-              <Text style={styles.heading}>Férias</Text>
-              <Text style={styles.secondary}>
-                Referência de 30 dias ·{" "}
-                {data?.resumo_ferias?.dias_utilizados ?? "—"} dias aprovados
+          {tabs.map((t) => (
+            <Pressable
+              key={t.id}
+              accessibilityRole="button"
+              accessibilityState={{ selected: tab === t.id }}
+              onPress={() => setTab(t.id)}
+              style={[styles.tab, tab === t.id && styles.tabActive]}
+            >
+              <Feather
+                name={t.icon}
+                size={17}
+                color={tab === t.id ? BG : MUTED}
+              />
+              <Text style={[styles.tabText, tab === t.id && { color: BG }]}>
+                {t.label}
               </Text>
-              <Text style={styles.muted}>
-                *O saldo depende do fechamento do RH.
-              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+        {!!error && (
+          <ErroConsulta mensagem={error} atualizar={() => void load(true)} />
+        )}
+        {loading ? (
+          <ActivityIndicator color={ACCENT} style={{ marginTop: 36 }} />
+        ) : (
+          <ScrollView
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => void load(true)}
+                tintColor={ACCENT}
+              />
+            }
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{
+              padding: 17,
+              paddingBottom: insets.bottom + 110,
+            }}
+          >
+            <View style={styles.metrics}>
               <Pressable
-                style={styles.primary}
-                onPress={() => router.push("/ferias")}
+                style={styles.metric}
+                onPress={() => setTab("licencas")}
               >
-                <Feather name="calendar" color={BG} size={17} />
-                <Text style={styles.primaryText}>
-                  Consultar e solicitar férias
+                <Text style={styles.metricValue}>
+                  {situacaoValidade(data?.cma?.validade)}
                 </Text>
+                <Text style={styles.muted}>CMA</Text>
               </Pressable>
-              {(data?.ferias || []).slice(0, 3).map((f) => (
-                <View key={f.id} style={styles.infoRow}>
-                  <Text style={styles.muted}>
-                    {date(f.data_inicio)} — {date(f.data_fim)}
-                  </Text>
-                  <Text style={styles.infoValue}>{f.status}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-          {tab === "docs" && (
-            <>
-              <View style={styles.card}>
-                <Text style={styles.heading}>Adicionar documento</Text>
-                <Text style={styles.muted}>
-                  PDF ou imagem até 10 MB, armazenados com acesso privado.
+              <Pressable
+                style={styles.metric}
+                onPress={() => setTab("licencas")}
+              >
+                <Text style={styles.metricValue}>
+                  {data?.habilitacoes?.length ?? "—"}
                 </Text>
-                <Text style={styles.label}>Categoria</Text>
-                <View style={styles.categories}>
-                  {[
-                    "Documentos pessoais",
-                    "CMA",
-                    "Habilitação",
-                    "Licença",
-                    "Outros",
-                  ].map((cat) => (
-                    <Pressable
-                      key={cat}
-                      style={[
-                        styles.chip,
-                        docCategory === cat && styles.chipActive,
-                      ]}
-                      onPress={() => setDocCategory(cat)}
-                    >
-                      <Text
-                        style={{
-                          color: docCategory === cat ? BG : MUTED,
-                          fontSize: 12,
-                          fontWeight: "700",
-                        }}
+                <Text style={styles.muted}>Habilitações</Text>
+              </Pressable>
+              <Pressable style={styles.metric} onPress={() => setTab("docs")}>
+                <Text style={styles.metricValue}>
+                  {documentsError ? "—" : docs.length}
+                </Text>
+                <Text style={styles.muted}>Documentos</Text>
+              </Pressable>
+            </View>
+            {tab === "dados" && (
+              <>
+                <View style={styles.hero}>
+                  <Avatar
+                    nome={fullName}
+                    disponivel={!!p?.foto_url}
+                    versao={photoVersion}
+                    tamanho={76}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.name}>{fullName}</Text>
+                    <Text style={styles.secondary}>
+                      {p?.departamento || p?.tipo_user || "Tripulação"}
+                    </Text>
+                    <Text style={styles.kicker}>
+                      {p?.canac || data?.tripulante?.canac
+                        ? `CANAC ${p?.canac || data?.tripulante?.canac}`
+                        : "CANAC não informado"}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.card}>
+                  <View style={styles.between}>
+                    <Text style={styles.heading}>Dados pessoais</Text>
+                    <Pressable onPress={() => setEditing(!editing)}>
+                      <Text style={styles.link}>
+                        {editing ? "Cancelar" : "Editar"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                  {editing ? (
+                    <>
+                      <Text style={styles.label}>Nome de exibição</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={displayName}
+                        onChangeText={setDisplayName}
+                      />
+                      <Text style={styles.label}>Telefone</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={phone}
+                        keyboardType="phone-pad"
+                        onChangeText={setPhone}
+                      />
+                      <Pressable
+                        style={styles.primary}
+                        disabled={!!busy}
+                        onPress={() => void saveProfile()}
                       >
-                        {cat}
+                        <Text style={styles.primaryText}>
+                          {busy === "profile"
+                            ? "Salvando…"
+                            : "Salvar alterações"}
+                        </Text>
+                      </Pressable>
+                    </>
+                  ) : (
+                    <>
+                      {row("Nome completo", p?.nome_completo)}
+                      {row("E-mail", p?.email_envio || p?.email)}
+                      {row("Telefone", p?.telefone)}
+                      {row("CANAC", p?.canac || data?.tripulante?.canac)}
+                      {row("Tipo de licença", data?.tripulante?.tipo_licenca)}
+                      {row(
+                        "Cidade/UF",
+                        [p?.cidade, p?.uf].filter(Boolean).join(" / "),
+                      )}
+                      {row("Admissão", date(p?.data_admissao))}
+                    </>
+                  )}
+                </View>
+              </>
+            )}
+            {tab === "licencas" && (
+              <>
+                <View style={styles.tabs}>
+                  {(
+                    [
+                      ["licencas", "Licenças", "shield"],
+                      ["horas", "Minhas horas", "bar-chart-2"],
+                    ] as const
+                  ).map(([id, label, icon]) => (
+                    <Pressable
+                      key={id}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: licencasTab === id }}
+                      onPress={() => setLicencasTab(id)}
+                      style={[
+                        styles.tab,
+                        licencasTab === id && styles.tabActive,
+                      ]}
+                    >
+                      <Feather
+                        name={icon}
+                        size={17}
+                        color={licencasTab === id ? BG : MUTED}
+                      />
+                      <Text
+                        style={[
+                          styles.tabText,
+                          licencasTab === id && { color: BG },
+                        ]}
+                      >
+                        {label}
                       </Text>
                     </Pressable>
                   ))}
                 </View>
-                <Pressable
-                  style={styles.primary}
-                  disabled={!!busy}
-                  onPress={() => void uploadDoc()}
-                >
-                  <Feather name="upload" size={17} color={BG} />
-                  <Text style={styles.primaryText}>
-                    {busy === "doc"
-                      ? "Enviando…"
-                      : "Selecionar e enviar arquivo"}
-                  </Text>
-                </Pressable>
-              </View>
-              <Text style={styles.section}>
-                MEUS DOCUMENTOS · {documentsError ? "—" : docs.length}
-              </Text>
-              {!docs.length && (
-                <View style={styles.card}>
-                  <Text style={styles.muted}>
-                    {documentsError
-                      ? "Não foi possível consultar seus documentos."
-                      : "Nenhum documento registrado."}
-                  </Text>
-                </View>
-              )}
-              {docs.map((d) => (
-                <View key={d.id} style={styles.docRow}>
-                  <Feather name="file" size={20} color={ACCENT} />
-                  <Pressable
-                    style={{ flex: 1 }}
-                    onPress={() =>
-                      void openPrivate(
-                        d.arquivo_url ||
-                          `/api/colaborador/documentos/${encodeURIComponent(d.id)}/arquivo`,
-                        d.nome_arquivo,
-                        d.mime_type || d.tipo_arquivo || "application/pdf",
-                      )
-                    }
-                  >
-                    <Text style={styles.link} numberOfLines={1}>
-                      {d.nome_arquivo}
+                {licencasTab === "horas" ? (
+                  <HorasVoo />
+                ) : (
+                  <>
+                    <View style={styles.card}>
+                      <View style={styles.between}>
+                        <View>
+                          <Text style={styles.kicker}>CERTIFICADO MÉDICO</Text>
+                          <Text style={[styles.heading, { marginTop: 8 }]}>
+                            CMA
+                          </Text>
+                        </View>
+                        <Etiqueta
+                          texto={situacaoValidade(data?.cma?.validade)}
+                          alerta={
+                            situacaoValidade(data?.cma?.validade) === "Vencido"
+                          }
+                        />
+                      </View>
+                      {row("Classe", data?.cma?.classe)}
+                      {row("Validade", date(data?.cma?.validade))}
+                      {!data?.cma && (
+                        <Text style={styles.muted}>
+                          Nenhum CMA cadastrado. Solicite a atualização à equipe
+                          responsável.
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={styles.section}>
+                      MINHAS HABILITAÇÕES · {data?.habilitacoes?.length ?? "—"}
+                    </Text>
+                    {data?.habilitacoes === undefined ? (
+                      <View style={styles.card}>
+                        <Text style={styles.muted}>
+                          Não foi possível consultar as habilitações. Atualize o
+                          aplicativo e tente novamente.
+                        </Text>
+                      </View>
+                    ) : !data.habilitacoes.length ? (
+                      <View style={styles.card}>
+                        <Text style={styles.muted}>
+                          Nenhuma habilitação cadastrada.
+                        </Text>
+                      </View>
+                    ) : (
+                      data.habilitacoes.map((h) => (
+                        <View key={h.id} style={styles.card}>
+                          <View style={styles.between}>
+                            <View>
+                              <Text style={styles.heading}>
+                                {h.tipo_habilitacao}
+                              </Text>
+                              <Text style={styles.secondary}>
+                                Validade: {date(h.data_validade)}
+                              </Text>
+                            </View>
+                            <Etiqueta
+                              texto={situacaoValidade(h.data_validade)}
+                              alerta={
+                                situacaoValidade(h.data_validade) === "Vencido"
+                              }
+                            />
+                          </View>
+                        </View>
+                      ))
+                    )}
+                  </>
+                )}
+              </>
+            )}
+            {tab === "salario" && (
+              <>
+                <Text style={styles.section}>MEUS PAGAMENTOS</Text>
+                {!salaries.length && (
+                  <View style={styles.card}>
+                    <Text style={styles.muted}>
+                      {paymentsError
+                        ? "Não foi possível consultar seus pagamentos."
+                        : "Nenhum pagamento registrado."}
+                    </Text>
+                  </View>
+                )}
+                {salaries.map((x) => (
+                  <View key={x.id} style={styles.card}>
+                    <View style={styles.between}>
+                      <Text style={styles.heading}>
+                        {x.rotulo || x.tipo_pagamento || "Pagamento"}
+                      </Text>
+                      <Text style={styles.status}>{x.status}</Text>
+                    </View>
+                    <Text style={styles.amount}>{money(x.valor_centavos)}</Text>
+                    <Text style={styles.secondary}>
+                      Competência {String(x.competencia_mes).padStart(2, "0")}/
+                      {x.competencia_ano}
                     </Text>
                     <Text style={styles.muted}>
-                      {d.tipo_documento || d.categoria || "Documento"} ·{" "}
-                      {date(d.criado_em)}
+                      Pagamento: {date(x.data_pagamento || x.data_prevista)}
+                    </Text>
+                    {x.holerite_url && (
+                      <Pressable
+                        style={styles.outline}
+                        onPress={() =>
+                          void openPrivate(
+                            x.holerite_url || undefined,
+                            "Holerite",
+                            "application/pdf",
+                          )
+                        }
+                      >
+                        <Feather name="file-text" color={ACCENT} size={16} />
+                        <Text style={styles.link}>Abrir holerite</Text>
+                      </Pressable>
+                    )}
+                    {x.comprovante_url && (
+                      <Pressable
+                        style={styles.outline}
+                        onPress={() =>
+                          void openPrivate(
+                            x.comprovante_url || undefined,
+                            "Comprovante de pagamento",
+                            mimeFromPath(x.comprovante_url || ""),
+                          )
+                        }
+                      >
+                        <Feather name="paperclip" color={ACCENT} size={16} />
+                        <Text style={styles.link}>Comprovante</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                ))}
+              </>
+            )}
+            {tab === "ferias" && (
+              <View style={styles.card}>
+                <Text style={styles.heading}>Férias</Text>
+                <Text style={styles.secondary}>
+                  Referência de 30 dias ·{" "}
+                  {data?.resumo_ferias?.dias_utilizados ?? "—"} dias aprovados
+                </Text>
+                <Text style={styles.muted}>
+                  *O saldo depende do fechamento do RH.
+                </Text>
+                <Pressable
+                  style={styles.primary}
+                  onPress={() => router.push("/ferias")}
+                >
+                  <Feather name="calendar" color={BG} size={17} />
+                  <Text style={styles.primaryText}>
+                    Consultar e solicitar férias
+                  </Text>
+                </Pressable>
+                {(data?.ferias || []).slice(0, 3).map((f) => (
+                  <View key={f.id} style={styles.infoRow}>
+                    <Text style={styles.muted}>
+                      {date(f.data_inicio)} — {date(f.data_fim)}
+                    </Text>
+                    <Text style={styles.infoValue}>{f.status}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            {tab === "docs" && (
+              <>
+                <View style={styles.card}>
+                  <Text style={styles.heading}>Adicionar documento</Text>
+                  <Text style={styles.muted}>
+                    PDF ou imagem até 10 MB, armazenados com acesso privado.
+                  </Text>
+                  <Text style={styles.label}>Categoria</Text>
+                  <View style={styles.categories}>
+                    {[
+                      "Documentos pessoais",
+                      "CMA",
+                      "Habilitação",
+                      "Licença",
+                      "Outros",
+                    ].map((cat) => (
+                      <Pressable
+                        key={cat}
+                        style={[
+                          styles.chip,
+                          docCategory === cat && styles.chipActive,
+                        ]}
+                        onPress={() => setDocCategory(cat)}
+                      >
+                        <Text
+                          style={{
+                            color: docCategory === cat ? BG : MUTED,
+                            fontSize: 12,
+                            fontWeight: "700",
+                          }}
+                        >
+                          {cat}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Pressable
+                    style={styles.primary}
+                    disabled={!!busy}
+                    onPress={() => void uploadDoc()}
+                  >
+                    <Feather name="upload" size={17} color={BG} />
+                    <Text style={styles.primaryText}>
+                      {busy === "doc"
+                        ? "Enviando…"
+                        : "Selecionar e enviar arquivo"}
                     </Text>
                   </Pressable>
-                  <Pressable onPress={() => removeDoc(d)}>
-                    <Feather name="trash-2" color="#ff9a9a" size={18} />
-                  </Pressable>
                 </View>
-              ))}
-            </>
-          )}
-        </ScrollView>
-      )}
+                <Text style={styles.section}>
+                  MEUS DOCUMENTOS · {documentsError ? "—" : docs.length}
+                </Text>
+                {!docs.length && (
+                  <View style={styles.card}>
+                    <Text style={styles.muted}>
+                      {documentsError
+                        ? "Não foi possível consultar seus documentos."
+                        : "Nenhum documento registrado."}
+                    </Text>
+                  </View>
+                )}
+                {docs.map((d) => (
+                  <View key={d.id} style={styles.docRow}>
+                    <Feather name="file" size={20} color={ACCENT} />
+                    <Pressable
+                      style={{ flex: 1 }}
+                      onPress={() =>
+                        void openPrivate(
+                          d.arquivo_url ||
+                            `/api/colaborador/documentos/${encodeURIComponent(d.id)}/arquivo`,
+                          d.nome_arquivo,
+                          d.mime_type || d.tipo_arquivo || "application/pdf",
+                        )
+                      }
+                    >
+                      <Text style={styles.link} numberOfLines={1}>
+                        {d.nome_arquivo}
+                      </Text>
+                      <Text style={styles.muted}>
+                        {d.tipo_documento || d.categoria || "Documento"} ·{" "}
+                        {date(d.criado_em)}
+                      </Text>
+                    </Pressable>
+                    <Pressable onPress={() => removeDoc(d)}>
+                      <Feather name="trash-2" color="#ff9a9a" size={18} />
+                    </Pressable>
+                  </View>
+                ))}
+              </>
+            )}
+            <View style={styles.footer}>
+              <Avatar
+                nome={fullName}
+                disponivel={!!p?.foto_url}
+                versao={photoVersion}
+                tamanho={46}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Atualizar foto do perfil"
+                accessibilityState={{ disabled: !!busy }}
+                disabled={!!busy}
+                onPress={() => void uploadPhoto()}
+                style={styles.footerPill}
+              >
+                {busy === "foto" ? (
+                  <ActivityIndicator size="small" color={ACCENT} />
+                ) : (
+                  <>
+                    <Feather name="camera" size={16} color={ACCENT} />
+                    <Text style={styles.link}>Atualizar foto do perfil</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+          </ScrollView>
+        )}
+      </View>
     </View>
   );
 }
@@ -803,12 +847,19 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 18,
     paddingTop: 10,
-    paddingBottom: 16,
     flexDirection: "row",
     alignItems: "center",
-    gap: 9,
+    justifyContent: "space-between",
   },
-  headerCopy: { flex: 1, minWidth: 0 },
+  headerCopy: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 20 },
+  sheet: {
+    flex: 1,
+    backgroundColor: CARD,
+    borderTopLeftRadius: 28,
+    paddingTop: 18,
+    overflow: "hidden",
+  },
+  tabsScroll: { flexGrow: 0 },
   kicker: {
     fontSize: 9,
     color: ACCENT,
@@ -828,22 +879,12 @@ const styles = StyleSheet.create({
     borderColor: BORDER,
   },
   hero: {
-    backgroundColor: CARD,
+    backgroundColor: BG,
     borderRadius: 24,
     padding: 20,
     flexDirection: "row",
     alignItems: "center",
     gap: 15,
-    borderWidth: 1,
-    borderColor: BORDER,
-  },
-  heroAction: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: tema.elevado,
     borderWidth: 1,
     borderColor: BORDER,
   },
@@ -868,7 +909,7 @@ const styles = StyleSheet.create({
     minHeight: 46,
     borderRadius: 13,
     gap: 7,
-    backgroundColor: CARD,
+    backgroundColor: BG,
     borderWidth: 1,
     borderColor: BORDER,
   },
@@ -880,7 +921,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   card: {
-    backgroundColor: CARD,
+    backgroundColor: BG,
     borderWidth: 1,
     borderColor: BORDER,
     borderRadius: 17,
@@ -983,12 +1024,42 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: CARD,
+    backgroundColor: BG,
     borderRadius: 14,
     padding: 15,
     borderWidth: 1,
     borderColor: BORDER,
     marginBottom: 9,
+  },
+  metrics: { flexDirection: "row", gap: 9, marginBottom: 12 },
+  metric: {
+    flex: 1,
+    height: 84,
+    borderRadius: 14,
+    padding: 12,
+    justifyContent: "space-between",
+    backgroundColor: BG,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  metricValue: { color: tema.texto, fontSize: 18, fontWeight: "800" },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 6,
+  },
+  footerPill: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: 26,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: tema.elevado,
+    borderWidth: 1,
+    borderColor: BORDER,
   },
   error: {
     padding: 13,
