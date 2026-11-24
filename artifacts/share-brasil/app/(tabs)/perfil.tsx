@@ -357,18 +357,6 @@ export function PerfilScreen({ initialTab }: { initialTab?: Secao } = {}) {
   const cargo = p?.departamento || p?.tipo_user || "Tripulação";
   const canac = p?.canac || data?.tripulante?.canac;
 
-  // --- resumo ---
-  const anos = p?.data_admissao
-    ? Math.max(
-        0,
-        Math.floor(
-          (Date.now() - new Date(p.data_admissao).getTime()) / 31557600000,
-        ),
-      )
-    : undefined;
-  // AJUSTAR: ligar ao mesmo dado usado por <HorasVoo />.
-  const horasTotais: string | undefined = undefined;
-  const horasMes: string | undefined = undefined;
   const ultimoSalario = salaries
     .filter((x) => !ehRessarcimento(x) && x.data_pagamento)
     .sort(
@@ -499,34 +487,39 @@ export function PerfilScreen({ initialTab }: { initialTab?: Secao } = {}) {
               </View>
 
               <View style={styles.stats}>
-                <Toque
-                  style={styles.stat}
-                  onPress={() => {
-                    setLicencasTab("horas");
-                    setSecao("licencas");
-                  }}
-                >
-                  <Text style={styles.statValue}>{horasTotais ?? "—"}</Text>
-                  <Text style={styles.statLabel}>Horas totais</Text>
-                </Toque>
-                <Toque
-                  style={styles.stat}
-                  onPress={() => {
-                    setLicencasTab("horas");
-                    setSecao("licencas");
-                  }}
-                >
-                  <Text style={styles.statValue}>{horasMes ?? "—"}</Text>
-                  <Text style={styles.statLabel}>Este mês</Text>
-                </Toque>
-                <View style={styles.stat}>
-                  <Text style={styles.statValue}>{anos ?? "—"}</Text>
-                  <Text style={styles.statLabel}>Anos</Text>
-                </View>
+                {(
+                  [
+                    ["total", "Horas totais"],
+                    ["mes", "Este mês"],
+                    ["ano", "Este ano"],
+                  ] as const
+                ).map(([chave, rotulo]) => {
+                  const minutos = data?.horas_voo_minutos?.[chave];
+                  return (
+                    <Toque
+                      key={chave}
+                      style={styles.stat}
+                      accessibilityRole="button"
+                      onPress={() => {
+                        setLicencasTab("horas");
+                        setSecao("licencas");
+                      }}
+                    >
+                      <Text style={styles.statValue}>
+                        {minutos == null
+                          ? "—"
+                          : `${Math.floor(minutos / 60)}:${String(minutos % 60).padStart(2, "0")}`}
+                      </Text>
+                      <Text style={styles.statLabel}>{rotulo}</Text>
+                    </Toque>
+                  );
+                })}
               </View>
 
               <View style={styles.salario}>
-                <Text style={styles.salarioLabel}>Último salário creditado</Text>
+                <Text style={styles.salarioLabel}>
+                  Último salário creditado
+                </Text>
                 <Text style={styles.salarioValor}>
                   {ultimoSalario ? money(ultimoSalario.valor_centavos) : "—"}
                 </Text>
@@ -598,7 +591,8 @@ export function PerfilScreen({ initialTab }: { initialTab?: Secao } = {}) {
                     extra: (
                       <Text
                         style={{
-                          color: situacaoCma === "Vencido" ? tema.perigo : VERDE,
+                          color:
+                            situacaoCma === "Vencido" ? tema.perigo : VERDE,
                           fontSize: 14,
                         }}
                       >

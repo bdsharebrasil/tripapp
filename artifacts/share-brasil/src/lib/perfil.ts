@@ -21,12 +21,13 @@ export type Credencial = {
 };
 export type PerfilCompleto = {
   perfil: Perfil;
+  horas_voo_minutos?: { total: number; mes: number; ano: number } | null;
   metricas: {
     horas_totais?: number;
     voos_escalados?: number;
     ctm_abertos?: number;
   };
-  tripulante?: { tipo_licenca?: string; canac?: string };
+  tripulante?: { id?: string; tipo_licenca?: string; canac?: string };
   habilitacoes?: Credencial[];
   cma?: { id: string; classe: string | null; validade: string | null } | null;
   resumo_ferias?: {

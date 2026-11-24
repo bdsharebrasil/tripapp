@@ -1,5 +1,22 @@
+import { useQuery } from "@tanstack/react-query";
+import {
+  API_DIARIO,
+  horasDecimais,
+  leitura,
+  naturezas,
+  type AeronaveDiario,
+  type DiarioMensalResposta,
+} from "@/src/features/diario/modelo";
 import { avisar, confirmar } from "@/src/lib/confirmar";
-import { Cabecalho, tema, Icon, Toque } from "@/src/components/ui";
+import {
+  Botao,
+  Cabecalho,
+  ErroConsulta,
+  Tela,
+  tema,
+  Icon,
+  Toque,
+} from "@/src/components/ui";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
@@ -63,23 +80,6 @@ type Lancamento = {
   diario_fechado?: number;
 };
 type Response = { pode_assinar: boolean; lancamentos: Lancamento[] };
-type AircraftSummary = {
-  id: string;
-  registration?: string;
-  matricula?: string;
-  matricula_registro?: string;
-  model?: string;
-  modelo?: string;
-  fabricante?: string;
-  image_url?: string | null;
-  imagem_url?: string | null;
-  celula_atual_ttotal?: number | null;
-  celula_prox_revisao_ttotal?: number | null;
-  celula_disponivel_ttotal?: number | null;
-  celula_anterior_ttotal?: number | null;
-  horas_ano?: number | null;
-  voo_id?: string;
-};
 type FlightDetail = {
   voo: {
     id: string;
@@ -100,17 +100,6 @@ type FlightDetail = {
   };
 };
 const API = "/api/colaborador/diario-bordo";
-const naturezas = [
-  "EX - Executivo",
-  "AE - Aérea/Regular",
-  "NR - Não Remunerado",
-  "RE - Retorno/Reposição",
-  "PV - Privado",
-  "TR - Traslado",
-  "SA - Serviço Aéreo",
-  "TN - Táxi Aéreo",
-  "VT - Voo Teste",
-];
 type Campo = keyof Lancamento;
 const grupos: {
   titulo: string;
@@ -173,25 +162,27 @@ const date = (v?: string) =>
   v ? v.slice(0, 10).split("-").reverse().join("/") : "—";
 const hhmm = (v?: string | null) => v?.match(/\d{2}:\d{2}/)?.[0] || "—";
 const str = (v: unknown) => (v === undefined || v === null ? "" : String(v));
-const horasDecimais = (valor?: number | null | string) => {
-  if (valor === null || valor === undefined || valor === "" || Number.isNaN(Number(valor))) return "—";
-  const total = Math.round(Math.abs(Number(valor)) * 60);
-  return `${Math.floor(total / 60)}h ${String(total % 60).padStart(2, "0")}m`;
-};
-
 export default function DiarioBordoMobile() {
-  const { vooId, aeronaveId, matricula, imageUrl } = useLocalSearchParams<{
+  const { vooId, aeronaveId, matricula } = useLocalSearchParams<{
     vooId?: string;
     aeronaveId?: string;
     matricula?: string;
-    imageUrl?: string;
   }>();
+  if (aeronaveId && !vooId)
+    return (
+      <DiarioMensal
+        key={aeronaveId}
+        aeronaveId={aeronaveId}
+        matricula={matricula}
+      />
+    );
+  return <DiarioDoVoo vooId={vooId} />;
+}
+
+function DiarioDoVoo({ vooId }: { vooId?: string }) {
   const router = useRouter(),
     insets = useSafeAreaInsets();
-  const [voos, setVoos] = useState<AircraftSummary[]>([]);
-  const agora = new Date();
-  const [anoDiario, setAnoDiario] = useState(agora.getFullYear());
-  const [mesDiario, setMesDiario] = useState(agora.getMonth() + 1);
+  const [voos, setVoos] = useState<AeronaveDiario[]>([]);
   const [busca, setBusca] = useState("");
   const [detail, setDetail] = useState<FlightDetail | null>(null),
     [response, setResponse] = useState<Response | null>(null);
@@ -212,159 +203,11 @@ export default function DiarioBordoMobile() {
       else setLoading(true);
       setError("");
       try {
-        if (!vooId && !aeronaveId) {
-          const aeronavesResult = await apiFetch<{ aeronaves: Record<string, any>[] }>(
-            "/api/sharebrasil/aeronaves",
-          ).catch(() => ({ aeronaves: [] as Record<string, any>[] }));
-          let aeronaves = aeronavesResult.aeronaves || [];
-
-          if (!aeronaves.length) {
-            const manutencao = await apiFetch<{
-              aeronaves: Array<{
-                id: string;
-                registration?: string;
-                model?: string;
-                image_url?: string | null;
-              }>;
-            }>("/api/ctm/relatorios-manutencao").catch(() => ({ aeronaves: [] }));
-            aeronaves = manutencao.aeronaves.map((item) => ({
-              id: item.id,
-              registration: item.registration,
-              matricula_registro: item.registration,
-              model: item.model,
-              modelo: item.model,
-              image_url: item.image_url,
-            }));
-          }
-
-          let manutencaoCompleta: Array<Record<string, any>> = [];
-          if (aeronaves.length) {
-            const manutencao = await apiFetch<{
-              aeronaves: Array<Record<string, any>>;
-            }>("/api/ctm/relatorios-manutencao").catch(() => ({ aeronaves: [] }));
-            manutencaoCompleta = manutencao.aeronaves || [];
-          }
-
-          const voosResult = await apiFetch<{ voos: Array<Record<string, any>> }>(
-            "/api/colaborador/meus-voos",
-          ).catch(() => ({ voos: [] as Array<Record<string, any>> }));
-
-          const lista = aeronaves.map((row) => {
-            const matricula = String(
-              row.matricula_registro || row.registration || row.matricula || "",
-            ).trim();
-            const manutencaoCorrespondente = manutencaoCompleta.find((item) => {
-              if (row.id && item.id === row.id) return true;
-              return Boolean(matricula) &&
-                String(item.registration || item.matricula || item.matricula_registro || "") === matricula;
-            });
-            const vooCorrespondente = voosResult.voos.find((voo) => {
-              if (row.id && voo.aeronave_id === row.id) return true;
-              return Boolean(matricula) && String(voo.matricula_registro || "") === matricula;
-            });
-            return {
-              ...row,
-              id: row.id,
-              registration: matricula,
-              matricula_registro: matricula,
-              model: row.modelo || row.model || "",
-              modelo: row.modelo || row.model || "",
-              fabricante: row.fabricante || row.manufacturer || "",
-              image_url:
-                row.image_url ||
-                row.imagem_url ||
-                row.foto_url ||
-                manutencaoCorrespondente?.image_url ||
-                null,
-              celula_atual_ttotal:
-                row.celula_atual_ttotal ??
-                row.celula_atual ??
-                row.celula_total_atual ??
-                row.ttotal_atual,
-              celula_prox_revisao_ttotal:
-                row.celula_prox_revisao_ttotal ??
-                row.celula_proxima_revisao_ttotal ??
-                row.proxima_revisao_ttotal ??
-                row.revisao_ttotal,
-              celula_disponivel_ttotal:
-                row.celula_disponivel_ttotal ??
-                row.celula_disponivel ??
-                row.disponivel_ttotal,
-              celula_anterior_ttotal:
-                row.celula_anterior_ttotal ?? row.celula_anterior,
-              horas_ano: row.horas_ano ?? row.horas_voadas_ano,
-              voo_id: vooCorrespondente?.id,
-            } as AircraftSummary;
-          });
-
-          setVoos(
-            lista.sort((a, b) =>
-              String(a.registration || a.matricula_registro || "").localeCompare(
-                String(b.registration || b.matricula_registro || ""),
-              ),
-            ),
-          );
-          return;
-        }
-
-        if (aeronaveId && !vooId) {
-          const paths = [
-            `/api/colaborador/diario-bordo/aeronaves/${encodeURIComponent(aeronaveId)}?ano=${anoDiario}&mes=${mesDiario}`,
-            `/api/colaborador/diario-bordo/aeronaves/${encodeURIComponent(aeronaveId)}/detalhes?ano=${anoDiario}&mes=${mesDiario}`,
-          ];
-          let data: any = null;
-          for (const path of paths) {
-            try {
-              data = await apiFetch<any>(path);
-              break;
-            } catch {
-              // Tenta o formato alternativo publicado pelo Worker.
-            }
-          }
-          if (data) {
-            setResponse({
-              pode_assinar: Boolean(data.pode_assinar),
-              lancamentos: Array.isArray(data.lancamentos)
-                ? data.lancamentos
-                : Array.isArray(data.entries)
-                  ? data.entries
-                  : [],
-            });
-            const diario = data.diario_mes || data.diario || {};
-            const aeronaveDetalhe = data.aeronave || {};
-            setDetail({
-              voo: {
-                id: aeronaveId,
-                matricula_registro:
-                  matricula || aeronaveDetalhe.matricula_registro || aeronaveDetalhe.registration,
-                modelo: aeronaveDetalhe.modelo || aeronaveDetalhe.model,
-                fabricante: aeronaveDetalhe.fabricante || aeronaveDetalhe.manufacturer,
-                imagem_url:
-                  imageUrl || aeronaveDetalhe.image_url || aeronaveDetalhe.imagem_url,
-                cliente_razao_social: diario.aerodromo_base,
-                celula_atual_ttotal:
-                  diario.celula_atual_ttotal ??
-                  diario.celula_atual ??
-                  aeronaveDetalhe.celula_atual_ttotal,
-                celula_prox_revisao_ttotal:
-                  diario.celula_prox_revisao_ttotal ??
-                  diario.celula_proxima_revisao_ttotal ??
-                  aeronaveDetalhe.celula_prox_revisao_ttotal,
-                celula_disponivel_ttotal:
-                  diario.celula_disponivel_ttotal ??
-                  diario.celula_disponivel ??
-                  aeronaveDetalhe.celula_disponivel_ttotal,
-                celula_anterior_ttotal:
-                  diario.celula_anterior_ttotal ??
-                  diario.celula_anterior,
-              },
-            });
-            return;
-          }
-        }
-
         if (!vooId) {
-          setError("Nenhum voo foi informado para abrir o Diário.");
+          const dados = await apiFetch<{ aeronaves: AeronaveDiario[] }>(
+            `${API_DIARIO}/resumo?referencia=atual`,
+          );
+          setVoos(dados.aeronaves);
           return;
         }
 
@@ -387,7 +230,7 @@ export default function DiarioBordoMobile() {
         setRefreshing(false);
       }
     },
-    [vooId, aeronaveId, matricula, imageUrl, anoDiario, mesDiario],
+    [vooId],
   );
   useFocusEffect(
     useCallback(() => {
@@ -545,17 +388,13 @@ export default function DiarioBordoMobile() {
   const voo = detail?.voo;
   return (
     <SafeAreaView edges={["top"]} style={[s.root, { paddingTop: 10 }]}>
-      {vooId || aeronaveId ? (
+      {vooId ? (
         <Cabecalho
-          titulo={active ? "Complementar lançamento" : aeronaveId ? "Histórico da aeronave" : "Diário do voo"}
+          titulo={active ? "Complementar lançamento" : "Diário do voo"}
           apoio="Diário de bordo"
           voltar={() => {
             if (active) {
               close();
-              return;
-            }
-            if (aeronaveId) {
-              router.replace("/diario-bordo");
               return;
             }
             router.back();
@@ -584,13 +423,16 @@ export default function DiarioBordoMobile() {
             paddingBottom: insets.bottom + 110,
           }}
         >
-          {!vooId && !aeronaveId ? (
+          {!vooId ? (
             <>
               <View style={s.fleetHeader}>
-                <Text style={s.kicker}>OPERAÇÃO · {new Date().getFullYear()}</Text>
+                <Text style={s.kicker}>
+                  OPERAÇÃO · {new Date().getFullYear()}
+                </Text>
                 <Text style={s.title}>Escolha uma aeronave</Text>
                 <Text style={s.fleetCount}>
-                  {voos.length} {voos.length === 1 ? "aeronave ativa" : "aeronaves ativas"}
+                  {voos.length}{" "}
+                  {voos.length === 1 ? "aeronave ativa" : "aeronaves ativas"}
                 </Text>
               </View>
               <TextInput
@@ -602,203 +444,126 @@ export default function DiarioBordoMobile() {
                 onChangeText={setBusca}
               />
               <View style={s.aircraftGrid}>
-              {voos
-                .filter((v) =>
-                  [
-                    v.registration,
-                    v.matricula,
-                    v.matricula_registro,
-                    v.fabricante,
-                    v.model,
-                    v.modelo,
-                  ]
-                    .filter(Boolean)
-                    .join(" ")
-                    .toLowerCase()
-                    .includes(busca.toLowerCase()),
-                )
-                .map((v) => (
-                  <Toque
-                    key={v.id}
-                    style={s.aircraftCard}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Abrir diário da aeronave ${v.registration || v.matricula_registro || v.matricula || v.id}`}
-                    onPress={() => {
-                      router.push({
-                        pathname: "/diario-bordo",
-                        params: {
-                          aeronaveId: v.id,
-                          matricula:
-                            v.registration ||
-                            v.matricula_registro ||
-                            v.matricula ||
-                            "",
-                          imageUrl: v.image_url || v.imagem_url || "",
-                        },
-                      });
-                    }}
-                  >
-                    <Image
-                      source={
-                        v.image_url || v.imagem_url
-                          ? { uri: String(v.image_url || v.imagem_url) }
-                          : require("../assets/images/ceu-asa.jpg")
-                      }
-                      style={s.aircraftImage}
-                      resizeMode="cover"
-                    />
-                    <View style={s.aircraftShade} />
-                    <View style={s.aircraftContent}>
-                      <View style={s.aircraftTopRow}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={s.aircraftRegistration}>
-                            {v.registration || v.matricula_registro || v.matricula || "Aeronave"}
-                          </Text>
-                          <Text style={s.aircraftModel} numberOfLines={1}>
-                            {[v.fabricante, v.model || v.modelo].filter(Boolean).join(" ") ||
-                              "Aeronave"}
-                          </Text>
-                        </View>
-                        {v.celula_disponivel_ttotal !== undefined &&
-                          v.celula_disponivel_ttotal !== null && (
-                            <View
-                              style={[
-                                s.aircraftStatus,
-                                Number(v.celula_disponivel_ttotal) < 0
-                                  ? s.aircraftStatusWarning
-                                  : s.aircraftStatusActive,
-                              ]}
-                            >
-                              <Icon
-                                name={
-                                  Number(v.celula_disponivel_ttotal) < 0
-                                    ? "tool"
-                                    : "check-circle"
-                                }
-                                size={13}
-                                color={
-                                  Number(v.celula_disponivel_ttotal) < 0
-                                    ? "#F0C583"
-                                    : tema.verde
-                                }
-                              />
-                              <Text
+                {voos
+                  .filter((v) =>
+                    [v.matricula_registro, v.fabricante, v.modelo]
+                      .filter(Boolean)
+                      .join(" ")
+                      .toLowerCase()
+                      .includes(busca.toLowerCase()),
+                  )
+                  .map((v) => (
+                    <Toque
+                      key={v.id}
+                      style={s.aircraftCard}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Abrir diário da aeronave ${v.matricula_registro || v.id}`}
+                      onPress={() => {
+                        router.push({
+                          pathname: "/diario-bordo",
+                          params: {
+                            aeronaveId: v.id,
+                            matricula: v.matricula_registro,
+                          },
+                        });
+                      }}
+                    >
+                      <Image
+                        source={
+                          v.image_url
+                            ? { uri: String(v.image_url) }
+                            : require("../assets/images/ceu-asa.jpg")
+                        }
+                        style={s.aircraftImage}
+                        resizeMode="cover"
+                      />
+                      <View style={s.aircraftShade} />
+                      <View style={s.aircraftContent}>
+                        <View style={s.aircraftTopRow}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={s.aircraftRegistration}>
+                              {v.matricula_registro || "Aeronave"}
+                            </Text>
+                            <Text style={s.aircraftModel} numberOfLines={1}>
+                              {[v.fabricante, v.modelo]
+                                .filter(Boolean)
+                                .join(" ") || "Aeronave"}
+                            </Text>
+                          </View>
+                          {!!v.mes_referencia &&
+                            leitura(v, "disponivel") != null && (
+                              <View
                                 style={[
-                                  s.aircraftStatusText,
-                                  {
-                                    color:
-                                      Number(v.celula_disponivel_ttotal) < 0
-                                        ? "#F0C583"
-                                        : tema.verde,
-                                  },
+                                  s.aircraftStatus,
+                                  Number(leitura(v, "disponivel")) < 0
+                                    ? s.aircraftStatusWarning
+                                    : s.aircraftStatusActive,
                                 ]}
                               >
-                                {Number(v.celula_disponivel_ttotal) < 0
-                                  ? "Revisão vencida"
-                                  : "Ativa"}
-                              </Text>
-                            </View>
-                          )}
-                      </View>
-                      <View style={s.aircraftMetrics}>
-                        <View style={s.aircraftMetric}>
-                          <Text style={s.aircraftMetricLabel}>CÉLULA ATUAL</Text>
-                          <Text style={s.aircraftMetricValue}>
-                            {horasDecimais(v.celula_atual_ttotal)}
-                          </Text>
+                                <Icon
+                                  name={
+                                    Number(leitura(v, "disponivel")) < 0
+                                      ? "tool"
+                                      : "check-circle"
+                                  }
+                                  size={13}
+                                  color={
+                                    Number(leitura(v, "disponivel")) < 0
+                                      ? "#F0C583"
+                                      : tema.verde
+                                  }
+                                />
+                                <Text
+                                  style={[
+                                    s.aircraftStatusText,
+                                    {
+                                      color:
+                                        Number(leitura(v, "disponivel")) < 0
+                                          ? "#F0C583"
+                                          : tema.verde,
+                                    },
+                                  ]}
+                                >
+                                  {Number(leitura(v, "disponivel")) < 0
+                                    ? "Revisão vencida"
+                                    : "Ativa"}
+                                </Text>
+                              </View>
+                            )}
                         </View>
-                        <View style={s.aircraftMetric}>
-                          <Text style={s.aircraftMetricLabel}>PRÓXIMA REVISÃO</Text>
-                          <Text style={s.aircraftMetricValue}>
-                            {horasDecimais(v.celula_prox_revisao_ttotal)}
-                          </Text>
+                        <View style={s.aircraftMetrics}>
+                          <View style={s.aircraftMetric}>
+                            <Text style={s.aircraftMetricLabel}>
+                              CÉLULA ATUAL
+                            </Text>
+                            <Text style={s.aircraftMetricValue}>
+                              {horasDecimais(
+                                v.mes_referencia ? leitura(v, "atual") : null,
+                              )}
+                            </Text>
+                          </View>
+                          <View style={s.aircraftMetric}>
+                            <Text style={s.aircraftMetricLabel}>
+                              PRÓXIMA REVISÃO
+                            </Text>
+                            <Text style={s.aircraftMetricValue}>
+                              {horasDecimais(leitura(v, "prox_revisao"))}
+                            </Text>
+                          </View>
                         </View>
                       </View>
-                    </View>
-                  </Toque>
-                ))}
+                    </Toque>
+                  ))}
               </View>
               {!voos.length && !error && (
-                <Text style={s.note}>Nenhum voo disponível no seu diário.</Text>
+                <Text style={s.note}>
+                  Nenhuma aeronave disponível no diário.
+                </Text>
               )}
             </>
           ) : (
             <>
-              {aeronaveId && (
-                <View style={s.periodoRow}>
-                  <Toque
-                    accessibilityRole="button"
-                    accessibilityLabel="Mês anterior"
-                    onPress={() => {
-                      const anterior = new Date(anoDiario, mesDiario - 2, 1);
-                      setAnoDiario(anterior.getFullYear());
-                      setMesDiario(anterior.getMonth() + 1);
-                    }}
-                    style={s.periodoBotao}
-                  >
-                    <Icon name="chevron-left" size={20} color={tema.texto} />
-                  </Toque>
-                  <Text style={s.periodoTexto}>
-                    {new Intl.DateTimeFormat("pt-BR", {
-                      month: "long",
-                      year: "numeric",
-                    }).format(new Date(anoDiario, mesDiario - 1, 1))}
-                  </Text>
-                  <Toque
-                    accessibilityRole="button"
-                    accessibilityLabel="Próximo mês"
-                    onPress={() => {
-                      const proximo = new Date(anoDiario, mesDiario, 1);
-                      if (
-                        proximo.getFullYear() > new Date().getFullYear() ||
-                        (proximo.getFullYear() === new Date().getFullYear() &&
-                          proximo.getMonth() > new Date().getMonth())
-                      ) return;
-                      setAnoDiario(proximo.getFullYear());
-                      setMesDiario(proximo.getMonth() + 1);
-                    }}
-                    style={s.periodoBotao}
-                  >
-                    <Icon name="chevron-right" size={20} color={tema.texto} />
-                  </Toque>
-                </View>
-              )}
-              {aeronaveId && (
-                <View style={s.historyMetrics}>
-                  <View style={s.historyMetric}>
-                    <Text style={s.historyMetricLabel}>CÉLULA ANTERIOR</Text>
-                    <Text style={s.historyMetricValue}>
-                      {horasDecimais(detail?.voo.celula_anterior_ttotal)}
-                    </Text>
-                  </View>
-                  <View style={s.historyMetric}>
-                    <Text style={s.historyMetricLabel}>CÉLULA ATUAL</Text>
-                    <Text style={s.historyMetricValue}>
-                      {horasDecimais(detail?.voo.celula_atual_ttotal)}
-                    </Text>
-                  </View>
-                  <View style={s.historyMetric}>
-                    <Text style={s.historyMetricLabel}>PRÓXIMA REVISÃO</Text>
-                    <Text style={s.historyMetricValue}>
-                      {horasDecimais(detail?.voo.celula_prox_revisao_ttotal)}
-                    </Text>
-                  </View>
-                  <View style={s.historyMetric}>
-                    <Text style={s.historyMetricLabel}>DISPONÍVEL</Text>
-                    <Text style={s.historyMetricValue}>
-                      {horasDecimais(detail?.voo.celula_disponivel_ttotal)}
-                    </Text>
-                  </View>
-                </View>
-              )}
               <View style={s.summary}>
-                {aeronaveId && imageUrl ? (
-                  <Image
-                    source={{ uri: String(imageUrl) }}
-                    style={s.detailImage}
-                    resizeMode="cover"
-                  />
-                ) : null}
                 <Text style={s.kicker}>{voo?.numero_voo || "VOO"}</Text>
                 <Text style={s.big}>
                   {voo?.matricula_registro || "Aeronave não informada"}
@@ -1077,6 +842,183 @@ export default function DiarioBordoMobile() {
     </SafeAreaView>
   );
 }
+function DiarioMensal({
+  aeronaveId,
+  matricula,
+}: {
+  aeronaveId: string;
+  matricula?: string;
+}) {
+  const router = useRouter();
+  const agora = new Date();
+  const [periodo, setPeriodo] = useState(
+    () => new Date(agora.getUTCFullYear(), agora.getUTCMonth(), 1),
+  );
+  const ano = periodo.getFullYear(),
+    mes = periodo.getMonth() + 1;
+  const competencia = `${ano}-${String(mes).padStart(2, "0")}`;
+  const consulta = useQuery({
+    queryKey: ["diario-mensal", aeronaveId, competencia],
+    queryFn: ({ signal }) =>
+      apiFetch<DiarioMensalResposta>(
+        `${API_DIARIO}/detalhes?aeronave_id=${encodeURIComponent(aeronaveId)}&ano=${ano}&mes=${mes}`,
+        { signal },
+      ),
+  });
+  const { refetch } = consulta;
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch]),
+  );
+  const dados = consulta.data;
+  const diario = dados?.diario_mes;
+  const anterior = dados?.meses_disponiveis.find(
+    (d) => d.ano < ano || (d.ano === ano && d.mes < mes),
+  );
+  const referencia = diario ?? anterior;
+  const fechado = Boolean(Number(diario?.fechado));
+  return (
+    <Tela>
+      <Cabecalho
+        titulo={dados?.aeronave.matricula_registro || matricula || "Aeronave"}
+        apoio="Diário de bordo"
+        voltar={() => router.back()}
+      />
+      <ScrollView
+        contentContainerStyle={{ padding: 17, paddingBottom: 120 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={consulta.isRefetching}
+            onRefresh={() => void refetch()}
+          />
+        }
+      >
+        <View style={s.periodoRow}>
+          <Toque
+            style={s.periodoBotao}
+            accessibilityLabel="Mês anterior"
+            accessibilityRole="button"
+            onPress={() => setPeriodo(new Date(ano, mes - 2, 1))}
+          >
+            <Icon name="chevron-left" />
+          </Toque>
+          <Text style={s.periodoTexto}>
+            {periodo.toLocaleDateString("pt-BR", {
+              month: "long",
+              year: "numeric",
+            })}
+          </Text>
+          <Toque
+            style={s.periodoBotao}
+            accessibilityLabel="Próximo mês"
+            accessibilityRole="button"
+            disabled={competencia >= agora.toISOString().slice(0, 7)}
+            onPress={() => setPeriodo(new Date(ano, mes, 1))}
+          >
+            <Icon name="chevron-right" />
+          </Toque>
+        </View>
+        {consulta.isError ? (
+          <ErroConsulta
+            mensagem={consulta.error.message}
+            atualizar={() => void refetch()}
+          />
+        ) : !dados ? (
+          <ActivityIndicator color={tema.azul} />
+        ) : (
+          <>
+            {!diario && anterior && (
+              <Text style={s.note}>
+                Última leitura registrada em{" "}
+                {String(anterior.mes).padStart(2, "0")}/{anterior.ano}
+              </Text>
+            )}
+            <View style={s.historyMetrics}>
+              {(
+                [
+                  ["atual", "CÉLULA ATUAL"],
+                  ["prox_revisao", "PRÓXIMA REVISÃO"],
+                  ["anterior", "CÉLULA ANTERIOR"],
+                  ["disponivel", "DISPONÍVEL"],
+                ] as const
+              ).map(([campo, label]) => (
+                <View key={campo} style={s.historyMetric}>
+                  <Text style={s.historyMetricLabel}>{label}</Text>
+                  <Text style={s.historyMetricValue}>
+                    {horasDecimais(leitura(referencia, campo))}
+                  </Text>
+                </View>
+              ))}
+            </View>
+            {fechado ? (
+              <Text style={s.note}>Diário do mês fechado.</Text>
+            ) : (
+              <Botao
+                texto="Lançar horas de voo"
+                icone="plus"
+                onPress={() =>
+                  router.push({
+                    pathname: "/novo-lancamento",
+                    params: {
+                      aeronaveId,
+                      competencia,
+                      matricula: dados.aeronave.matricula_registro,
+                      diarioMesId: diario?.id || "",
+                      modoAnterior: anterior
+                        ? anterior.modo_celula || "tempo_total"
+                        : "",
+                    },
+                  })
+                }
+              />
+            )}
+            <Text style={s.section}>LANÇAMENTOS DO MÊS</Text>
+            {!dados.lancamentos.length && (
+              <Text style={s.note}>Nenhum lançamento neste mês.</Text>
+            )}
+            {dados.lancamentos.map((l) => (
+              <View key={l.id} style={s.card}>
+                <Text style={s.kicker}>
+                  {date(l.data_registro)} · Nº {l.numero_sequencial}
+                </Text>
+                <Text style={s.heading}>
+                  {l.aerodromo_partida_icao} → {l.aerodromo_chegada_icao}
+                </Text>
+                <Text style={s.note}>
+                  {[
+                    l.numero_voo,
+                    l.natureza_voo,
+                    l.assinado_pic || l.confirmado ? "Assinado" : "Rascunho",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </Text>
+                <Text style={s.note}>
+                  {[
+                    l.pic_nome_exibicao || l.pic_canac,
+                    l.sic_nome_exibicao || l.sic_canac,
+                  ]
+                    .filter(Boolean)
+                    .join(" / ")}
+                </Text>
+                <Text style={s.note}>
+                  AC {hhmm(l.tempo_ac)} · DEP {hhmm(l.tempo_dep)} · POU{" "}
+                  {hhmm(l.tempo_pou)} · COR {hhmm(l.tempo_cor)} (UTC)
+                </Text>
+                <Text style={s.hour}>
+                  Voo {horasDecimais(l.tempo_voo)} · Total{" "}
+                  {horasDecimais(l.tempo_total)}
+                </Text>
+              </View>
+            ))}
+          </>
+        )}
+      </ScrollView>
+    </Tela>
+  );
+}
+
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: tema.fundo },
   header: {
@@ -1152,12 +1094,6 @@ const s = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_700Bold",
     marginTop: 4,
-  },
-  detailImage: {
-    width: "100%",
-    height: 120,
-    borderRadius: 14,
-    marginBottom: 12,
   },
   summary: {
     backgroundColor: tema.superficie,

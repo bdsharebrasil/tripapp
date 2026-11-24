@@ -73,7 +73,7 @@ test("Perfil, folha, documentos, férias e histórico deixam de usar operações
 });
 
 test("Nenhum botão de lançamento escreve registro fictício; DocumentPicker SDK 58 está travado", () => {
-  assert.match(sources.novo, /router\.replace\("\/\(tabs\)\/agenda"\)/);
+  assert.match(sources.novo, /apiFetch\(API_DIARIO \+ "\/lancamentos",/);
   assert.doesNotMatch(sources.novo, /addFlight\(/);
   const pkg = JSON.parse(sources.package);
   assert.equal(pkg.devDependencies["expo-document-picker"], "~58.0.5");
