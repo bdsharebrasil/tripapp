@@ -21,11 +21,12 @@ type Props = Parameters<
 const itens: Record<string, { titulo: string; icone: Icone }> = {
   index: { titulo: "Início", icone: "home" },
   agenda: { titulo: "Meus voos", icone: "send" },
-  financeiro: { titulo: "Despesas", icone: "file-text" },
-  perfil: { titulo: "Documentos", icone: "shield" },
-  diario: { titulo: "Diário", icone: "book-open" },
-  horas: { titulo: "Horas", icone: "bar-chart-2" },
+  "plano-voo": { titulo: "Plano de voo", icone: "map" },
+  "despesa-viagem": { titulo: "Despesa viagem", icone: "file-text" },
+  diario: { titulo: "Diário de bordo", icone: "book-open" },
   manutencao: { titulo: "Manutenção", icone: "tool" },
+  financeiro: { titulo: "Financeiro", icone: "credit-card" },
+  perfil: { titulo: "Perfil", icone: "user" },
 };
 function Item({
   titulo,
@@ -59,7 +60,7 @@ function Item({
         minWidth: 44,
         width: anim.interpolate({
           inputRange: [0, 1],
-          outputRange: [44, 124],
+          outputRange: [44, 150],
         }),
       }}
     >
@@ -89,7 +90,7 @@ function Item({
             flexShrink: 1,
             maxWidth: anim.interpolate({
               inputRange: [0, 1],
-              outputRange: [0, 82],
+              outputRange: [0, 104],
             }),
             opacity: anim,
             marginLeft: anim.interpolate({

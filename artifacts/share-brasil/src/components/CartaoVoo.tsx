@@ -239,36 +239,6 @@ function Campo({
     </View>
   );
 }
-function Codigo({ seed }: { seed: string }) {
-  let n = 7;
-  for (const c of seed) n = (n * 31 + c.charCodeAt(0)) % 2147483647;
-  const bars = [];
-  let x = 0;
-  while (x < 200) {
-    n = (n * 16807) % 2147483647;
-    const w = 1 + (n % 3);
-    n = (n * 16807) % 2147483647;
-    bars.push(
-      <View
-        key={x}
-        style={{ flex: w, height: 32, backgroundColor: tema.texto }}
-      />,
-    );
-    const gap = 1 + (n % 3);
-    bars.push(<View key={`gap-${x}`} style={{ flex: gap }} />);
-    x += w + gap;
-  }
-  return (
-    <View
-      accessible={false}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      style={{ flex: 1, flexDirection: "row", maxWidth: 140, opacity: 0.7 }}
-    >
-      {bars}
-    </View>
-  );
-}
 const date = (v?: string) =>
   v ? v.slice(0, 10).split("-").reverse().join("/") : "A definir";
 const time = (v?: string) => v?.match(/\d{2}:\d{2}/)?.[0] || "—";
@@ -387,7 +357,6 @@ export function CartaoVoo({
         <View style={[s.notch, { right: -11 }]} />
       </View>
       <View style={[s.row, s.footer]}>
-        <Codigo seed={`${voo.id}${voo.numero_voo || ""}`} />
         <View style={{ flex: 1, alignItems: "flex-end" }}>
           <Text style={s.label}>ÁREA DA TRIPULAÇÃO</Text>
           <Text style={s.footerText}>

@@ -89,11 +89,18 @@ const mimeFromPath = (path: string): string => {
         : "application/pdf";
 };
 
-export default function PerfilScreen() {
+export function PerfilScreen({ initialTab }: { initialTab?: Tab } = {}) {
   const insets = useSafeAreaInsets(),
     router = useRouter();
   const { secao } = useLocalSearchParams<{ secao?: string }>();
-  const [tab, setTab] = useState<Tab>(secao === "horas" ? "horas" : "licencas");
+  const [tab, setTab] = useState<Tab>(
+    initialTab ??
+      (secao === "horas"
+        ? "horas"
+        : secao === "salario"
+          ? "salario"
+          : "licencas"),
+  );
   const queryClient = useQueryClient();
   const [data, setData] = useState<Info | null>(null);
   const [docs, setDocs] = useState<Document[]>([]),
@@ -789,6 +796,7 @@ export default function PerfilScreen() {
     </View>
   );
 }
+export default PerfilScreen;
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: BG },
   header: {

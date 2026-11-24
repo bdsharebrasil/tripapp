@@ -161,7 +161,7 @@ export default function HomeScreen() {
       rotulo: "Despesas",
       texto: "Lançar e acompanhar",
       icone: "file-text",
-      path: "/(tabs)/financeiro",
+      path: "/(tabs)/despesa-viagem",
     },
     {
       nome: "Minhas horas",
@@ -307,7 +307,7 @@ export default function HomeScreen() {
           <Secao
             titulo="Suas despesas de viagem"
             acao="Abrir"
-            onPress={() => router.push("/(tabs)/financeiro")}
+            onPress={() => router.push("/(tabs)/despesa-viagem")}
           />
           <View style={s.summary}>
             <View style={s.summaryItem}>
