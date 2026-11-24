@@ -90,6 +90,16 @@ type PlanoRota = {
   error?: string;
 };
 
+type VooSolicitacao = {
+  solicitacao_id?: string | number;
+  id?: string | number;
+  numero_voo: string;
+  origem?: string;
+  destino?: string;
+  data_agendada?: string;
+  matricula?: string;
+};
+
 const ICAO = /^[A-Z]{4}$/;
 const CONDICOES = ["VMC", "IMC", "IFR", "VFR"];
 const STATUS_CONFIG: Record<StatusPlano, { label: string; color: string }> = {
@@ -985,6 +995,145 @@ function Campo({
   );
 }
 
+function SeletorSolicitacao({
+  voos,
+  carregando,
+  erro,
+  onSelecionar,
+  colors,
+}: {
+  voos: VooSolicitacao[];
+  carregando: boolean;
+  erro: string;
+  onSelecionar: (voo: VooSolicitacao) => void;
+  colors: Cores;
+}) {
+  const [busca, setBusca] = useState("");
+  const [aberto, setAberto] = useState(false);
+  const termo = busca.trim().toUpperCase();
+  const resultados = useMemo(
+    () =>
+      voos
+        .filter((voo) => voo.numero_voo.toUpperCase().includes(termo))
+        .slice(0, 10),
+    [voos, termo],
+  );
+
+  const escolher = (voo: VooSolicitacao) => {
+    setBusca(voo.numero_voo);
+    setAberto(false);
+    onSelecionar(voo);
+  };
+
+  return (
+    <View style={cStyles.wrap}>
+      <View
+        style={[
+          cStyles.caixa,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <Feather name="search" size={16} color={colors.mutedForeground} />
+        <TextInput
+          accessibilityLabel="Buscar solicitação de voo"
+          value={busca}
+          onChangeText={(texto) => {
+            setBusca(texto);
+            setAberto(true);
+          }}
+          onFocus={() => setAberto(true)}
+          onBlur={() => setAberto(false)}
+          placeholder="Número da solicitação, ex.: EBL-0003/26"
+          placeholderTextColor={colors.mutedForeground}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          style={[cStyles.input, { color: colors.foreground }]}
+        />
+        {carregando && (
+          <ActivityIndicator size="small" color={colors.secondary} />
+        )}
+      </View>
+      {!!erro && (
+        <Text style={[cStyles.msg, { color: colors.destructive }]}>{erro}</Text>
+      )}
+      {aberto && (
+        <View
+          style={[
+            cStyles.lista,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          {resultados.length ? (
+            resultados.map((voo, i) => (
+              <Pressable
+                key={`${voo.numero_voo}-${i}`}
+                accessibilityRole="button"
+                onPress={() => escolher(voo)}
+                style={[cStyles.item, { borderBottomColor: colors.border }]}
+              >
+                <Text style={[cStyles.numero, { color: colors.foreground }]}>
+                  {voo.numero_voo}
+                </Text>
+                <Text
+                  style={[cStyles.detalhe, { color: colors.mutedForeground }]}
+                >
+                  {[voo.origem, voo.destino].filter(Boolean).join(" → ")}
+                  {voo.data_agendada
+                    ? ` · ${formatarData(voo.data_agendada.slice(0, 10))}`
+                    : ""}
+                </Text>
+              </Pressable>
+            ))
+          ) : (
+            <Text style={[cStyles.msg, { color: colors.mutedForeground }]}>
+              {carregando
+                ? "Carregando solicitações…"
+                : "Nenhuma solicitação encontrada"}
+            </Text>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+const cStyles = StyleSheet.create({
+  wrap: { marginBottom: 10 },
+  caixa: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 10,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+  },
+  lista: {
+    marginTop: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  item: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  numero: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  detalhe: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  msg: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+});
+
 function NovoPlanoModal({
   visivel,
   onFechar,
@@ -1000,6 +1149,9 @@ function NovoPlanoModal({
   const [salvando, setSalvando] = useState(false);
   const [clima, setClima] = useState<{ partida?: Clima; chegada?: Clima }>({});
   const [carregandoClima, setCarregandoClima] = useState(false);
+  const [voos, setVoos] = useState<VooSolicitacao[]>([]);
+  const [carregandoVoos, setCarregandoVoos] = useState(false);
+  const [erroVoos, setErroVoos] = useState("");
 
   const partidaIcao = form.partida.trim().toUpperCase();
   const chegadaIcao = form.chegada.trim().toUpperCase();
@@ -1038,6 +1190,40 @@ function NovoPlanoModal({
       clearTimeout(timer);
     };
   }, [partidaIcao, chegadaIcao, icaoValidos]);
+
+  useEffect(() => {
+    if (!visivel) return;
+    let ativo = true;
+    setCarregandoVoos(true);
+    setErroVoos("");
+    apiFetch<{ voos: VooSolicitacao[] }>(
+      "/api/financeiro/relatorios-despesa-viagem/meus-voos",
+    )
+      .then((r) => {
+        if (ativo)
+          setVoos(
+            Array.isArray(r.voos) ? r.voos.filter((voo) => voo.numero_voo) : [],
+          );
+      })
+      .catch((e) => {
+        if (ativo) setErroVoos(mensagemErro(e));
+      })
+      .finally(() => {
+        if (ativo) setCarregandoVoos(false);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [visivel]);
+
+  const selecionarVoo = (voo: VooSolicitacao) =>
+    setForm((atual) => ({
+      ...atual,
+      partida: voo.origem?.trim().toUpperCase() || atual.partida,
+      chegada: voo.destino?.trim().toUpperCase() || atual.chegada,
+      data: voo.data_agendada?.slice(0, 10) || atual.data,
+      matricula: voo.matricula?.trim().toUpperCase() || atual.matricula,
+    }));
 
   const enviar = async (status: StatusPlano) => {
     if (!icaoValidos || !form.data.trim()) {
@@ -1122,6 +1308,17 @@ function NovoPlanoModal({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          <Text style={[mStyles.secao, { color: colors.mutedForeground }]}>
+            SOLICITAÇÃO DE VOO
+          </Text>
+          <SeletorSolicitacao
+            voos={voos}
+            carregando={carregandoVoos}
+            erro={erroVoos}
+            onSelecionar={selecionarVoo}
+            colors={colors}
+          />
+
           <Text style={[mStyles.secao, { color: colors.mutedForeground }]}>
             ROTA
           </Text>
