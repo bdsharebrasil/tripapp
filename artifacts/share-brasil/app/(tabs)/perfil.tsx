@@ -885,7 +885,7 @@ const styles = StyleSheet.create({
     backgroundColor: tema.superficie,
   },
   hero: {
-    backgroundColor: tema.superficie,
+    backgroundColor: tema.elevado,
     borderRadius: 24,
     padding: 20,
     flexDirection: "row",
@@ -925,7 +925,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   card: {
-    backgroundColor: tema.superficie,
+    backgroundColor: tema.elevado,
     borderRadius: 20,
     padding: 16,
     marginBottom: 12,
@@ -1024,7 +1024,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: tema.superficie,
+    backgroundColor: tema.elevado,
     borderRadius: 20,
     padding: 15,
     marginBottom: 9,
@@ -1036,7 +1036,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 12,
     justifyContent: "space-between",
-    backgroundColor: tema.superficie,
+    backgroundColor: tema.elevado,
   },
   metricValue: { color: tema.texto, fontSize: 18, fontWeight: "800" },
   footer: {
