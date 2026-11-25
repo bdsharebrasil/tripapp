@@ -1,5 +1,11 @@
 import { useLocalSearchParams, useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -203,13 +209,7 @@ function getStatusBadge(status?: string) {
   };
 }
 
-function CardVooItem({
-  voo,
-  onPress,
-}: {
-  voo: Flight;
-  onPress?: () => void;
-}) {
+function CardVooItem({ voo, onPress }: { voo: Flight; onPress?: () => void }) {
   const badge = getStatusBadge(voo.status);
   const horaZ = hhmm(voo.horario_previsto_agendamento);
   const aeronave = [voo.matricula_registro, voo.modelo]
@@ -539,7 +539,6 @@ export default function AgendaScreen() {
       ) : (
         <View style={s.header}>
           <View>
-            <Text style={s.headerKicker}>Diário de bordo</Text>
             <Text style={s.headerTitle}>Meus Voos</Text>
           </View>
           <View style={s.headerActions}>
@@ -624,9 +623,7 @@ export default function AgendaScreen() {
                 </View>
 
                 <View style={[s.metricCard, s.metricCardPending]}>
-                  <Text
-                    style={[s.metricValue, { color: CORES.amarelo }]}
-                  >
+                  <Text style={[s.metricValue, { color: CORES.amarelo }]}>
                     {pendentesCount}
                   </Text>
                   <Text style={s.metricLabel}>Pendentes</Text>
@@ -1035,14 +1032,11 @@ const s = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 10,
     paddingBottom: 14,
+    marginTop: 9,
+    marginBottom: 9,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-  },
-  headerKicker: {
-    color: CORES.muted,
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
   },
   headerTitle: {
     color: "#FFFFFF",
