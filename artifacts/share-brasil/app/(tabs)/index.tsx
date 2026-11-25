@@ -129,6 +129,8 @@ const CONFIRMADOS = new Set([
 
 const normalizarStatus = (status?: string) =>
   String(status || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toUpperCase()
     .replace(/[\s-]+/g, "_");
@@ -172,7 +174,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const [perfil, setPerfil] = useState<PerfilCompleto | null>(null);
   const [voos, setVoos] = useState<Voo[] | null>(null);
-  const [periodo, setPeriodo] = useState<Periodo>("hoje");
+  const [periodo, setPeriodo] = useState<Periodo>("escala");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -210,7 +212,10 @@ export default function HomeScreen() {
   const relevantes = (voos || [])
     .filter((v) => {
       const status = normalizarStatus(v.status);
-      return EM_OPERACAO.has(status) || (dataDo(v) >= hojeIso && CONFIRMADOS.has(status));
+      return (
+        EM_OPERACAO.has(status) ||
+        (dataDo(v) >= hojeIso && CONFIRMADOS.has(status))
+      );
     })
     .sort((a, b) => {
       const aAtivo = EM_OPERACAO.has(normalizarStatus(a.status));
@@ -227,30 +232,18 @@ export default function HomeScreen() {
     return true;
   });
 
-  const proximo = filtrados[0];
+  const proximo: Voo | undefined = relevantes[0];
   const proximoAtivo =
     !!proximo && EM_OPERACAO.has(normalizarStatus(proximo.status));
-  const proximoConfirmado = !!proximo && !proximoAtivo;
   const contagem = proximo && !proximoAtivo ? tempoParaPartida(proximo) : null;
 
-  const kicker = !proximo
-    ? "SUA AGENDA"
-    : proximoAtivo
-      ? "EM OPERAÇÃO"
-      : contagem
-        ? `PRÓXIMO VOO · EM ${contagem}`
-        : "PRÓXIMO VOO";
+  const kicker = proximoAtivo
+    ? "EM OPERAÇÃO"
+    : contagem
+      ? `PRÓXIMO VOO · EM ${contagem}`
+      : "PRÓXIMO VOO";
 
-  const corStatusHero = proximoAtivo || proximoConfirmado ? tema.verde : tema.destaque;
-  const corStatusSuave =
-    proximoAtivo || proximoConfirmado
-      ? "rgba(111, 207, 151, 0.14)"
-      : "rgba(244, 197, 66, 0.14)";
-
-  const vazioTexto =
-    voos === null
-      ? "Agenda indisponível. Puxe para atualizar."
-      : "Nenhum voo ativo ou confirmado neste período.";
+  const corStatusSuave = "rgba(111, 207, 151, 0.14)";
 
   return (
     <SafeAreaView edges={["top"]} style={s.root}>
@@ -338,52 +331,40 @@ export default function HomeScreen() {
             })}
           </View>
 
-          <View style={s.hero}>
-            <Toque
-              accessibilityRole="button"
-              accessibilityLabel={
-                proximo
-                  ? `Abrir voo ${proximo.numero_voo || ""}`
-                  : "Abrir minha agenda"
-              }
-              onPress={() =>
-                proximo
-                  ? router.push({
-                      pathname: "/(tabs)/agenda",
-                      params: { vooId: proximo.id },
-                    })
-                  : router.push("/(tabs)/agenda")
-              }
-              style={s.heroTopo}
-            >
-              <View style={{ flex: 1, gap: 6 }}>
-                <Text style={s.kicker} numberOfLines={1}>
-                  {kicker}
-                </Text>
-                {proximo ? (
-                  <>
-                    <Text style={s.matricula} numberOfLines={1}>
-                      {proximo.matricula_registro || "PR-SHB"}
-                    </Text>
-                    <Text style={s.vooNumero} numberOfLines={1}>
-                      {proximo.numero_voo || "Voo programado"}
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={s.heroVazio}>{vazioTexto}</Text>
-                )}
-              </View>
+          {proximo && (
+            <View style={s.hero}>
+              <Toque
+                accessibilityRole="button"
+                accessibilityLabel={`Abrir voo ${proximo.numero_voo || ""}`}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(tabs)/agenda",
+                    params: { vooId: proximo.id },
+                  })
+                }
+                style={s.heroTopo}
+              >
+                <View style={{ flex: 1, gap: 6 }}>
+                  <Text style={s.kicker} numberOfLines={1}>
+                    {kicker}
+                  </Text>
+                  <Text style={s.matricula} numberOfLines={1}>
+                    {proximo.matricula_registro || "PR-SHB"}
+                  </Text>
+                  <Text style={s.vooNumero} numberOfLines={1}>
+                    {proximo.numero_voo || "Voo programado"}
+                  </Text>
+                </View>
 
-              {proximo && (
-                <View style={[s.pillStatus, { backgroundColor: corStatusSuave }]}>
-                  <Text style={[s.pillStatusTexto, { color: corStatusHero }]}>
+                <View
+                  style={[s.pillStatus, { backgroundColor: corStatusSuave }]}
+                >
+                  <Text style={[s.pillStatusTexto, { color: tema.verde }]}>
                     {rotuloStatus(proximo.status).toUpperCase()}
                   </Text>
                 </View>
-              )}
-            </Toque>
+              </Toque>
 
-            {proximo && (
               <View style={s.rota}>
                 <View>
                   <Text style={s.aeroporto}>{proximo.origem || "—"}</Text>
@@ -405,28 +386,28 @@ export default function HomeScreen() {
                   <Text style={s.horaRota}>Destino</Text>
                 </View>
               </View>
-            )}
 
-            <View style={s.heroAcoes}>
-              <Toque
-                accessibilityRole="button"
-                accessibilityLabel="Plano de voo"
-                onPress={() => router.push("/(tabs)/plano-voo")}
-                style={s.botaoPrimario}
-              >
-                <Icon name="navigation" size={18} color="#FFFFFF" />
-                <Text style={s.botaoPrimarioTexto}>Plano de voo</Text>
-              </Toque>
-              <Toque
-                accessibilityRole="button"
-                accessibilityLabel="Diário de bordo"
-                onPress={() => router.push("/diario-bordo")}
-                style={s.botaoDiario}
-              >
-                <Icon name="book-open" size={20} color={tema.fundo} />
-              </Toque>
+              <View style={s.heroAcoes}>
+                <Toque
+                  accessibilityRole="button"
+                  accessibilityLabel="Plano de voo"
+                  onPress={() => router.push("/(tabs)/plano-voo")}
+                  style={s.botaoPrimario}
+                >
+                  <Icon name="navigation" size={18} color="#FFFFFF" />
+                  <Text style={s.botaoPrimarioTexto}>Plano de voo</Text>
+                </Toque>
+                <Toque
+                  accessibilityRole="button"
+                  accessibilityLabel="Diário de bordo"
+                  onPress={() => router.push("/diario-bordo")}
+                  style={s.botaoDiario}
+                >
+                  <Icon name="book-open" size={20} color={tema.fundo} />
+                </Toque>
+              </View>
             </View>
-          </View>
+          )}
 
           <View style={s.secaoLinha}>
             <Text style={s.secaoTitulo}>Atalhos</Text>
@@ -509,7 +490,9 @@ export default function HomeScreen() {
                         {diaMes(v.data_agendada)}
                       </Text>
                       <Text style={s.itemApoio} numberOfLines={1}>
-                        {v.matricula_registro || v.numero_voo || "Voo programado"}{" "}
+                        {v.matricula_registro ||
+                          v.numero_voo ||
+                          "Voo programado"}{" "}
                         · {rotuloStatus(v.status)}
                       </Text>
                     </View>
@@ -665,12 +648,6 @@ const s = StyleSheet.create({
     color: tema.texto,
     fontFamily: "Inter_600SemiBold",
     fontSize: 16,
-  },
-  heroVazio: {
-    color: tema.suave,
-    fontFamily: "Inter_500Medium",
-    fontSize: 15,
-    lineHeight: 22,
   },
   pillStatus: {
     paddingHorizontal: 10,
