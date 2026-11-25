@@ -268,7 +268,7 @@ function CardVooItem({ voo, onPress }: { voo: Flight; onPress?: () => void }) {
 
         <View style={[s.footerCol, { alignItems: "flex-end" }]}>
           <Text style={s.footerLabel}>Duração</Text>
-          <Text style={[s.footerValue, { color: CORES.amarelo }]}>
+          <Text style={[s.footerValue, { color: "#A16207" }]}>
             {formatDuration(voo)}
           </Text>
         </View>
@@ -1149,10 +1149,10 @@ const s = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
   },
   flightCard: {
-    backgroundColor: CORES.card,
+    backgroundColor: "#FFFFFF",
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: CORES.cardBorda,
+    borderColor: "#E3E8F2",
     padding: 18,
   },
   cardTopRow: {
@@ -1163,7 +1163,7 @@ const s = StyleSheet.create({
   },
   aircraftText: {
     flex: 1,
-    color: CORES.muted,
+    color: "#6B7394",
     fontSize: 12,
     fontFamily: "Inter_500Medium",
   },
@@ -1188,13 +1188,13 @@ const s = StyleSheet.create({
     minWidth: 76,
   },
   icaoCode: {
-    color: "#FFFFFF",
+    color: "#0B1024",
     fontSize: 23,
     fontFamily: "Inter_700Bold",
     letterSpacing: 0.5,
   },
   cityText: {
-    color: CORES.muted,
+    color: "#6B7394",
     fontSize: 12,
     fontFamily: "Inter_500Medium",
     marginTop: 2,
@@ -1211,7 +1211,7 @@ const s = StyleSheet.create({
     height: 1,
     borderBottomWidth: 1,
     borderStyle: "dashed",
-    borderColor: "#333D5E",
+    borderColor: "#C9D1E3",
   },
   planeIconWrap: {
     transform: [{ rotate: "45deg" }],
@@ -1222,18 +1222,18 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: CORES.cardBorda,
+    borderTopColor: "#E3E8F2",
   },
   footerCol: {
     flex: 1,
   },
   footerLabel: {
-    color: CORES.muted,
+    color: "#6B7394",
     fontSize: 11,
     fontFamily: "Inter_500Medium",
   },
   footerValue: {
-    color: "#FFFFFF",
+    color: "#0B1024",
     fontSize: 14,
     fontFamily: "Inter_700Bold",
     marginTop: 3,
