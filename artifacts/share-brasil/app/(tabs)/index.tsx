@@ -527,6 +527,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginTop: 21,
     marginBottom: 20,
   },
   avatarWrap: {
