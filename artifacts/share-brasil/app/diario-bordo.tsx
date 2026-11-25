@@ -430,10 +430,6 @@ function DiarioDoVoo({ vooId }: { vooId?: string }) {
                   OPERAÇÃO · {new Date().getFullYear()}
                 </Text>
                 <Text style={s.title}>Escolha uma aeronave</Text>
-                <Text style={s.fleetCount}>
-                  {voos.length}{" "}
-                  {voos.length === 1 ? "aeronave ativa" : "aeronaves ativas"}
-                </Text>
               </View>
               <TextInput
                 accessibilityLabel="Buscar aeronave, matrícula ou modelo"
@@ -1130,11 +1126,6 @@ const s = StyleSheet.create({
     borderColor: tema.borda,
     padding: 18,
     marginBottom: 14,
-  },
-  fleetCount: {
-    color: "#C8D3E5",
-    fontSize: 12,
-    marginTop: 8,
   },
   aircraftGrid: {
     flexDirection: "row",
