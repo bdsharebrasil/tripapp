@@ -152,6 +152,7 @@ export function Botao({
   secundario,
   carregando,
   disabled,
+  style,
 }: {
   texto: string;
   icone?: Icone;
@@ -159,6 +160,7 @@ export function Botao({
   secundario?: boolean;
   carregando?: boolean;
   disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
 }) {
   const cor = secundario ? tema.texto : tema.sobreDestaque;
   return (
@@ -172,6 +174,7 @@ export function Botao({
         u.button,
         secundario && u.secondary,
         (disabled || carregando) && { opacity: 0.45 },
+        style,
       ]}
     >
       {carregando ? (

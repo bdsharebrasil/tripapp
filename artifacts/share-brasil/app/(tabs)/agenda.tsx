@@ -1,5 +1,11 @@
 import { useLocalSearchParams, useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -203,13 +209,7 @@ function getStatusBadge(status?: string) {
   };
 }
 
-function CardVooItem({
-  voo,
-  onPress,
-}: {
-  voo: Flight;
-  onPress?: () => void;
-}) {
+function CardVooItem({ voo, onPress }: { voo: Flight; onPress?: () => void }) {
   const badge = getStatusBadge(voo.status);
   const horaZ = hhmm(voo.horario_previsto_agendamento);
   const aeronave = [voo.matricula_registro, voo.modelo]
@@ -268,7 +268,7 @@ function CardVooItem({
 
         <View style={[s.footerCol, { alignItems: "flex-end" }]}>
           <Text style={s.footerLabel}>Duração</Text>
-          <Text style={[s.footerValue, { color: CORES.amarelo }]}>
+          <Text style={[s.footerValue, { color: "#A16207" }]}>
             {formatDuration(voo)}
           </Text>
         </View>
@@ -539,7 +539,6 @@ export default function AgendaScreen() {
       ) : (
         <View style={s.header}>
           <View>
-            <Text style={s.headerKicker}>Diário de bordo</Text>
             <Text style={s.headerTitle}>Meus Voos</Text>
           </View>
           <View style={s.headerActions}>
@@ -624,9 +623,7 @@ export default function AgendaScreen() {
                 </View>
 
                 <View style={[s.metricCard, s.metricCardPending]}>
-                  <Text
-                    style={[s.metricValue, { color: CORES.amarelo }]}
-                  >
+                  <Text style={[s.metricValue, { color: CORES.amarelo }]}>
                     {pendentesCount}
                   </Text>
                   <Text style={s.metricLabel}>Pendentes</Text>
@@ -1035,14 +1032,11 @@ const s = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 10,
     paddingBottom: 14,
+    marginTop: 9,
+    marginBottom: 9,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-  },
-  headerKicker: {
-    color: CORES.muted,
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
   },
   headerTitle: {
     color: "#FFFFFF",
@@ -1155,10 +1149,10 @@ const s = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
   },
   flightCard: {
-    backgroundColor: CORES.card,
+    backgroundColor: "#FFFFFF",
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: CORES.cardBorda,
+    borderColor: "#E3E8F2",
     padding: 18,
   },
   cardTopRow: {
@@ -1169,7 +1163,7 @@ const s = StyleSheet.create({
   },
   aircraftText: {
     flex: 1,
-    color: CORES.muted,
+    color: "#6B7394",
     fontSize: 12,
     fontFamily: "Inter_500Medium",
   },
@@ -1194,13 +1188,13 @@ const s = StyleSheet.create({
     minWidth: 76,
   },
   icaoCode: {
-    color: "#FFFFFF",
+    color: "#0B1024",
     fontSize: 23,
     fontFamily: "Inter_700Bold",
     letterSpacing: 0.5,
   },
   cityText: {
-    color: CORES.muted,
+    color: "#6B7394",
     fontSize: 12,
     fontFamily: "Inter_500Medium",
     marginTop: 2,
@@ -1217,7 +1211,7 @@ const s = StyleSheet.create({
     height: 1,
     borderBottomWidth: 1,
     borderStyle: "dashed",
-    borderColor: "#333D5E",
+    borderColor: "#C9D1E3",
   },
   planeIconWrap: {
     transform: [{ rotate: "45deg" }],
@@ -1228,18 +1222,18 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: CORES.cardBorda,
+    borderTopColor: "#E3E8F2",
   },
   footerCol: {
     flex: 1,
   },
   footerLabel: {
-    color: CORES.muted,
+    color: "#6B7394",
     fontSize: 11,
     fontFamily: "Inter_500Medium",
   },
   footerValue: {
-    color: "#FFFFFF",
+    color: "#0B1024",
     fontSize: 14,
     fontFamily: "Inter_700Bold",
     marginTop: 3,

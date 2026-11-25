@@ -1,5 +1,4 @@
-import { LinearGradient } from "expo-linear-gradient";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useRouter, type Href } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -18,6 +17,7 @@ import {
   ErroConsulta,
   Icon,
   Toque,
+  tema,
   type Icone,
 } from "@/src/components/ui";
 
@@ -32,21 +32,46 @@ type Voo = {
   status?: string;
 };
 
-const CORES = {
-  fundo: "#0B0F22",
-  card: "#141A32",
-  cardBorda: "#222A46",
-  amarelo: "#F5CE3E",
-  amareloTexto: "#10152B",
-  amareloSuave: "rgba(245, 206, 62, 0.14)",
-  amareloBorda: "rgba(245, 206, 62, 0.42)",
-  verde: "#34D399",
-  verdeSuave: "rgba(52, 211, 153, 0.14)",
-  muted: "#8E96B0",
-  textoSecundario: "#B6BED4",
-};
+type Periodo = "hoje" | "semana" | "escala";
 
+const PERIODOS: { chave: Periodo; rotulo: string }[] = [
+  { chave: "hoje", rotulo: "Hoje" },
+  { chave: "semana", rotulo: "Semana" },
+  { chave: "escala", rotulo: "Escala" },
+];
+
+const AZUL_CLARO = "#7AA7FF";
 const LOGO = require("@/assets/images/share-icon.png");
+
+const ATALHOS: {
+  rotulo: string;
+  icone: Icone;
+  path: Href;
+  cor: string;
+  corSuave: string;
+}[] = [
+  {
+    rotulo: "Relatórios",
+    icone: "file-text",
+    path: "/relatorio-voo",
+    cor: "#A78BFA",
+    corSuave: "rgba(167, 139, 250, 0.16)",
+  },
+  {
+    rotulo: "Financeiro",
+    icone: "receipt",
+    path: "/(tabs)/despesa-viagem",
+    cor: "#6FCF97",
+    corSuave: "rgba(111, 207, 151, 0.16)",
+  },
+  {
+    rotulo: "Manutenção",
+    icone: "tool",
+    path: "/manutencao",
+    cor: "#FF8A8A",
+    corSuave: "rgba(255, 138, 138, 0.16)",
+  },
+];
 
 const DIAS = [
   "Domingo",
@@ -73,6 +98,38 @@ const MESES = [
   "dezembro",
 ];
 
+const EM_OPERACAO = new Set(["EM_SOLO", "EM_ROTA", "EM_VOO"]);
+const CONFIRMADOS = new Set([
+  "APROVADA",
+  "APROVADO",
+  "CONFIRMADA",
+  "CONFIRMADO",
+]);
+
+const normalizarStatus = (status?: string) =>
+  String(status || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_");
+
+const rotuloStatus = (status?: string) => {
+  const chave = normalizarStatus(status);
+  if (chave === "EM_SOLO") return "Em solo";
+  if (chave === "EM_ROTA" || chave === "EM_VOO") return "Em rota";
+  if (CONFIRMADOS.has(chave)) return "Confirmado";
+  return status || "Programado";
+};
+
+const dataDo = (v: Voo) => String(v.data_agendada || "").slice(0, 10);
+
+const horarioDo = (v?: Voo) =>
+  v?.horario_previsto_agendamento?.match(/\d{2}:\d{2}/)?.[0] ?? null;
+
+const isoLocal = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
 const diaMes = (d?: string | null) => {
   if (!d) return "—";
   const [, m, dia] = d.slice(0, 10).split("-");
@@ -80,10 +137,23 @@ const diaMes = (d?: string | null) => {
   return `${dia} ${mes.charAt(0).toUpperCase()}${mes.slice(1, 3)}`;
 };
 
+const tempoParaPartida = (v: Voo) => {
+  const hr = horarioDo(v);
+  const dia = dataDo(v);
+  if (!hr || !dia) return null;
+  const minutos = Math.round(
+    (new Date(`${dia}T${hr}:00`).getTime() - Date.now()) / 60000,
+  );
+  if (Number.isNaN(minutos) || minutos <= 0) return null;
+  if (minutos < 60) return `${minutos}MIN`;
+  return `${Math.floor(minutos / 60)}H${String(minutos % 60).padStart(2, "0")}MIN`;
+};
+
 export default function HomeScreen() {
   const router = useRouter();
   const [perfil, setPerfil] = useState<PerfilCompleto | null>(null);
   const [voos, setVoos] = useState<Voo[] | null>(null);
+  const [periodo, setPeriodo] = useState<Periodo>("escala");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -114,98 +184,45 @@ export default function HomeScreen() {
   const horaAtual = agora.getHours();
   const saudacao =
     horaAtual < 12 ? "Bom dia" : horaAtual < 18 ? "Boa tarde" : "Boa noite";
-  const dataHoje = `${DIAS[agora.getDay()]}, ${agora.getDate()} de ${MESES[agora.getMonth()]}`;
 
-  const normalizarStatus = (status?: string) =>
-    String(status || "")
-      .trim()
-      .toUpperCase()
-      .replace(/[\s-]+/g, "_");
+  const hojeIso = hoje();
+  const fimSemana = isoLocal(new Date(Date.now() + 7 * 86400000));
 
-  const emAndamento = new Set(["EM_SOLO", "EM_ROTA", "EM_VOO"]);
-  const confirmados = new Set([
-    "APROVADA",
-    "APROVADO",
-    "CONFIRMADA",
-    "CONFIRMADO",
-  ]);
-
-  const voosRelevantes = (voos || [])
+  const relevantes = (voos || [])
     .filter((v) => {
       const status = normalizarStatus(v.status);
-      const futuro = String(v.data_agendada || "").slice(0, 10) >= hoje();
-      return emAndamento.has(status) || (futuro && confirmados.has(status));
+      return (
+        EM_OPERACAO.has(status) ||
+        (dataDo(v) >= hojeIso && CONFIRMADOS.has(status))
+      );
     })
     .sort((a, b) => {
-      const aAtivo = emAndamento.has(normalizarStatus(a.status));
-      const bAtivo = emAndamento.has(normalizarStatus(b.status));
+      const aAtivo = EM_OPERACAO.has(normalizarStatus(a.status));
+      const bAtivo = EM_OPERACAO.has(normalizarStatus(b.status));
       if (aAtivo !== bAtivo) return aAtivo ? -1 : 1;
-      return String(a.data_agendada || "").localeCompare(
-        String(b.data_agendada || ""),
-      );
+      const partida = (v: Voo) => `${dataDo(v)} ${horarioDo(v) ?? ""}`;
+      return partida(a).localeCompare(partida(b));
     });
 
-  const rotuloStatus = (status?: string) => {
-    const chave = normalizarStatus(status);
-    if (chave === "EM_SOLO") return "Em solo";
-    if (chave === "EM_ROTA" || chave === "EM_VOO") return "Em rota";
-    if (confirmados.has(chave)) return "Confirmado";
-    return status || "Programado";
-  };
+  const filtrados = relevantes.filter((v) => {
+    if (EM_OPERACAO.has(normalizarStatus(v.status))) return true;
+    if (periodo === "hoje") return dataDo(v) === hojeIso;
+    if (periodo === "semana") return dataDo(v) <= fimSemana;
+    return true;
+  });
 
-  const shortcuts: {
-    nome: string;
-    rotulo: string;
-    texto: string;
-    icone: Icone;
-    path: string;
-  }[] = [
-    {
-      nome: "Minha agenda",
-      rotulo: "Minha agenda",
-      texto: "Consultar voos e operações",
-      icone: "send",
-      path: "/(tabs)/agenda",
-    },
-    {
-      nome: "Plano de voo",
-      rotulo: "Plano de voo",
-      texto: "Planejar uma rota",
-      icone: "map",
-      path: "/(tabs)/plano-voo",
-    },
-    {
-      nome: "Despesa de viagem",
-      rotulo: "Despesas",
-      texto: "Registrar e acompanhar despesas",
-      icone: "file-text",
-      path: "/(tabs)/despesa-viagem",
-    },
-    {
-      nome: "Manutenção",
-      rotulo: "Manutenção",
-      texto: "Reportar ocorrência",
-      icone: "tool",
-      path: "/manutencao",
-    },
-  ];
-
-  const horario = (v?: Voo) =>
-    v?.horario_previsto_agendamento?.match(/\d{2}:\d{2}/)?.[0] || "A definir";
-  const partida = (v: Voo) =>
-    `${String(v.data_agendada || "").slice(0, 10)} ${horario(v)}`;
-  const proximo =
-    voosRelevantes.find((v) => emAndamento.has(normalizarStatus(v.status))) ??
-    [...voosRelevantes].sort((a, b) => partida(a).localeCompare(partida(b)))[0];
+  const proximo: Voo | undefined = relevantes[0];
   const proximoAtivo =
-    !!proximo && emAndamento.has(normalizarStatus(proximo.status));
+    !!proximo && EM_OPERACAO.has(normalizarStatus(proximo.status));
+  const contagem = proximo && !proximoAtivo ? tempoParaPartida(proximo) : null;
 
-  const tituloSecao = (texto: string, direita?: React.ReactNode) => (
-    <View style={s.secaoLinha}>
-      <Text style={s.secaoTitulo}>{texto}</Text>
-      {direita}
-    </View>
-  );
+  const kicker = proximoAtivo
+    ? "EM OPERAÇÃO"
+    : contagem
+      ? `PRÓXIMO VOO · EM ${contagem}`
+      : "PRÓXIMO VOO";
+
+  const corStatusSuave = "rgba(111, 207, 151, 0.14)";
 
   return (
     <SafeAreaView edges={["top"]} style={s.root}>
@@ -213,7 +230,7 @@ export default function HomeScreen() {
         <ErroConsulta mensagem={error} atualizar={() => void load()} />
       )}
       {loading ? (
-        <ActivityIndicator color={CORES.amarelo} style={{ marginTop: 50 }} />
+        <ActivityIndicator color={tema.destaque} style={{ marginTop: 50 }} />
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -222,19 +239,19 @@ export default function HomeScreen() {
             <RefreshControl
               refreshing={loading}
               onRefresh={() => void load()}
-              tintColor={CORES.amarelo}
+              tintColor={tema.destaque}
             />
           }
           contentContainerStyle={s.content}
         >
-          <View style={s.header}>
+          <View style={s.cabecalho}>
             <Image
               source={LOGO}
               resizeMode="contain"
               pointerEvents="none"
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
-              style={s.logoFundo}
+              style={s.marcaDagua}
             />
 
             <View style={s.topo}>
@@ -244,7 +261,7 @@ export default function HomeScreen() {
                 onPress={() => router.push("/(tabs)/perfil")}
                 style={s.avatarWrap}
               >
-                <Avatar nome={nome} disponivel={!!p?.foto_url} tamanho={44} />
+                <Avatar nome={nome} disponivel={!!p?.foto_url} tamanho={48} />
               </Toque>
 
               <Toque
@@ -253,181 +270,168 @@ export default function HomeScreen() {
                 onPress={() => router.push("/notificacoes")}
                 style={s.iconBtn}
               >
-                <Icon name="bell" size={20} color="#FFFFFF" />
+                <Icon name="bell" size={20} color={tema.texto} />
               </Toque>
             </View>
 
-            <Text style={s.greeting} numberOfLines={1} adjustsFontSizeToFit>
-              {saudacao}, <Text style={s.greetingDestaque}>{nome}</Text>
+            <View style={s.saudacaoPill}>
+              <Text style={s.saudacao}>
+                {saudacao}, <Text style={s.saudacaoDestaque}>cmte</Text>
+              </Text>
+            </View>
+            <Text style={s.nome} numberOfLines={1}>
+              {nome}
             </Text>
-            <Text style={s.dataHoje}>{dataHoje}</Text>
+          </View>
 
-            <Toque
-              accessibilityRole="button"
-              accessibilityLabel={
-                proximo
-                  ? `${proximoAtivo ? "Voo em operação" : "Próximo voo"} ${proximo.numero_voo || ""}`
-                  : "Abrir minha agenda"
-              }
-              onPress={() =>
-                proximo
-                  ? router.push({
-                      pathname: "/(tabs)/agenda",
-                      params: { vooId: proximo.id },
-                    })
-                  : router.push("/(tabs)/agenda")
-              }
-              style={[s.hero, proximoAtivo && s.heroAtivo]}
-            >
-              <LinearGradient
-                colors={["#182142", "#121831"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={s.heroShade}
-              >
-                <View style={s.between}>
-                  <View
-                    style={[
-                      s.kickerPill,
-                      {
-                        backgroundColor: proximoAtivo
-                          ? CORES.verdeSuave
-                          : CORES.amareloSuave,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        s.heroKicker,
-                        {
-                          color: proximoAtivo ? CORES.verde : CORES.amarelo,
-                        },
-                      ]}
-                    >
-                      {proximo
-                        ? proximoAtivo
-                          ? "VOO EM OPERAÇÃO"
-                          : "PRÓXIMO VOO"
-                        : "SUA AGENDA"}
-                    </Text>
-                  </View>
-
-                  {proximo && (
-                    <Text style={s.vooIdentificacao}>
-                      {proximo.numero_voo || "—"} ·{" "}
-                      {proximo.matricula_registro || "PR-SHB"}
-                    </Text>
+          <View style={s.chips}>
+            {PERIODOS.map((op) => {
+              const ativo = periodo === op.chave;
+              return (
+                <Toque
+                  key={op.chave}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: ativo }}
+                  onPress={() => setPeriodo(op.chave)}
+                  style={[s.chip, ativo && s.chipAtivo]}
+                >
+                  {op.chave === "hoje" && (
+                    <Icon
+                      name="sun"
+                      size={16}
+                      color={ativo ? "#FFFFFF" : tema.suave}
+                    />
                   )}
+                  <Text style={[s.chipTexto, ativo && s.chipTextoAtivo]}>
+                    {op.rotulo}
+                  </Text>
+                </Toque>
+              );
+            })}
+          </View>
+
+          {proximo && (
+            <View style={s.hero}>
+              <Toque
+                accessibilityRole="button"
+                accessibilityLabel={`Abrir voo ${proximo.numero_voo || ""}`}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(tabs)/agenda",
+                    params: { vooId: proximo.id },
+                  })
+                }
+                style={s.heroTopo}
+              >
+                <View style={{ flex: 1, gap: 6 }}>
+                  <Text style={s.kicker} numberOfLines={1}>
+                    {kicker}
+                  </Text>
+                  <Text style={s.matricula} numberOfLines={1}>
+                    {proximo.matricula_registro || "PR-SHB"}
+                  </Text>
+                  <Text style={s.vooNumero} numberOfLines={1}>
+                    {proximo.numero_voo || "Voo programado"}
+                  </Text>
                 </View>
 
-                {proximo ? (
-                  <>
-                    <View style={s.route}>
-                      <Text style={s.airport}>{proximo.origem || "—"}</Text>
-                      <View style={s.track}>
-                        <View style={s.line} />
-                        <Icon
-                          name="airplane"
-                          size={18}
-                          color={CORES.amarelo}
-                        />
-                        <View style={s.line} />
-                      </View>
-                      <Text style={s.airport}>{proximo.destino || "—"}</Text>
-                    </View>
-
-                    <View style={[s.between, s.heroFooter]}>
-                      <View>
-                        <Text style={s.metaLabel}>Data</Text>
-                        <Text style={s.metaValue}>
-                          {diaMes(proximo.data_agendada)}
-                        </Text>
-                      </View>
-
-                      <View style={{ alignItems: "center" }}>
-                        <Text style={s.metaLabel}>Saída</Text>
-                        <Text style={s.metaValue}>{horario(proximo)} Z</Text>
-                      </View>
-
-                      <View style={{ alignItems: "flex-end" }}>
-                        <Text style={s.metaLabel}>Status</Text>
-                        <Text
-                          style={[
-                            s.metaValue,
-                            {
-                              color: proximoAtivo
-                                ? CORES.verde
-                                : CORES.amarelo,
-                            },
-                          ]}
-                        >
-                          {rotuloStatus(proximo.status)}
-                        </Text>
-                      </View>
-                    </View>
-                  </>
-                ) : (
-                  <Text style={s.heroVazio}>
-                    {voos
-                      ? "Nenhum voo ativo ou confirmado no momento."
-                      : "Agenda indisponível. Puxe para atualizar."}
+                <View
+                  style={[s.pillStatus, { backgroundColor: corStatusSuave }]}
+                >
+                  <Text style={[s.pillStatusTexto, { color: tema.verde }]}>
+                    {rotuloStatus(proximo.status).toUpperCase()}
                   </Text>
-                )}
-              </LinearGradient>
+                </View>
+              </Toque>
+
+              <View style={s.rota}>
+                <View>
+                  <Text style={s.aeroporto}>{proximo.origem || "—"}</Text>
+                  <Text style={s.horaRota}>
+                    {horarioDo(proximo) ? `${horarioDo(proximo)} LT` : "--:--"}
+                  </Text>
+                </View>
+
+                <View style={s.trilha}>
+                  <View style={s.pontoRota} />
+                  <View style={s.linhaPontilhada} />
+                  <Icon name="airplane" size={18} color={tema.destaque} />
+                  <View style={s.linhaPontilhada} />
+                  <View style={s.pontoRota} />
+                </View>
+
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={s.aeroporto}>{proximo.destino || "—"}</Text>
+                  <Text style={s.horaRota}>Destino</Text>
+                </View>
+              </View>
+
+              <View style={s.heroAcoes}>
+                <Toque
+                  accessibilityRole="button"
+                  accessibilityLabel="Plano de voo"
+                  onPress={() => router.push("/(tabs)/plano-voo")}
+                  style={s.botaoPrimario}
+                >
+                  <Icon name="navigation" size={18} color="#FFFFFF" />
+                  <Text style={s.botaoPrimarioTexto}>Plano de voo</Text>
+                </Toque>
+                <Toque
+                  accessibilityRole="button"
+                  accessibilityLabel="Diário de bordo"
+                  onPress={() => router.push("/diario-bordo")}
+                  style={s.botaoDiario}
+                >
+                  <Icon name="book-open" size={20} color={tema.fundo} />
+                </Toque>
+              </View>
+            </View>
+          )}
+
+          <View style={s.secaoLinha}>
+            <Text style={s.secaoTitulo}>Atalhos</Text>
+          </View>
+          <View style={s.grade}>
+            {ATALHOS.map((a) => (
+              <Toque
+                key={a.rotulo}
+                accessibilityLabel={a.rotulo}
+                accessibilityRole="button"
+                onPress={() => router.push(a.path)}
+                style={s.atalho}
+              >
+                <View style={[s.atalhoIcone, { backgroundColor: a.corSuave }]}>
+                  <Icon name={a.icone} size={20} color={a.cor} />
+                </View>
+                <Text style={s.atalhoRotulo}>{a.rotulo}</Text>
+              </Toque>
+            ))}
+          </View>
+
+          <View style={s.secaoLinha}>
+            <View style={s.secaoTituloLinha}>
+              <Text style={s.secaoTitulo}>Pendências</Text>
+              {filtrados.length > 0 && (
+                <View style={s.badge}>
+                  <Text style={s.badgeTexto}>{filtrados.length}</Text>
+                </View>
+              )}
+            </View>
+            <Toque
+              accessibilityRole="button"
+              accessibilityLabel="Ver todas as pendências"
+              onPress={() => router.push("/(tabs)/agenda")}
+              hitSlop={8}
+            >
+              <Text style={s.verTodas}>Ver todas</Text>
             </Toque>
           </View>
 
-          <View style={s.corpo}>
-            <View style={s.shortcuts}>
-              {shortcuts.map((x, i) => {
-                const ativo = i === 0;
-                return (
-                  <Toque
-                    key={x.nome}
-                    accessibilityLabel={x.nome}
-                    accessibilityHint={x.texto}
-                    accessibilityRole="button"
-                    onPress={() => router.push(x.path as any)}
-                    style={[s.shortcut, ativo && s.shortcutAtivo]}
-                  >
-                    <View
-                      style={[
-                        s.shortcutIconWrap,
-                        ativo && s.shortcutIconWrapAtivo,
-                      ]}
-                    >
-                      <Icon
-                        name={x.icone}
-                        size={20}
-                        color={ativo ? CORES.amareloTexto : CORES.amarelo}
-                      />
-                    </View>
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        s.shortcutTitle,
-                        ativo && s.shortcutTitleAtivo,
-                      ]}
-                    >
-                      {x.rotulo}
-                    </Text>
-                  </Toque>
-                );
-              })}
-            </View>
-
-            {tituloSecao(
-              "Relatórios a apresentar",
-              voosRelevantes.length ? (
-                <View style={s.badge}>
-                  <Text style={s.badgeTexto}>{voosRelevantes.length}</Text>
-                </View>
-              ) : null,
-            )}
-
-            {voosRelevantes.length ? (
-              voosRelevantes.map((v) => {
-                const ativo = emAndamento.has(normalizarStatus(v.status));
+          <View style={s.listaPendencias}>
+            {filtrados.length ? (
+              filtrados.map((v) => {
+                const ativo = EM_OPERACAO.has(normalizarStatus(v.status));
+                const hojeVoo = dataDo(v) === hojeIso;
                 return (
                   <Toque
                     key={v.id}
@@ -441,11 +445,20 @@ export default function HomeScreen() {
                     }
                     style={s.item}
                   >
-                    <View style={s.itemIcone}>
+                    <View
+                      style={[
+                        s.itemIcone,
+                        {
+                          backgroundColor: ativo
+                            ? "rgba(111, 207, 151, 0.16)"
+                            : "rgba(244, 197, 66, 0.16)",
+                        },
+                      ]}
+                    >
                       <Icon
                         name="file-text"
                         size={22}
-                        color={ativo ? CORES.verde : CORES.amarelo}
+                        color={ativo ? tema.verde : tema.destaque}
                       />
                     </View>
                     <View style={{ flex: 1 }}>
@@ -454,36 +467,25 @@ export default function HomeScreen() {
                         {diaMes(v.data_agendada)}
                       </Text>
                       <Text style={s.itemApoio} numberOfLines={1}>
-                        {v.numero_voo || "Voo programado"} · {horario(v)} ·{" "}
-                        <Text
-                          style={{
-                            color: ativo ? CORES.verde : CORES.textoSecundario,
-                            fontFamily: "Inter_600SemiBold",
-                          }}
-                        >
-                          {rotuloStatus(v.status)}
-                        </Text>
+                        {v.matricula_registro ||
+                          v.numero_voo ||
+                          "Voo programado"}{" "}
+                        · {rotuloStatus(v.status)}
                       </Text>
                     </View>
-                    <Icon
-                      name="chevron-right"
-                      size={20}
-                      color={CORES.muted}
-                    />
+                    {hojeVoo ? (
+                      <Text style={s.itemHoje}>Hoje</Text>
+                    ) : (
+                      <Icon name="chevron-right" size={20} color={tema.suave} />
+                    )}
                   </Toque>
                 );
               })
             ) : (
               <View style={s.vazio}>
-                <Text style={s.itemTitulo}>
-                  {voos
-                    ? "Nenhum voo ativo ou confirmado"
-                    : "Agenda indisponível"}
-                </Text>
+                <Text style={s.itemTitulo}>Nenhuma pendência</Text>
                 <Text style={s.itemApoio}>
-                  {voos
-                    ? "Voos em solo, em rota e próximos voos confirmados aparecerão aqui."
-                    : "Atualize para consultar sua programação."}
+                  Voos em solo, em rota e confirmados aparecerão aqui.
                 </Text>
               </View>
             )}
@@ -497,22 +499,21 @@ export default function HomeScreen() {
 const s = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: CORES.fundo,
+    backgroundColor: tema.fundo,
   },
   scroll: {
     flex: 1,
-    backgroundColor: CORES.fundo,
+    backgroundColor: tema.fundo,
   },
   content: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
     paddingBottom: 140,
   },
-  header: {
-    paddingHorizontal: 18,
-    paddingTop: 10,
-    paddingBottom: 18,
+  cabecalho: {
     overflow: "hidden",
   },
-  logoFundo: {
+  marcaDagua: {
     position: "absolute",
     top: -30,
     right: -70,
@@ -524,202 +525,264 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginTop: 21,
     marginBottom: 20,
   },
   avatarWrap: {
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: CORES.cardBorda,
+    borderColor: tema.borda,
     padding: 2,
   },
   iconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: CORES.card,
+    backgroundColor: tema.superficie,
     borderWidth: 1,
-    borderColor: CORES.cardBorda,
+    borderColor: tema.borda,
   },
-  greeting: {
-    color: "#FFFFFF",
+  saudacaoPill: {
+    alignSelf: "flex-start",
+    borderWidth: 1.5,
+    borderColor: "rgba(53, 99, 233, 0.8)",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  saudacao: {
+    color: tema.texto,
     fontFamily: "Inter_700Bold",
-    fontSize: 28,
-    letterSpacing: -0.5,
+    fontSize: 22,
   },
-  greetingDestaque: {
-    color: CORES.amarelo,
+  saudacaoDestaque: {
+    color: AZUL_CLARO,
   },
-  dataHoje: {
-    color: CORES.muted,
-    fontFamily: "Inter_500Medium",
-    fontSize: 14,
-    marginTop: 4,
+  nome: {
+    color: tema.texto,
+    fontFamily: "Inter_700Bold",
+    fontSize: 36,
+    letterSpacing: -0.6,
+    marginTop: 10,
+  },
+  chips: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 22,
     marginBottom: 20,
   },
-  between: {
+  chip: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
+    height: 42,
+    paddingHorizontal: 18,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: tema.borda,
+    backgroundColor: tema.superficie,
+  },
+  chipAtivo: {
+    backgroundColor: tema.azul,
+    borderColor: tema.azul,
+  },
+  chipTexto: {
+    color: tema.suave,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+  },
+  chipTextoAtivo: {
+    color: "#FFFFFF",
   },
   hero: {
     borderRadius: 24,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: CORES.cardBorda,
-  },
-  heroAtivo: {
-    borderColor: CORES.amareloBorda,
-  },
-  heroShade: {
     padding: 18,
-    gap: 16,
+    gap: 18,
+    backgroundColor: tema.superficie,
+    borderWidth: 1,
+    borderColor: tema.borda,
   },
-  kickerPill: {
+  heroTopo: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  kicker: {
+    color: AZUL_CLARO,
+    fontFamily: "Inter_700Bold",
+    fontSize: 12,
+    letterSpacing: 1.2,
+  },
+  matricula: {
+    color: tema.texto,
+    fontFamily: "Inter_700Bold",
+    fontSize: 22,
+    marginTop: 2,
+  },
+  vooNumero: {
+    color: tema.texto,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 16,
+  },
+  pillStatus: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 999,
   },
-  heroKicker: {
+  pillStatusTexto: {
     fontFamily: "Inter_700Bold",
     fontSize: 11,
     letterSpacing: 0.6,
   },
-  vooIdentificacao: {
-    color: CORES.muted,
-    fontFamily: "Inter_500Medium",
-    fontSize: 13,
-  },
-  heroVazio: {
-    color: CORES.textoSecundario,
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 15,
-    lineHeight: 22,
-    paddingVertical: 14,
-  },
-  route: {
+  rota: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingVertical: 2,
+    justifyContent: "space-between",
+    gap: 10,
   },
-  airport: {
-    fontSize: 32,
+  aeroporto: {
+    color: tema.texto,
+    fontFamily: "Inter_700Bold",
+    fontSize: 30,
     letterSpacing: 0.4,
-    fontFamily: "Inter_700Bold",
-    color: "#FFFFFF",
   },
-  track: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  line: {
-    height: 1,
-    flex: 1,
-    borderTopWidth: 1,
-    borderStyle: "dashed",
-    borderColor: "#333D5E",
-  },
-  heroFooter: {
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: CORES.cardBorda,
-  },
-  metaLabel: {
-    color: CORES.muted,
-    fontFamily: "Inter_500Medium",
-    fontSize: 11,
-  },
-  metaValue: {
-    color: "#FFFFFF",
-    fontFamily: "Inter_700Bold",
+  horaRota: {
+    color: tema.texto,
+    fontFamily: "Inter_600SemiBold",
     fontSize: 14,
     marginTop: 2,
   },
-  corpo: {
-    paddingHorizontal: 18,
+  trilha: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
-  shortcuts: {
+  linhaPontilhada: {
+    flex: 1,
+    height: 1,
+    borderTopWidth: 1.5,
+    borderStyle: "dotted",
+    borderColor: "#3A4A73",
+  },
+  pontoRota: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: AZUL_CLARO,
+  },
+  heroAcoes: {
     flexDirection: "row",
     gap: 10,
   },
-  shortcut: {
+  botaoPrimario: {
     flex: 1,
-    minHeight: 84,
-    paddingVertical: 12,
-    paddingHorizontal: 6,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: tema.azul,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    borderRadius: 20,
-    backgroundColor: CORES.card,
-    borderWidth: 1,
-    borderColor: CORES.cardBorda,
+    gap: 10,
   },
-  shortcutAtivo: {
-    backgroundColor: CORES.amarelo,
-    borderColor: CORES.amarelo,
-  },
-  shortcutIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: CORES.amareloSuave,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  shortcutIconWrapAtivo: {
-    backgroundColor: "rgba(16, 21, 43, 0.12)",
-  },
-  shortcutTitle: {
+  botaoPrimarioTexto: {
     color: "#FFFFFF",
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 11,
-  },
-  shortcutTitleAtivo: {
-    color: CORES.amareloTexto,
     fontFamily: "Inter_700Bold",
+    fontSize: 16,
+  },
+  botaoDiario: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
   },
   secaoLinha: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 26,
+    marginTop: 28,
     marginBottom: 14,
   },
+  secaoTituloLinha: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
   secaoTitulo: {
-    color: "#FFFFFF",
+    color: tema.texto,
     fontFamily: "Inter_700Bold",
-    fontSize: 19,
+    fontSize: 20,
+  },
+  verTodas: {
+    color: AZUL_CLARO,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
   },
   badge: {
     minWidth: 26,
-    height: 26,
-    borderRadius: 13,
+    height: 24,
+    borderRadius: 12,
     paddingHorizontal: 8,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: CORES.amarelo,
+    backgroundColor: tema.perigo,
   },
   badgeTexto: {
-    color: CORES.amareloTexto,
+    color: tema.fundo,
     fontFamily: "Inter_700Bold",
     fontSize: 13,
+  },
+  grade: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    rowGap: 10,
+    fontSize: 14,
+    textAlign: "center",
+  },
+  atalho: {
+    width: "31.5%",
+    minHeight: 110,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    alignItems: "center",
+    gap: 12,
+    borderRadius: 18,
+    backgroundColor: tema.superficie,
+    borderWidth: 1,
+    borderColor: tema.borda,
+  },
+  atalhoIcone: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  atalhoRotulo: {
+    color: tema.texto,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+    lineHeight: 18,
+    textAlign: "center",
+  },
+  listaPendencias: {
+    gap: 10,
   },
   item: {
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
-    padding: 15,
-    marginBottom: 10,
+    padding: 16,
     borderRadius: 20,
-    backgroundColor: CORES.card,
+    backgroundColor: tema.superficie,
     borderWidth: 1,
-    borderColor: CORES.cardBorda,
+    borderColor: tema.borda,
   },
   itemIcone: {
     width: 48,
@@ -727,25 +790,29 @@ const s = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: CORES.amareloSuave,
   },
   itemTitulo: {
-    color: "#FFFFFF",
+    color: tema.texto,
     fontFamily: "Inter_700Bold",
     fontSize: 16,
   },
   itemApoio: {
-    color: CORES.muted,
+    color: tema.suave,
     fontFamily: "Inter_400Regular",
     fontSize: 13,
     marginTop: 3,
   },
+  itemHoje: {
+    color: tema.destaque,
+    fontFamily: "Inter_700Bold",
+    fontSize: 13,
+  },
   vazio: {
     padding: 20,
     borderRadius: 20,
-    backgroundColor: CORES.card,
+    backgroundColor: tema.superficie,
     borderWidth: 1,
-    borderColor: CORES.cardBorda,
+    borderColor: tema.borda,
     gap: 6,
   },
 });
