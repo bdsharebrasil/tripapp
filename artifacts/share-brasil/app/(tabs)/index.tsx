@@ -18,7 +18,6 @@ import {
   ErroConsulta,
   Icon,
   Toque,
-  tema,
   type Icone,
 } from "@/src/components/ui";
 
@@ -33,10 +32,22 @@ type Voo = {
   status?: string;
 };
 
-// Cores do corpo claro da tela (o topo usa o tema escuro).
-const CLARO = "#F4F7FC";
-const AZUL = "#11699c";
+const CORES = {
+  fundo: "#0B0F22",
+  card: "#141A32",
+  cardBorda: "#222A46",
+  amarelo: "#F5CE3E",
+  amareloTexto: "#10152B",
+  amareloSuave: "rgba(245, 206, 62, 0.14)",
+  amareloBorda: "rgba(245, 206, 62, 0.42)",
+  verde: "#34D399",
+  verdeSuave: "rgba(52, 211, 153, 0.14)",
+  muted: "#8E96B0",
+  textoSecundario: "#B6BED4",
+};
+
 const LOGO = require("@/assets/images/share-icon.png");
+
 const DIAS = [
   "Domingo",
   "Segunda",
@@ -46,6 +57,7 @@ const DIAS = [
   "Sexta",
   "Sábado",
 ];
+
 const MESES = [
   "janeiro",
   "fevereiro",
@@ -60,7 +72,7 @@ const MESES = [
   "novembro",
   "dezembro",
 ];
-// "2026-08-05" -> "05 Ago"
+
 const diaMes = (d?: string | null) => {
   if (!d) return "—";
   const [, m, dia] = d.slice(0, 10).split("-");
@@ -70,10 +82,11 @@ const diaMes = (d?: string | null) => {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [perfil, setPerfil] = useState<PerfilCompleto | null>(null),
-    [voos, setVoos] = useState<Voo[] | null>(null);
-  const [loading, setLoading] = useState(true),
-    [error, setError] = useState("");
+  const [perfil, setPerfil] = useState<PerfilCompleto | null>(null);
+  const [voos, setVoos] = useState<Voo[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
   const load = useCallback(async () => {
     setError("");
     const resultados = await Promise.allSettled([
@@ -83,18 +96,20 @@ export default function HomeScreen() {
     const [p, v] = resultados;
     setPerfil(p.status === "fulfilled" ? p.value : null);
     setVoos(v.status === "fulfilled" ? v.value.voos : null);
-    if (resultados.some((x) => x.status === "rejected"))
+    if (resultados.some((x) => x.status === "rejected")) {
       setError("Alguns dados não puderam ser atualizados.");
+    }
     setLoading(false);
   }, []);
+
   useFocusEffect(
     useCallback(() => {
       void load();
     }, [load]),
   );
 
-  const p = perfil?.perfil,
-    nome = p?.nome_exibicao || p?.nome_completo || "Cmte";
+  const p = perfil?.perfil;
+  const nome = p?.nome_exibicao || p?.nome_completo || "Cmte";
   const agora = new Date();
   const horaAtual = agora.getHours();
   const saudacao =
@@ -106,6 +121,7 @@ export default function HomeScreen() {
       .trim()
       .toUpperCase()
       .replace(/[\s-]+/g, "_");
+
   const emAndamento = new Set(["EM_SOLO", "EM_ROTA", "EM_VOO"]);
   const confirmados = new Set([
     "APROVADA",
@@ -113,6 +129,7 @@ export default function HomeScreen() {
     "CONFIRMADA",
     "CONFIRMADO",
   ]);
+
   const voosRelevantes = (voos || [])
     .filter((v) => {
       const status = normalizarStatus(v.status);
@@ -127,6 +144,7 @@ export default function HomeScreen() {
         String(b.data_agendada || ""),
       );
     });
+
   const rotuloStatus = (status?: string) => {
     const chave = normalizarStatus(status);
     if (chave === "EM_SOLO") return "Em solo";
@@ -195,16 +213,16 @@ export default function HomeScreen() {
         <ErroConsulta mensagem={error} atualizar={() => void load()} />
       )}
       {loading ? (
-        <ActivityIndicator color={tema.destaque} style={{ marginTop: 50 }} />
+        <ActivityIndicator color={CORES.amarelo} style={{ marginTop: 50 }} />
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          style={{ backgroundColor: CLARO }}
+          style={s.scroll}
           refreshControl={
             <RefreshControl
               refreshing={loading}
               onRefresh={() => void load()}
-              tintColor={tema.destaque}
+              tintColor={CORES.amarelo}
             />
           }
           contentContainerStyle={s.content}
@@ -218,27 +236,29 @@ export default function HomeScreen() {
               importantForAccessibility="no-hide-descendants"
               style={s.logoFundo}
             />
+
             <View style={s.topo}>
               <Toque
                 accessibilityLabel="Abrir perfil"
                 accessibilityRole="button"
                 onPress={() => router.push("/(tabs)/perfil")}
+                style={s.avatarWrap}
               >
                 <Avatar nome={nome} disponivel={!!p?.foto_url} tamanho={44} />
               </Toque>
+
               <Toque
                 accessibilityLabel="Abrir notificações"
                 accessibilityRole="button"
                 onPress={() => router.push("/notificacoes")}
                 style={s.iconBtn}
               >
-                <Icon name="bell" size={20} color={tema.texto} />
+                <Icon name="bell" size={20} color="#FFFFFF" />
               </Toque>
             </View>
 
             <Text style={s.greeting} numberOfLines={1} adjustsFontSizeToFit>
-              {saudacao},{" "}
-              <Text style={s.greetingDestaque}>{nome}</Text>
+              {saudacao}, <Text style={s.greetingDestaque}>{nome}</Text>
             </Text>
             <Text style={s.dataHoje}>{dataHoje}</Text>
 
@@ -257,22 +277,41 @@ export default function HomeScreen() {
                     })
                   : router.push("/(tabs)/agenda")
               }
-              style={s.hero}
+              style={[s.hero, proximoAtivo && s.heroAtivo]}
             >
               <LinearGradient
-                colors={["#1C2856", "#182248"]}
+                colors={["#182142", "#121831"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={s.heroShade}
               >
                 <View style={s.between}>
-                  <Text style={s.heroKicker}>
-                    {proximo
-                      ? proximoAtivo
-                        ? "VOO EM OPERAÇÃO"
-                        : "PRÓXIMO VOO"
-                      : "SUA AGENDA"}
-                  </Text>
+                  <View
+                    style={[
+                      s.kickerPill,
+                      {
+                        backgroundColor: proximoAtivo
+                          ? CORES.verdeSuave
+                          : CORES.amareloSuave,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        s.heroKicker,
+                        {
+                          color: proximoAtivo ? CORES.verde : CORES.amarelo,
+                        },
+                      ]}
+                    >
+                      {proximo
+                        ? proximoAtivo
+                          ? "VOO EM OPERAÇÃO"
+                          : "PRÓXIMO VOO"
+                        : "SUA AGENDA"}
+                    </Text>
+                  </View>
+
                   {proximo && (
                     <Text style={s.vooIdentificacao}>
                       {proximo.numero_voo || "—"} ·{" "}
@@ -280,25 +319,51 @@ export default function HomeScreen() {
                     </Text>
                   )}
                 </View>
+
                 {proximo ? (
                   <>
                     <View style={s.route}>
                       <Text style={s.airport}>{proximo.origem || "—"}</Text>
                       <View style={s.track}>
                         <View style={s.line} />
-                        <Icon name="airplane" size={18} color={tema.destaque} />
+                        <Icon
+                          name="airplane"
+                          size={18}
+                          color={CORES.amarelo}
+                        />
                         <View style={s.line} />
                       </View>
                       <Text style={s.airport}>{proximo.destino || "—"}</Text>
                     </View>
-                    <View style={s.between}>
-                      <Text style={s.metaLabel}>
-                        Saída{" "}
+
+                    <View style={[s.between, s.heroFooter]}>
+                      <View>
+                        <Text style={s.metaLabel}>Data</Text>
+                        <Text style={s.metaValue}>
+                          {diaMes(proximo.data_agendada)}
+                        </Text>
+                      </View>
+
+                      <View style={{ alignItems: "center" }}>
+                        <Text style={s.metaLabel}>Saída</Text>
                         <Text style={s.metaValue}>{horario(proximo)} Z</Text>
-                      </Text>
-                      <Text style={s.metaLabel}>
-                        Duração <Text style={s.metaValue}>A confirmar</Text>
-                      </Text>
+                      </View>
+
+                      <View style={{ alignItems: "flex-end" }}>
+                        <Text style={s.metaLabel}>Status</Text>
+                        <Text
+                          style={[
+                            s.metaValue,
+                            {
+                              color: proximoAtivo
+                                ? CORES.verde
+                                : CORES.amarelo,
+                            },
+                          ]}
+                        >
+                          {rotuloStatus(proximo.status)}
+                        </Text>
+                      </View>
                     </View>
                   </>
                 ) : (
@@ -314,21 +379,41 @@ export default function HomeScreen() {
 
           <View style={s.corpo}>
             <View style={s.shortcuts}>
-              {shortcuts.map((x, i) => (
-                <Toque
-                  key={x.nome}
-                  accessibilityLabel={x.nome}
-                  accessibilityHint={x.texto}
-                  accessibilityRole="button"
-                  onPress={() => router.push(x.path as any)}
-                  style={[s.shortcut, i === 0 && s.shortcutAtivo]}
-                >
-                  <Icon name={x.icone} size={24} color={tema.fundo} />
-                  <Text numberOfLines={1} style={s.shortcutTitle}>
-                    {x.rotulo}
-                  </Text>
-                </Toque>
-              ))}
+              {shortcuts.map((x, i) => {
+                const ativo = i === 0;
+                return (
+                  <Toque
+                    key={x.nome}
+                    accessibilityLabel={x.nome}
+                    accessibilityHint={x.texto}
+                    accessibilityRole="button"
+                    onPress={() => router.push(x.path as any)}
+                    style={[s.shortcut, ativo && s.shortcutAtivo]}
+                  >
+                    <View
+                      style={[
+                        s.shortcutIconWrap,
+                        ativo && s.shortcutIconWrapAtivo,
+                      ]}
+                    >
+                      <Icon
+                        name={x.icone}
+                        size={20}
+                        color={ativo ? CORES.amareloTexto : CORES.amarelo}
+                      />
+                    </View>
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        s.shortcutTitle,
+                        ativo && s.shortcutTitleAtivo,
+                      ]}
+                    >
+                      {x.rotulo}
+                    </Text>
+                  </Toque>
+                );
+              })}
             </View>
 
             {tituloSecao(
@@ -339,36 +424,55 @@ export default function HomeScreen() {
                 </View>
               ) : null,
             )}
+
             {voosRelevantes.length ? (
-              voosRelevantes.map((v) => (
-                <Toque
-                  key={v.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${v.origem || "—"} para ${v.destino || "—"}`}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(tabs)/agenda",
-                      params: { vooId: v.id },
-                    })
-                  }
-                  style={s.item}
-                >
-                  <View style={s.itemIcone}>
-                    <Icon name="file-text" size={24} color={AZUL} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.itemTitulo} numberOfLines={1}>
-                      {v.origem || "—"} → {v.destino || "—"} ·{" "}
-                      {diaMes(v.data_agendada)}
-                    </Text>
-                    <Text style={s.itemApoio} numberOfLines={1}>
-                      {v.numero_voo || "Voo programado"} · {horario(v)} ·{" "}
-                      {rotuloStatus(v.status)}
-                    </Text>
-                  </View>
-                  <Icon name="chevron-right" size={22} color="#8A93A8" />
-                </Toque>
-              ))
+              voosRelevantes.map((v) => {
+                const ativo = emAndamento.has(normalizarStatus(v.status));
+                return (
+                  <Toque
+                    key={v.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${v.origem || "—"} para ${v.destino || "—"}`}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/(tabs)/agenda",
+                        params: { vooId: v.id },
+                      })
+                    }
+                    style={s.item}
+                  >
+                    <View style={s.itemIcone}>
+                      <Icon
+                        name="file-text"
+                        size={22}
+                        color={ativo ? CORES.verde : CORES.amarelo}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.itemTitulo} numberOfLines={1}>
+                        {v.origem || "—"} → {v.destino || "—"} ·{" "}
+                        {diaMes(v.data_agendada)}
+                      </Text>
+                      <Text style={s.itemApoio} numberOfLines={1}>
+                        {v.numero_voo || "Voo programado"} · {horario(v)} ·{" "}
+                        <Text
+                          style={{
+                            color: ativo ? CORES.verde : CORES.textoSecundario,
+                            fontFamily: "Inter_600SemiBold",
+                          }}
+                        >
+                          {rotuloStatus(v.status)}
+                        </Text>
+                      </Text>
+                    </View>
+                    <Icon
+                      name="chevron-right"
+                      size={20}
+                      color={CORES.muted}
+                    />
+                  </Toque>
+                );
+              })
             ) : (
               <View style={s.vazio}>
                 <Text style={s.itemTitulo}>
@@ -391,15 +495,21 @@ export default function HomeScreen() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: tema.fundo },
-  content: { paddingBottom: 130 },
+  root: {
+    flex: 1,
+    backgroundColor: CORES.fundo,
+  },
+  scroll: {
+    flex: 1,
+    backgroundColor: CORES.fundo,
+  },
+  content: {
+    paddingBottom: 140,
+  },
   header: {
-    backgroundColor: tema.fundo,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 64,
-    borderBottomLeftRadius: 40,
-    borderBottomRightRadius: 40,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 18,
     overflow: "hidden",
   },
   logoFundo: {
@@ -408,37 +518,45 @@ const s = StyleSheet.create({
     right: -70,
     width: 300,
     height: 260,
-    opacity: 0.1,
+    opacity: 0.06,
   },
   topo: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 22,
+    marginBottom: 20,
+  },
+  avatarWrap: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: CORES.cardBorda,
+    padding: 2,
   },
   iconBtn: {
     width: 44,
     height: 44,
-    borderRadius: 16,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: tema.superficie,
+    backgroundColor: CORES.card,
     borderWidth: 1,
-    borderColor: tema.borda,
+    borderColor: CORES.cardBorda,
   },
   greeting: {
-    color: tema.texto,
+    color: "#FFFFFF",
     fontFamily: "Inter_700Bold",
-    fontSize: 32,
-    letterSpacing: -0.6,
+    fontSize: 28,
+    letterSpacing: -0.5,
   },
-  greetingDestaque: { color: tema.destaque },
+  greetingDestaque: {
+    color: CORES.amarelo,
+  },
   dataHoje: {
-    color: tema.suave,
-    fontFamily: "Inter_400Regular",
-    fontSize: 16,
+    color: CORES.muted,
+    fontFamily: "Inter_500Medium",
+    fontSize: 14,
     marginTop: 4,
-    marginBottom: 22,
+    marginBottom: 20,
   },
   between: {
     flexDirection: "row",
@@ -447,141 +565,187 @@ const s = StyleSheet.create({
     gap: 8,
   },
   hero: {
-    borderRadius: 28,
+    borderRadius: 24,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    borderColor: CORES.cardBorda,
   },
-  heroShade: { padding: 20, gap: 18 },
+  heroAtivo: {
+    borderColor: CORES.amareloBorda,
+  },
+  heroShade: {
+    padding: 18,
+    gap: 16,
+  },
+  kickerPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
   heroKicker: {
-    color: tema.destaque,
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
-    letterSpacing: 0.4,
+    fontFamily: "Inter_700Bold",
+    fontSize: 11,
+    letterSpacing: 0.6,
   },
   vooIdentificacao: {
-    color: tema.suave,
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
+    color: CORES.muted,
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
   },
   heroVazio: {
-    color: tema.texto,
+    color: CORES.textoSecundario,
     fontFamily: "Inter_600SemiBold",
-    fontSize: 18,
-    lineHeight: 25,
-    paddingVertical: 20,
+    fontSize: 15,
+    lineHeight: 22,
+    paddingVertical: 14,
   },
-  route: { flexDirection: "row", alignItems: "center", gap: 12 },
+  route: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 2,
+  },
   airport: {
-    fontSize: 40,
-    letterSpacing: -1,
+    fontSize: 32,
+    letterSpacing: 0.4,
     fontFamily: "Inter_700Bold",
-    color: tema.texto,
+    color: "#FFFFFF",
   },
-  track: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  track: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   line: {
     height: 1,
     flex: 1,
     borderTopWidth: 1,
     borderStyle: "dashed",
-    borderColor: "rgba(242,244,250,0.45)",
+    borderColor: "#333D5E",
+  },
+  heroFooter: {
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: CORES.cardBorda,
   },
   metaLabel: {
-    color: tema.suave,
-    fontFamily: "Inter_400Regular",
-    fontSize: 16,
+    color: CORES.muted,
+    fontFamily: "Inter_500Medium",
+    fontSize: 11,
   },
-  metaValue: { color: tema.texto, fontFamily: "Inter_700Bold", fontSize: 17 },
-
-  corpo: { paddingHorizontal: 20 },
-  shortcuts: { flexDirection: "row", gap: 10, marginTop: -40 },
+  metaValue: {
+    color: "#FFFFFF",
+    fontFamily: "Inter_700Bold",
+    fontSize: 14,
+    marginTop: 2,
+  },
+  corpo: {
+    paddingHorizontal: 18,
+  },
+  shortcuts: {
+    flexDirection: "row",
+    gap: 10,
+  },
   shortcut: {
     flex: 1,
-    minHeight: 76,
+    minHeight: 84,
+    paddingVertical: 12,
     paddingHorizontal: 6,
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
     borderRadius: 20,
-    backgroundColor: "#e9ecee",
-    shadowColor: "#0B1230",
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    backgroundColor: CORES.card,
+    borderWidth: 1,
+    borderColor: CORES.cardBorda,
   },
-  shortcutAtivo: { backgroundColor: tema.destaque },
+  shortcutAtivo: {
+    backgroundColor: CORES.amarelo,
+    borderColor: CORES.amarelo,
+  },
+  shortcutIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: CORES.amareloSuave,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shortcutIconWrapAtivo: {
+    backgroundColor: "rgba(16, 21, 43, 0.12)",
+  },
   shortcutTitle: {
-    color: tema.fundo,
+    color: "#FFFFFF",
     fontFamily: "Inter_600SemiBold",
-    fontSize: 12,
+    fontSize: 11,
   },
-
+  shortcutTitleAtivo: {
+    color: CORES.amareloTexto,
+    fontFamily: "Inter_700Bold",
+  },
   secaoLinha: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 28,
+    marginTop: 26,
     marginBottom: 14,
   },
   secaoTitulo: {
-    color: tema.fundo,
+    color: "#FFFFFF",
     fontFamily: "Inter_700Bold",
-    fontSize: 22,
+    fontSize: 19,
   },
   badge: {
-    minWidth: 28,
-    height: 28,
-    borderRadius: 14,
+    minWidth: 26,
+    height: 26,
+    borderRadius: 13,
     paddingHorizontal: 8,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: tema.destaque,
+    backgroundColor: CORES.amarelo,
   },
   badgeTexto: {
-    color: tema.fundo,
+    color: CORES.amareloTexto,
     fontFamily: "Inter_700Bold",
-    fontSize: 14,
+    fontSize: 13,
   },
-
-
   item: {
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
-    padding: 14,
+    padding: 15,
     marginBottom: 10,
     borderRadius: 20,
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#0B1230",
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    backgroundColor: CORES.card,
+    borderWidth: 1,
+    borderColor: CORES.cardBorda,
   },
   itemIcone: {
-    width: 52,
-    height: 52,
+    width: 48,
+    height: 48,
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#E8EDFB",
+    backgroundColor: CORES.amareloSuave,
   },
   itemTitulo: {
-    color: tema.fundo,
+    color: "#FFFFFF",
     fontFamily: "Inter_700Bold",
-    fontSize: 18,
+    fontSize: 16,
   },
   itemApoio: {
-    color: "#5E6A85",
+    color: CORES.muted,
     fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    marginTop: 2,
+    fontSize: 13,
+    marginTop: 3,
   },
   vazio: {
     padding: 20,
     borderRadius: 20,
-    backgroundColor: "#FFFFFF",
-    gap: 4,
+    backgroundColor: CORES.card,
+    borderWidth: 1,
+    borderColor: CORES.cardBorda,
+    gap: 6,
   },
 });
