@@ -744,6 +744,8 @@ const s = StyleSheet.create({
     flexWrap: "wrap",
     justifyContent: "space-between",
     rowGap: 10,
+    fontSize: 14,
+    textAlign: "center",
   },
   atalho: {
     width: "31.5%",
