@@ -403,9 +403,7 @@ export default function HomeScreen() {
                 <View style={[s.atalhoIcone, { backgroundColor: a.corSuave }]}>
                   <Icon name={a.icone} size={20} color={a.cor} />
                 </View>
-                <Text style={s.atalhoRotulo} numberOfLines={2}>
-                  {a.rotulo}
-                </Text>
+                <Text style={s.atalhoRotulo}>{a.rotulo}</Text>
               </Toque>
             ))}
           </View>
@@ -750,7 +748,9 @@ const s = StyleSheet.create({
   atalho: {
     width: "31.5%",
     minHeight: 110,
-    padding: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    alignItems: "center",
     gap: 12,
     borderRadius: 18,
     backgroundColor: tema.superficie,
@@ -769,6 +769,7 @@ const s = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 14,
     lineHeight: 18,
+    textAlign: "center",
   },
   listaPendencias: {
     gap: 10,
