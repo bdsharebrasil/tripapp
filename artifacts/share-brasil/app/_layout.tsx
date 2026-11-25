@@ -76,6 +76,7 @@ function RootLayoutNav({
         name="novo-lancamento"
         options={{ presentation: "modal", headerShown: false }}
       />
+      <Stack.Screen name="criar-agendamento" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="preparacao-voo" options={{ headerShown: false }} />
       <Stack.Screen
         name="relatorio-viagem"

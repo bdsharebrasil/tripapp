@@ -843,12 +843,12 @@ export default function AgendaScreen() {
       {!detail && !editing && (
         <Toque
           accessibilityRole="button"
-          accessibilityLabel="Lançar voo"
-          onPress={() => router.push("/diario-bordo")}
+          accessibilityLabel="Criar agendamento"
+          onPress={() => router.push("/criar-agendamento")}
           style={[s.fab, { bottom: Math.max(insets.bottom, 12) + 84 }]}
         >
           <Text style={s.fabPlus}>+</Text>
-          <Text style={s.fabText}>Lançar voo</Text>
+          <Text style={s.fabText}>Criar agendamento</Text>
         </Toque>
       )}
 

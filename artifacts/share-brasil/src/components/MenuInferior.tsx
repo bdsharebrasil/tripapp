@@ -124,7 +124,7 @@ function Item({
 
 export function MenuInferiorGlobal() {
   const router = useRouter();
-  const segments = useSegments();
+  const segments: readonly string[] = useSegments();
   const insets = useSafeAreaInsets();
   const [keyboard, setKeyboard] = useState(false);
   const [reduzir, setReduzir] = useState(true);
@@ -156,7 +156,7 @@ export function MenuInferiorGlobal() {
     selected = "plano-voo";
   } else if (["perfil", "minhas-horas", "ferias"].includes(raiz)) {
     selected = "perfil";
-  } else if (raiz === "agenda") {
+  } else if (raiz === "agenda" || raiz === "criar-agendamento") {
     selected = "agenda";
   }
 
