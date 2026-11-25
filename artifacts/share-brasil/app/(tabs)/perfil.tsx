@@ -18,7 +18,14 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { HorasVoo } from "@/src/components/HorasVoo";
 import { Avatar } from "@/src/components/Avatar";
-import { Etiqueta, ErroConsulta, tema, Icon, Toque, type Icone } from "@/src/components/ui";
+import {
+  Etiqueta,
+  ErroConsulta,
+  tema,
+  Icon,
+  Toque,
+  type Icone,
+} from "@/src/components/ui";
 import { apiFetch } from "@/src/lib/api";
 import { signOut } from "@/src/lib/session";
 import { PerfilCompleto, situacaoValidade } from "@/src/lib/perfil";
@@ -357,20 +364,15 @@ export function PerfilScreen({ initialTab }: { initialTab?: Secao } = {}) {
   const cargo = p?.departamento || p?.tipo_user || "Tripulação";
   const canac = p?.canac || data?.tripulante?.canac;
 
-  const ultimoSalario = salaries
-    .filter((x) => !ehRessarcimento(x) && x.data_pagamento)
-    .sort(
-      (a, b) =>
-        b.competencia_ano - a.competencia_ano ||
-        b.competencia_mes - a.competencia_mes,
-    )[0];
   const ressarcimentosPendentes = salaries
     .filter((x) => ehRessarcimento(x) && !x.data_pagamento)
     .reduce((t, x) => t + x.valor_centavos, 0);
   const hoje = new Date().toISOString().slice(0, 10);
   const proximasFerias = [...(data?.ferias || [])]
     .filter((f) => (f.data_fim || "") >= hoje)
-    .sort((a, b) => (a.data_inicio || "").localeCompare(b.data_inicio || ""))[0];
+    .sort((a, b) =>
+      (a.data_inicio || "").localeCompare(b.data_inicio || ""),
+    )[0];
   const situacaoCma = situacaoValidade(data?.cma?.validade);
 
   const row = (a: string, b: unknown) => (
@@ -517,27 +519,6 @@ export function PerfilScreen({ initialTab }: { initialTab?: Secao } = {}) {
               </View>
 
               <View style={styles.salario}>
-                <Text style={styles.salarioLabel}>
-                  Último salário creditado
-                </Text>
-                <Text style={styles.salarioValor}>
-                  {ultimoSalario ? money(ultimoSalario.valor_centavos) : "—"}
-                </Text>
-                {ultimoSalario ? (
-                  <View style={styles.salarioStatus}>
-                    <Icon name="check-circle" size={18} color={VERDE} />
-                    <Text style={{ color: VERDE, fontSize: 14 }}>
-                      Caiu em {dataCurta(ultimoSalario.data_pagamento)}
-                    </Text>
-                  </View>
-                ) : (
-                  <Text style={styles.salarioLabel}>
-                    {paymentsError
-                      ? "Pagamentos indisponíveis."
-                      : "Nenhum pagamento registrado."}
-                  </Text>
-                )}
-                <View style={styles.divisor} />
                 <View style={styles.between}>
                   <View>
                     <Text style={styles.salarioLabel}>
@@ -1017,18 +998,6 @@ const styles = StyleSheet.create({
     borderColor: "#24476b",
   },
   salarioLabel: { color: tema.suave, fontSize: 14 },
-  salarioValor: {
-    color: tema.texto,
-    fontSize: 34,
-    fontWeight: "800",
-    marginVertical: 6,
-  },
-  salarioStatus: { flexDirection: "row", alignItems: "center", gap: 8 },
-  divisor: {
-    height: 1,
-    backgroundColor: "#2a4d73",
-    marginVertical: 16,
-  },
   ressarcimento: {
     color: tema.destaque,
     fontSize: 18,
@@ -1089,7 +1058,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   secondary: { fontSize: 13, color: tema.suave, marginTop: 6, lineHeight: 19 },
-  tabs: { flexDirection: "row", gap: 8, paddingBottom: 18 },
+  tabs: { flexDirection: "row", gap: 16, paddingTop: 15, paddingBottom: 31 },
   tab: {
     paddingHorizontal: 15,
     flexDirection: "row",

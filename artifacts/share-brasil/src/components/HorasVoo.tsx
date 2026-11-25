@@ -247,6 +247,7 @@ export function HorasVoo() {
           icone="filter"
           disabled={loading || pdfBusy}
           onPress={() => apply()}
+          style={{ minHeight: 47, paddingHorizontal: 9 }}
         />
       </Painel>
       {loading ? (
