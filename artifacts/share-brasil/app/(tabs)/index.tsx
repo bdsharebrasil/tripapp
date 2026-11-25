@@ -51,20 +51,6 @@ const ATALHOS: {
   corSuave: string;
 }[] = [
   {
-    rotulo: "Diário de Bordo",
-    icone: "book-open",
-    path: "/diario-bordo",
-    cor: "#3563E9",
-    corSuave: "rgba(53, 99, 233, 0.18)",
-  },
-  {
-    rotulo: "Plano de Voo",
-    icone: "navigation",
-    path: "/(tabs)/plano-voo",
-    cor: "#2DD4BF",
-    corSuave: "rgba(45, 212, 191, 0.16)",
-  },
-  {
     rotulo: "Relatórios",
     icone: "file-text",
     path: "/relatorio-voo",
@@ -72,18 +58,11 @@ const ATALHOS: {
     corSuave: "rgba(167, 139, 250, 0.16)",
   },
   {
-    rotulo: "Reembolsos",
+    rotulo: "Financeiro",
     icone: "receipt",
     path: "/(tabs)/despesa-viagem",
     cor: "#6FCF97",
     corSuave: "rgba(111, 207, 151, 0.16)",
-  },
-  {
-    rotulo: "Férias",
-    icone: "sun",
-    path: "/ferias",
-    cor: "#F4C542",
-    corSuave: "rgba(244, 197, 66, 0.16)",
   },
   {
     rotulo: "Manutenção",
