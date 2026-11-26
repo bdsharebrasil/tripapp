@@ -23,8 +23,13 @@ new Function("exports", "require", "module", javascript)(
   modeloModule,
 );
 
-const { criarFormularioIcao, gerarMensagemIcao, paraPlano, paraRegistro } =
-  modeloModule.exports;
+const {
+  criarFormularioIcao,
+  formatarHoraUtc,
+  gerarMensagemIcao,
+  paraPlano,
+  paraRegistro,
+} = modeloModule.exports;
 
 const planoExemplo = () => ({
   numeroVoo: "EBL-0003/26",
@@ -65,6 +70,29 @@ const planoExemplo = () => ({
     corAeronave: "BRANCA",
   },
   status: "rascunho",
+});
+
+test("extrai a hora UTC de horário simples e de timestamp", () => {
+  assert.equal(formatarHoraUtc("14:35"), "14:35");
+  assert.equal(formatarHoraUtc("2026-11-26T14:35:00Z"), "14:35");
+  assert.equal(formatarHoraUtc("2026-11-26T14:35:00-03:00"), "17:35");
+  assert.equal(formatarHoraUtc("1435Z"), "14:35");
+  assert.equal(formatarHoraUtc("2026-11-26"), "");
+});
+
+test("plano salvo exibe apenas a hora UTC de um EOBT em timestamp", () => {
+  const plano = paraPlano({
+    id: "utc-1",
+    numero_voo: "EBL-0003/26",
+    adep: "SBGR",
+    ades: "SBBR",
+    data_voo: "2026-11-26",
+    eobt: "2026-11-26T14:35:00Z",
+    created_at: "2026-11-26T00:00:00Z",
+    payload: { form: {} },
+  });
+
+  assert.equal(plano.horaPrevista, "14:35");
 });
 
 test("número operacional não substitui a identificação ICAO do Item 7", () => {

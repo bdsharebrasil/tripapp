@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { Campo, SeletorSolicitacao } from "./Campos";
+import type { PerfilCompleto } from "@/src/lib/perfil";
 import {
   CONDICOES,
   Clima,
@@ -30,6 +31,7 @@ import {
   AeronaveSolicitacao,
   criarFormulario,
   criarFormularioIcao,
+  formatarHoraUtc,
   mensagemErro,
   validarFpl,
 } from "./modelo";
@@ -39,11 +41,17 @@ export function NovoPlanoModal({
   onFechar,
   onSalvar,
   colors,
+  inline = false,
+  aba = "formulario",
+  onAbaChange,
 }: {
   visivel: boolean;
   onFechar: () => void;
   onSalvar: (plano: NovoPlano) => Promise<boolean>;
   colors: Cores;
+  inline?: boolean;
+  aba?: "formulario" | "rota" | "resumo";
+  onAbaChange?: (aba: "formulario" | "rota" | "resumo") => void;
 }) {
   const [form, setForm] = useState<FormularioPlano>(criarFormulario);
   const [fpl, setFpl] = useState<FormularioIcao>(criarFormularioIcao);
@@ -70,13 +78,13 @@ export function NovoPlanoModal({
     setFpl((atual) => ({ ...atual, [campo]: valor }));
 
   useEffect(() => {
-    if (visivel) {
+    if (visivel && !inline) {
       setForm(criarFormulario());
       setFpl(criarFormularioIcao());
       setNumeroVoo("");
       setSolicitacaoId("");
     }
-  }, [visivel]);
+  }, [visivel, inline]);
 
   useEffect(() => {
     if (!icaoValidos) {
@@ -113,12 +121,15 @@ export function NovoPlanoModal({
     setCarregandoAeronaves(true);
     setCarregandoVoos(true);
     setErroVoos("");
-    apiFetch<{
-      agendamentos: VooSolicitacao[];
-      tripulacao?: PessoaTripulacao[];
-      aeronaves?: Record<string, any>[];
-    }>("/api/interno/agendamento?inicio=2000-01-01&fim=2099-12-31")
-      .then((r) => {
+    Promise.all([
+      apiFetch<{
+        agendamentos: VooSolicitacao[];
+        tripulacao?: PessoaTripulacao[];
+        aeronaves?: Record<string, any>[];
+      }>("/api/interno/agendamento?inicio=2000-01-01&fim=2099-12-31"),
+      apiFetch<PerfilCompleto>("/api/colaborador/perfil"),
+    ])
+      .then(([r, perfil]) => {
         if (!ativo) return;
         setAeronaves(
           (Array.isArray(r.aeronaves) ? r.aeronaves : []).map((row) => ({
@@ -138,15 +149,22 @@ export function NovoPlanoModal({
           })),
         );
         const pessoas = Array.isArray(r.tripulacao) ? r.tripulacao : [];
+        const tripulanteId = String(perfil.tripulante?.id ?? "");
         const nome = (id?: string | null) =>
           pessoas.find((pessoa) => String(pessoa.id) === String(id))
             ?.nome_completo ||
           pessoas.find((pessoa) => String(pessoa.id) === String(id))?.nome ||
           "";
         setVoos(
-          Array.isArray(r.agendamentos)
+          tripulanteId && Array.isArray(r.agendamentos)
             ? r.agendamentos
-                .filter((voo) => voo.numero_voo)
+                .filter(
+                  (voo) =>
+                    voo.numero_voo &&
+                    [voo.piloto_id, voo.copiloto_id].some(
+                      (id) => String(id ?? "") === tripulanteId,
+                    ),
+                )
                 .map((voo) => ({
                   ...voo,
                   piloto_nome: voo.piloto_nome || nome(voo.piloto_id),
@@ -154,6 +172,11 @@ export function NovoPlanoModal({
                 }))
             : [],
         );
+        if (!tripulanteId) {
+          setErroVoos(
+            "Não foi possível identificar seu vínculo como tripulante para listar solicitações.",
+          );
+        }
       })
       .catch((e) => {
         if (ativo) setErroVoos(mensagemErro(e));
@@ -286,7 +309,7 @@ export function NovoPlanoModal({
           .filter(Boolean)
           .join(" ")
       : "";
-    const eobt = (voo.horario_previsto_agendamento || "").slice(0, 5);
+    const eobt = formatarHoraUtc(voo.horario_previsto_agendamento);
     const comandante = voo.piloto_nome || "";
     const copiloto = voo.copiloto_nome || "";
     const passageiros = String(voo.numero_passageiros ?? 0);
@@ -327,21 +350,6 @@ export function NovoPlanoModal({
         ? `REG/${matricula.replace(/-/g, "")} TYP/${tipo}`.trim().toUpperCase()
         : atual.outrasInformacoes,
     }));
-  };
-
-  const buscarNumeroVoo = () => {
-    const alvo = numeroVoo.trim().toLocaleUpperCase("pt-BR");
-    const voo = voos.find(
-      (item) => item.numero_voo.trim().toLocaleUpperCase("pt-BR") === alvo,
-    );
-    if (!voo) {
-      avisar(
-        "Voo não encontrado",
-        "Não localizei esse número nas solicitações disponíveis. Você pode continuar preenchendo manualmente.",
-      );
-      return;
-    }
-    selecionarVoo(voo);
   };
 
   const enviar = async (status: StatusPlano) => {
@@ -401,33 +409,34 @@ export function NovoPlanoModal({
   };
 
   const mostrarClima = partidaIcao.length > 0 || chegadaIcao.length > 0;
+  const mostrarFormulario = !inline || aba === "formulario";
+  const mostrarRota = !inline || aba === "rota";
+  const mostrarResumo = inline && aba === "resumo";
 
-  return (
-    <Modal
-      visible={visivel}
-      animationType="slide"
-      presentationStyle="pageSheet"
-    >
-      <View style={[mStyles.container, { backgroundColor: colors.background }]}>
+  const conteudo = (
+    <View style={[mStyles.container, { backgroundColor: colors.background }]}>
         <View
           style={[
             mStyles.header,
             {
               backgroundColor: colors.card,
               borderBottomColor: colors.border,
-              paddingTop: Platform.OS === "ios" ? 60 : 16,
+              paddingTop:
+                !inline && Platform.OS === "ios" ? 60 : 16,
             },
           ]}
         >
-          <Toque
-            accessibilityRole="button"
-            accessibilityLabel="Fechar"
-            onPress={onFechar}
-          >
-            <Icon name="x" size={22} color={colors.foreground} />
-          </Toque>
+          {!inline && (
+            <Toque
+              accessibilityRole="button"
+              accessibilityLabel="Fechar"
+              onPress={onFechar}
+            >
+              <Icon name="x" size={22} color={colors.foreground} />
+            </Toque>
+          )}
           <Text style={[mStyles.title, { color: colors.foreground }]}>
-            Novo plano de voo
+            {inline ? "Plano ICAO para o SIGMA" : "Novo plano de voo"}
           </Text>
           <Toque
             disabled={salvando}
@@ -446,54 +455,149 @@ export function NovoPlanoModal({
           </Toque>
         </View>
 
+        {inline && (
+          <View
+            style={[
+              mStyles.subtabs,
+              { borderBottomColor: colors.border },
+            ]}
+          >
+            {(
+              [
+                ["formulario", "Formulário"],
+                ["rota", "Rota"],
+                ["resumo", "Resumo"],
+              ] as const
+            ).map(([id, label]) => {
+              const ativo = aba === id;
+              return (
+                <Toque
+                  key={id}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: ativo }}
+                  onPress={() => onAbaChange?.(id)}
+                  style={[
+                    mStyles.subtab,
+                    {
+                      backgroundColor: ativo ? colors.primary : colors.muted,
+                      borderColor: ativo ? colors.primary : colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      mStyles.subtabText,
+                      { color: ativo ? "#FFFFFF" : colors.mutedForeground },
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </Toque>
+              );
+            })}
+          </View>
+        )}
+
         <ScrollView
           contentContainerStyle={mStyles.form}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={[mStyles.secao, { color: colors.mutedForeground }]}>
-            SOLICITAÇÃO DE VOO
-          </Text>
-          <View style={mStyles.numeroRow}>
-            <View style={{ flex: 1 }}>
-              <Campo
-                rotulo="Número do voo"
-                colors={colors}
-                value={numeroVoo}
+          {mostrarResumo ? (
+            <View
+              style={[
+                mStyles.resumoCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Text
+                style={[mStyles.resumoTitulo, { color: colors.foreground }]}
+              >
+                Resumo do plano para envio ao SIGMA
+              </Text>
+              {[
+                ["Número do voo", numeroVoo || "—"],
+                ["Partida", partidaIcao || "—"],
+                ["Chegada", chegadaIcao || "—"],
+                ["Rota ICAO", fpl.rota || form.trecho || "—"],
+                [
+                  "Alternado",
+                  fpl.alternado1 || form.alternates || "—",
+                ],
+                [
+                  "Aeronave",
+                  form.matricula || form.aeronave || "—",
+                ],
+                ["Data", form.data || "—"],
+                [
+                  "EOBT UTC",
+                  fpl.eobt || form.horaPrevista.replace(":", "") || "—",
+                ],
+                ["Piloto", fpl.piloto || form.piloto || "—"],
+                ["Copiloto", form.copiloto || "—"],
+              ].map(([rotulo, valor]) => (
+                <View
+                  key={rotulo}
+                  style={[
+                    mStyles.resumoLinha,
+                    { borderBottomColor: colors.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      mStyles.resumoRotulo,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    {rotulo}
+                  </Text>
+                  <Text
+                    style={[
+                      mStyles.resumoValor,
+                      { color: colors.foreground },
+                    ]}
+                  >
+                    {valor}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <>
+          {mostrarFormulario && (
+            <>
+              <Text
+                style={[mStyles.secao, { color: colors.mutedForeground }]}
+              >
+                SOLICITAÇÃO DE VOO
+              </Text>
+              <SeletorSolicitacao
+                voos={voos}
+                carregando={carregandoVoos}
+                erro={erroVoos}
+                valor={numeroVoo}
                 onChangeText={(valor) => {
-                  const normalizado = valor.toUpperCase();
-                  setNumeroVoo(normalizado);
+                  setNumeroVoo(valor);
                   setSolicitacaoId("");
                 }}
-                placeholder="Ex.: EBL-0003/26"
-                autoCapitalize="characters"
-                autoCorrect={false}
-                returnKeyType="search"
-                onSubmitEditing={buscarNumeroVoo}
+                onSelecionar={selecionarVoo}
+                colors={colors}
               />
-            </View>
-            <Toque
-              accessibilityRole="button"
-              disabled={carregandoVoos}
-              onPress={buscarNumeroVoo}
-              style={[mStyles.buscarBtn, { backgroundColor: colors.primary }]}
-            >
-              {carregandoVoos ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Icon name="search" size={17} color="#FFFFFF" />
+              {inline && (
+                <Text
+                  style={[
+                    mStyles.abaHint,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  Informe origem, destino e rota na aba Rota.
+                </Text>
               )}
-              <Text style={mStyles.calcularText}>Buscar</Text>
-            </Toque>
-          </View>
-          <SeletorSolicitacao
-            voos={voos}
-            carregando={carregandoVoos}
-            erro={erroVoos}
-            onSelecionar={selecionarVoo}
-            colors={colors}
-          />
+            </>
+          )}
 
+          {mostrarRota && (
+            <>
           <Text style={[mStyles.secao, { color: colors.mutedForeground }]}>
             ROTA
           </Text>
@@ -615,7 +719,11 @@ export function NovoPlanoModal({
               <Text style={mStyles.calcularText}>Calcular rota</Text>
             </Toque>
           </View>
+            </>
+          )}
 
+          {mostrarFormulario && (
+            <>
           <Text style={[mStyles.secao, { color: colors.mutedForeground }]}>
             AERONAVE E DATA
           </Text>
@@ -737,11 +845,11 @@ export function NovoPlanoModal({
               placeholder="AAAA-MM-DD"
             />
             <Campo
-              rotulo="Hora prevista"
+              rotulo="Hora prevista (UTC)"
               colors={colors}
               value={form.horaPrevista}
               onChangeText={(v) => set("horaPrevista", v)}
-              placeholder="10:00"
+              placeholder="HH:MM"
               keyboardType="numbers-and-punctuation"
             />
           </View>
@@ -1162,8 +1270,23 @@ export function NovoPlanoModal({
               Salvar como rascunho
             </Text>
           </Toque>
+            </>
+          )}
+            </>
+          )}
         </ScrollView>
-      </View>
+    </View>
+  );
+
+  return inline ? (
+    conteudo
+  ) : (
+    <Modal
+      visible={visivel}
+      animationType="slide"
+      presentationStyle="pageSheet"
+    >
+      {conteudo}
     </Modal>
   );
 }
@@ -1180,15 +1303,39 @@ export const mStyles = StyleSheet.create({
   title: { fontSize: 17, fontFamily: "Inter_700Bold" },
   saveText: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
   form: { padding: 16, gap: 4, paddingBottom: 40 },
-  numeroRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
-  buscarBtn: {
-    minHeight: 42,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    marginBottom: 10,
+  subtabs: {
     flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  subtab: {
+    flex: 1,
+    minHeight: 34,
+    borderWidth: 1,
+    borderRadius: 9,
     alignItems: "center",
-    gap: 6,
+    justifyContent: "center",
+  },
+  subtabText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  resumoCard: { borderWidth: 1, borderRadius: 12, padding: 14 },
+  resumoTitulo: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    marginBottom: 8,
+  },
+  resumoLinha: {
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 4,
+  },
+  resumoRotulo: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  resumoValor: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  abaHint: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginBottom: 8,
   },
   aviso: {
     borderRadius: 10,

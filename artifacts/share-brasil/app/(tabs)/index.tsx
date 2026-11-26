@@ -33,6 +33,17 @@ type Voo = {
   pagamento_total?: number;
 };
 
+type RelatorioDespesa = {
+  id?: string | number;
+  relatorio_id?: string | number;
+  numero_relatorio?: string;
+  numero_voo?: string;
+  status?: string;
+  criado_em?: string;
+  data_inicio?: string;
+  data_fim?: string;
+};
+
 type Periodo = "hoje" | "semana" | "escala";
 
 const PERIODOS: { chave: Periodo; rotulo: string }[] = [
@@ -106,6 +117,10 @@ const CONFIRMADOS = new Set([
   "CONFIRMADA",
   "CONFIRMADO",
 ]);
+const STATUS_APROVACAO_RELATORIO = new Set([
+  "AGUARDANDO_APROVACAO",
+  "AJUSTE_CONCLUIDO",
+]);
 
 const normalizarStatus = (status?: string) =>
   String(status || "")
@@ -154,6 +169,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const [perfil, setPerfil] = useState<PerfilCompleto | null>(null);
   const [voos, setVoos] = useState<Voo[] | null>(null);
+  const [relatorios, setRelatorios] = useState<RelatorioDespesa[]>([]);
   const [periodo, setPeriodo] = useState<Periodo>("escala");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -163,10 +179,18 @@ export default function HomeScreen() {
     const resultados = await Promise.allSettled([
       apiFetch<PerfilCompleto>("/api/colaborador/perfil"),
       apiFetch<{ voos: Voo[] }>("/api/colaborador/meus-voos"),
+      apiFetch<{ relatorios: RelatorioDespesa[] }>(
+        "/api/financeiro/relatorios-despesa-viagem/minhas",
+      ),
     ]);
-    const [p, v] = resultados;
+    const [p, v, r] = resultados;
     setPerfil(p.status === "fulfilled" ? p.value : null);
     setVoos(v.status === "fulfilled" ? v.value.voos : null);
+    setRelatorios(
+      r.status === "fulfilled" && Array.isArray(r.value.relatorios)
+        ? r.value.relatorios
+        : [],
+    );
     if (resultados.some((x) => x.status === "rejected")) {
       setError("Alguns dados não puderam ser atualizados.");
     }
@@ -211,6 +235,11 @@ export default function HomeScreen() {
     if (periodo === "semana") return dataDo(v) <= fimSemana;
     return true;
   });
+  const relatoriosPendentes = relatorios.filter((relatorio) =>
+    Boolean(relatorio.id || relatorio.relatorio_id) &&
+      STATUS_APROVACAO_RELATORIO.has(normalizarStatus(relatorio.status)),
+  );
+  const totalPendencias = filtrados.length + relatoriosPendentes.length;
 
   const proximo: Voo | undefined = relevantes[0];
   const proximoAtivo =
@@ -418,9 +447,9 @@ export default function HomeScreen() {
           <View style={s.secaoLinha}>
             <View style={s.secaoTituloLinha}>
               <Text style={s.secaoTitulo}>Pendências</Text>
-              {filtrados.length > 0 && (
+              {totalPendencias > 0 && (
                 <View style={s.badge}>
-                  <Text style={s.badgeTexto}>{filtrados.length}</Text>
+                  <Text style={s.badgeTexto}>{totalPendencias}</Text>
                 </View>
               )}
             </View>
@@ -435,59 +464,114 @@ export default function HomeScreen() {
           </View>
 
           <View style={s.listaPendencias}>
-            {filtrados.length ? (
-              filtrados.map((v) => {
-                const ativo = EM_OPERACAO.has(normalizarStatus(v.status));
-                const hojeVoo = dataDo(v) === hojeIso;
-                return (
-                  <Toque
-                    key={v.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${v.origem || "—"} para ${v.destino || "—"}`}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/(tabs)/agenda",
-                        params: { vooId: v.id },
-                      })
-                    }
-                    style={s.item}
-                  >
-                    <View
-                      style={[
-                        s.itemIcone,
-                        {
-                          backgroundColor: ativo
-                            ? "rgba(111, 207, 151, 0.16)"
-                            : "rgba(244, 197, 66, 0.16)",
-                        },
-                      ]}
+            {totalPendencias ? (
+              <>
+                {relatoriosPendentes.map((relatorio) => {
+                  const id = String(relatorio.id || relatorio.relatorio_id);
+                  const data =
+                    relatorio.criado_em ||
+                    relatorio.data_fim ||
+                    relatorio.data_inicio;
+                  const referencia =
+                    relatorio.numero_relatorio || relatorio.numero_voo;
+                  return (
+                    <Toque
+                      key={`relatorio-${id}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Abrir relatório de viagem ${referencia || ""}`}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/(tabs)/despesa-viagem",
+                          params: { relatorioId: id },
+                        })
+                      }
+                      style={s.item}
                     >
-                      <Icon
-                        name="file-text"
-                        size={22}
-                        color={ativo ? tema.verde : tema.destaque}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.itemTitulo} numberOfLines={1}>
-                        {v.origem || "—"} → {v.destino || "—"} ·{" "}
-                        {diaMes(v.data_agendada)}
-                      </Text>
-                      <Text style={s.itemApoio} numberOfLines={1}>
-                        {v.matricula_registro ||
-                          v.numero_voo ||
-                          "Voo programado"}{" "}
-                        · {rotuloStatus(v.status)}
-                      </Text>
-                    </View>
-                    {hojeVoo ? (
-                      <Text style={s.itemHoje}>Hoje</Text>
-                    ) : (
-                      <Icon name="chevron-right" size={20} color={tema.suave} />
-                    )}
-                  </Toque>
-                );
-              })
+                      <View
+                        style={[
+                          s.itemIcone,
+                          { backgroundColor: "rgba(167, 139, 250, 0.16)" },
+                        ]}
+                      >
+                        <Icon name="file-text" size={22} color="#A78BFA" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.itemTitulo} numberOfLines={1}>
+                          Relatório de viagem{referencia ? ` ${referencia}` : ""}
+                        </Text>
+                        <Text style={s.itemApoio} numberOfLines={1}>
+                          Aguardando aprovação
+                        </Text>
+                      </View>
+                      {data?.slice(0, 10) === hojeIso ? (
+                        <Text style={s.itemHoje}>Hoje</Text>
+                      ) : (
+                        <Icon
+                          name="chevron-right"
+                          size={20}
+                          color={tema.suave}
+                        />
+                      )}
+                    </Toque>
+                  );
+                })}
+                {filtrados.map((v) => {
+                  const ativo = EM_OPERACAO.has(normalizarStatus(v.status));
+                  const hojeVoo = dataDo(v) === hojeIso;
+                  return (
+                    <Toque
+                      key={v.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${v.origem || "—"} para ${v.destino || "—"}`}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/(tabs)/agenda",
+                          params: { vooId: v.id },
+                        })
+                      }
+                      style={s.item}
+                    >
+                      <View
+                        style={[
+                          s.itemIcone,
+                          {
+                            backgroundColor: ativo
+                              ? "rgba(111, 207, 151, 0.16)"
+                              : "rgba(244, 197, 66, 0.16)",
+                          },
+                        ]}
+                      >
+                        <Icon
+                          name="file-text"
+                          size={22}
+                          color={ativo ? tema.verde : tema.destaque}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.itemTitulo} numberOfLines={1}>
+                          {v.origem || "—"} → {v.destino || "—"} ·{" "}
+                          {diaMes(v.data_agendada)}
+                        </Text>
+                        <Text style={s.itemApoio} numberOfLines={1}>
+                          {v.matricula_registro ||
+                            v.numero_voo ||
+                            "Voo programado"}{" "}
+                          · {rotuloStatus(v.status)}
+                        </Text>
+                      </View>
+                      {hojeVoo ? (
+                        <Text style={s.itemHoje}>Hoje</Text>
+                      ) : (
+                        <Icon
+                          name="chevron-right"
+                          size={20}
+                          color={tema.suave}
+                        />
+                      )}
+                    </Toque>
+                  );
+                })}
+              </>
             ) : (
               <View style={s.vazio}>
                 <Text style={s.itemTitulo}>Nenhuma pendência</Text>

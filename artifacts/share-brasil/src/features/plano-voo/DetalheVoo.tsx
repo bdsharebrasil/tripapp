@@ -137,7 +137,7 @@ export function DetalheVoo({
     { icone: "calendar", rotulo: "Data", valor: formatarData(plano.data) },
     {
       icone: "clock",
-      rotulo: "Hora prevista",
+      rotulo: "Hora prevista (UTC)",
       valor: plano.horaPrevista || "—",
     },
     { icone: "wind", rotulo: "Condições", valor: plano.condicoes },

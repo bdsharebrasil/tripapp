@@ -43,18 +43,21 @@ export function SeletorSolicitacao({
   voos,
   carregando,
   erro,
+  valor,
+  onChangeText,
   onSelecionar,
   colors,
 }: {
   voos: VooSolicitacao[];
   carregando: boolean;
   erro: string;
+  valor: string;
+  onChangeText: (valor: string) => void;
   onSelecionar: (voo: VooSolicitacao) => void;
   colors: Cores;
 }) {
-  const [busca, setBusca] = useState("");
   const [aberto, setAberto] = useState(false);
-  const termo = busca.trim().toUpperCase();
+  const termo = valor.trim().toUpperCase();
   const resultados = useMemo(
     () =>
       voos
@@ -64,29 +67,39 @@ export function SeletorSolicitacao({
   );
 
   const escolher = (voo: VooSolicitacao) => {
-    setBusca(voo.numero_voo);
     setAberto(false);
     onSelecionar(voo);
   };
 
   return (
     <View style={cStyles.wrap}>
+      <Text style={[mStyles.label, { color: colors.foreground }]}>
+        Número do voo
+      </Text>
       <View
         style={[
           cStyles.caixa,
           { backgroundColor: colors.card, borderColor: colors.border },
         ]}
       >
-        <Icon name="search" size={16} color={colors.mutedForeground} />
         <TextInput
-          accessibilityLabel="Filtrar solicitações por número do voo"
-          value={busca}
+          accessibilityLabel="Número do voo"
+          value={valor}
           onChangeText={(texto) => {
-            setBusca(texto);
+            onChangeText(texto.toUpperCase());
             setAberto(true);
           }}
           onFocus={() => setAberto(true)}
-          placeholder="Filtrar lista por número do voo"
+          onSubmitEditing={() => {
+            const exato = voos.find(
+              (voo) =>
+                voo.numero_voo.trim().toUpperCase() ===
+                valor.trim().toUpperCase(),
+            );
+            if (exato) escolher(exato);
+            else setAberto(false);
+          }}
+          placeholder="Selecionar ou digitar número do voo"
           placeholderTextColor={colors.mutedForeground}
           autoCapitalize="characters"
           autoCorrect={false}
@@ -95,6 +108,20 @@ export function SeletorSolicitacao({
         {carregando && (
           <ActivityIndicator size="small" color={colors.secondary} />
         )}
+        <Toque
+          accessibilityRole="button"
+          accessibilityLabel={
+            aberto ? "Ocultar solicitações" : "Mostrar solicitações"
+          }
+          onPress={() => setAberto((atual) => !atual)}
+          style={cStyles.expandir}
+        >
+          <Icon
+            name={aberto ? "chevron-up" : "chevron-down"}
+            size={18}
+            color={colors.mutedForeground}
+          />
+        </Toque>
       </View>
       {!!erro && (
         <Text style={[cStyles.msg, { color: colors.destructive }]}>{erro}</Text>
@@ -131,7 +158,7 @@ export function SeletorSolicitacao({
             <Text style={[cStyles.msg, { color: colors.mutedForeground }]}>
               {carregando
                 ? "Carregando solicitações…"
-                : "Nenhuma solicitação encontrada"}
+                : "Nenhuma solicitação encontrada. O número digitado pode ser usado manualmente."}
             </Text>
           )}
         </View>
@@ -145,10 +172,9 @@ export const cStyles = StyleSheet.create({
   caixa: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
     borderRadius: 10,
     borderWidth: 1,
-    paddingHorizontal: 10,
+    paddingLeft: 10,
   },
   input: {
     flex: 1,
@@ -156,6 +182,7 @@ export const cStyles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_400Regular",
   },
+  expandir: { padding: 10 },
   lista: {
     marginTop: 6,
     borderRadius: 10,

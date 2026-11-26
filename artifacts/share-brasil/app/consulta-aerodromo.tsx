@@ -76,7 +76,11 @@ function apresentarCampo(item: Record<string, unknown>, chaves: string[]) {
     .find((valor) => valor != null && valor !== "");
 }
 
-export default function ConsultaAerodromoScreen() {
+export default function ConsultaAerodromoScreen({
+  integrado = false,
+}: {
+  integrado?: boolean;
+} = {}) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ icao?: string | string[] }>();
@@ -252,12 +256,14 @@ export default function ConsultaAerodromoScreen() {
   }, [airport, rawFicha]);
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.root}>
-      <Cabecalho
-        titulo="Consulta aeronáutica"
-        apoio="AISWEB · ROTAER · DECEA"
-        voltar={() => router.back()}
-      />
+    <SafeAreaView edges={integrado ? [] : ["top"]} style={styles.root}>
+      {!integrado && (
+        <Cabecalho
+          titulo="Consulta aeronáutica"
+          apoio="AISWEB · ROTAER · DECEA"
+          voltar={() => router.back()}
+        />
+      )}
       <ScrollView
         contentContainerStyle={[
           styles.content,

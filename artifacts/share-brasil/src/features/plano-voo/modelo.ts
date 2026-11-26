@@ -212,6 +212,39 @@ export const STATUS_CONFIG: Record<
 };
 
 export const hoje = () => new Date().toISOString().split("T")[0];
+export function formatarHoraUtc(valor?: string | null) {
+  const horaSemSeparador = valor?.trim().match(/^(\d{2})(\d{2})Z?$/i);
+  if (horaSemSeparador) {
+    const horas = Number(horaSemSeparador[1]);
+    const minutos = Number(horaSemSeparador[2]);
+    return horas <= 23 && minutos <= 59
+      ? `${horaSemSeparador[1]}:${horaSemSeparador[2]}`
+      : "";
+  }
+
+  const correspondencia = valor?.match(
+    /(?:^|[T\s])(\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?(Z|([+-])(\d{2}):?(\d{2}))?$/i,
+  );
+  if (!correspondencia) return "";
+
+  const horas = Number(correspondencia[1]);
+  const minutos = Number(correspondencia[2]);
+  if (horas > 23 || minutos > 59) return "";
+
+  let totalMinutos = horas * 60 + minutos;
+  if (correspondencia[4]) {
+    const sinal = correspondencia[4] === "+" ? 1 : -1;
+    const horaOffset = Number(correspondencia[5]);
+    const minutoOffset = Number(correspondencia[6]);
+    if (horaOffset > 23 || minutoOffset > 59) return "";
+    totalMinutos -= sinal * (horaOffset * 60 + minutoOffset);
+  }
+  totalMinutos = (totalMinutos + 1440) % 1440;
+
+  return `${String(Math.floor(totalMinutos / 60)).padStart(2, "0")}:${String(
+    totalMinutos % 60,
+  ).padStart(2, "0")}`;
+}
 export const criarFormulario = (): FormularioPlano => ({
   partida: "",
   chegada: "",
@@ -437,7 +470,9 @@ export function paraPlano(r: PlanoRegistro): PlanoVoo {
       f.aeronave ?? contexto?.aeronave?.modelo ?? solicitacao?.modelo ?? "",
     aeronaveId: f.aeronaveId ?? solicitacao?.aeronave_id ?? "",
     matricula,
-    horaPrevista: f.horaPrevista ?? legado.eobt ?? r.eobt ?? "",
+    horaPrevista: formatarHoraUtc(
+      f.horaPrevista ?? legado.eobt ?? r.eobt ?? "",
+    ),
     estimativaVoo: f.estimativaVoo ?? "",
     combustivelPrevisto: f.combustivelPrevisto ?? 0,
     alternates: f.alternates ?? "",

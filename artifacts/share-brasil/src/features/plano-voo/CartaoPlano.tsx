@@ -62,7 +62,10 @@ export function CartaoPlano({
         <View style={pStyles.detail}>
           <Icon name="clock" size={12} color={colors.mutedForeground} />
           <Text style={[pStyles.detailText, { color: colors.mutedForeground }]}>
-            {plano.horaPrevista || "—"} · {plano.estimativaVoo || "—"}h
+            {plano.horaPrevista
+              ? `${plano.horaPrevista} UTC`
+              : "—"}{" "}
+            · {plano.estimativaVoo || "—"}h
           </Text>
         </View>
         <View style={pStyles.detail}>

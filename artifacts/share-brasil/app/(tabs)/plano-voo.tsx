@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CartaoPlano } from "@/src/features/plano-voo/CartaoPlano";
+import { ConsultaClima } from "@/src/features/plano-voo/ConsultaClima";
 import { DetalheVoo } from "@/src/features/plano-voo/DetalheVoo";
 import {
   NovoPlano,
@@ -24,6 +25,7 @@ import {
   paraRegistro,
 } from "@/src/features/plano-voo/modelo";
 import { NovoPlanoModal } from "@/src/features/plano-voo/NovoPlanoModal";
+import ConsultaAerodromo from "../consulta-aerodromo";
 
 export default function PlanoVooScreen() {
   const colors = useColors();
@@ -32,10 +34,16 @@ export default function PlanoVooScreen() {
   const [planos, setPlanos] = useState<PlanoVoo[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
-  const [mostrarNovo, setMostrarNovo] = useState(false);
   const [planoSelecionado, setPlanoSelecionado] = useState<PlanoVoo | null>(
     null,
   );
+  const [abaPrincipal, setAbaPrincipal] = useState<
+    "plano" | "aerodromos" | "clima" | "salvos"
+  >("plano");
+  const [abaPlano, setAbaPlano] = useState<
+    "formulario" | "rota" | "resumo"
+  >("formulario");
+  const [versaoFormulario, setVersaoFormulario] = useState(0);
 
   const carregar = useCallback(async () => {
     setErro("");
@@ -109,14 +117,6 @@ export default function PlanoVooScreen() {
         <View style={styles.headerActions}>
           <Toque
             accessibilityRole="button"
-            accessibilityLabel="Consultar aeródromo, meteorologia, NOTAM e cartas"
-            style={[styles.iconBtn, { backgroundColor: colors.muted }]}
-            onPress={() => router.push("/consulta-aerodromo")}
-          >
-            <Icon name="map" size={18} color={colors.foreground} />
-          </Toque>
-          <Toque
-            accessibilityRole="button"
             accessibilityLabel="Atualizar planos"
             style={[styles.iconBtn, { backgroundColor: colors.muted }]}
             onPress={() => {
@@ -128,75 +128,156 @@ export default function PlanoVooScreen() {
           </Toque>
           <Toque
             accessibilityRole="button"
-            accessibilityLabel="Novo plano de voo"
-            style={[styles.iconBtn, { backgroundColor: colors.primary }]}
+            accessibilityLabel="Criar novo plano de voo"
+            style={[styles.newPlanButton, { backgroundColor: colors.primary }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setMostrarNovo(true);
+              setAbaPrincipal("plano");
+              setAbaPlano("formulario");
+              setVersaoFormulario((versao) => versao + 1);
             }}
           >
-            <Icon name="plus" size={20} color="#FFFFFF" />
+            <Icon name="plus" size={17} color="#FFFFFF" />
+            <Text style={styles.newPlanText}>Novo plano</Text>
           </Toque>
         </View>
       </View>
 
-      {carregando ? (
-        <ActivityIndicator style={{ marginTop: 30 }} color={colors.secondary} />
-      ) : (
-        <FlatList
-          data={ordenados}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <CartaoPlano
-              plano={item}
-              onAbrir={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setPlanoSelecionado(item);
-              }}
-              onExcluir={() => excluirPlano(item.id)}
-              colors={colors}
-            />
-          )}
-          contentContainerStyle={[
-            styles.list,
-            { paddingBottom: 90 + insets.bottom },
-          ]}
-          showsVerticalScrollIndicator={false}
-          ListHeaderComponent={
-            erro ? (
-              <Text style={[styles.erro, { color: colors.destructive }]}>
-                {erro}
+      <View
+        style={[
+          styles.tabs,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        {(
+          [
+            ["plano", "Plano", "airplane"],
+            ["aerodromos", "Aeródromos", "map"],
+            ["clima", "Clima", "cloud"],
+            ["salvos", "Salvos", "save"],
+          ] as const
+        ).map(([id, label, icon]) => {
+          const ativo = abaPrincipal === id;
+          return (
+            <Toque
+              key={id}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: ativo }}
+              onPress={() => setAbaPrincipal(id)}
+              style={[
+                styles.tab,
+                { backgroundColor: ativo ? colors.primary : "transparent" },
+              ]}
+            >
+              <Icon
+                name={icon}
+                size={15}
+                color={ativo ? "#FFFFFF" : colors.mutedForeground}
+              />
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.tabText,
+                  { color: ativo ? "#FFFFFF" : colors.mutedForeground },
+                ]}
+              >
+                {label}
               </Text>
-            ) : undefined
-          }
-          ListEmptyComponent={
-            erro ? undefined : (
-              <View style={styles.empty}>
-                <Icon
-                  name="navigation"
-                  size={40}
-                  color={colors.mutedForeground}
-                />
-                <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-                  Nenhum plano de voo
-                </Text>
-                <Text
-                  style={[styles.emptySub, { color: colors.mutedForeground }]}
-                >
-                  Toque em + para criar o primeiro plano
-                </Text>
-              </View>
-            )
-          }
-        />
-      )}
+            </Toque>
+          );
+        })}
+      </View>
 
-      <NovoPlanoModal
-        visivel={mostrarNovo}
-        onFechar={() => setMostrarNovo(false)}
-        onSalvar={salvarPlano}
-        colors={colors}
-      />
+      <View
+        style={[styles.tabContent, abaPrincipal !== "plano" && styles.hidden]}
+      >
+        <NovoPlanoModal
+          key={versaoFormulario}
+          visivel={abaPrincipal === "plano"}
+          inline
+          aba={abaPlano}
+          onAbaChange={setAbaPlano}
+          onFechar={() => setAbaPrincipal("salvos")}
+          onSalvar={salvarPlano}
+          colors={colors}
+        />
+      </View>
+
+      <View
+        style={[
+          styles.tabContent,
+          abaPrincipal !== "aerodromos" && styles.hidden,
+        ]}
+      >
+        <ConsultaAerodromo integrado />
+      </View>
+
+      <View
+        style={[styles.tabContent, abaPrincipal !== "clima" && styles.hidden]}
+      >
+        <ConsultaClima colors={colors} />
+      </View>
+
+      <View
+        style={[styles.tabContent, abaPrincipal !== "salvos" && styles.hidden]}
+      >
+        {carregando ? (
+          <ActivityIndicator
+            style={{ marginTop: 30 }}
+            color={colors.secondary}
+          />
+        ) : (
+          <FlatList
+            data={ordenados}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <CartaoPlano
+                plano={item}
+                onAbrir={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setPlanoSelecionado(item);
+                }}
+                onExcluir={() => excluirPlano(item.id)}
+                colors={colors}
+              />
+            )}
+            contentContainerStyle={[
+              styles.list,
+              { paddingBottom: 90 + insets.bottom },
+            ]}
+            showsVerticalScrollIndicator={false}
+            ListHeaderComponent={
+              erro ? (
+                <Text style={[styles.erro, { color: colors.destructive }]}>
+                  {erro}
+                </Text>
+              ) : undefined
+            }
+            ListEmptyComponent={
+              erro ? undefined : (
+                <View style={styles.empty}>
+                  <Icon
+                    name="navigation"
+                    size={40}
+                    color={colors.mutedForeground}
+                  />
+                  <Text
+                    style={[styles.emptyTitle, { color: colors.foreground }]}
+                  >
+                    Nenhum plano de voo
+                  </Text>
+                  <Text
+                    style={[styles.emptySub, { color: colors.mutedForeground }]}
+                  >
+                    Toque em Novo plano para criar o primeiro
+                  </Text>
+                </View>
+              )
+            }
+          />
+        )}
+      </View>
+
       <DetalheVoo
         plano={planoSelecionado}
         visivel={!!planoSelecionado}
@@ -249,6 +330,38 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  newPlanButton: {
+    minHeight: 38,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+  },
+  newPlanText: { color: "#FFFFFF", fontSize: 12, fontFamily: "Inter_700Bold" },
+  tabs: {
+    flexDirection: "row",
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 4,
+    marginHorizontal: 12,
+    marginTop: 10,
+    marginBottom: 6,
+    gap: 4,
+  },
+  tab: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 42,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+  },
+  tabText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
+  tabContent: { flex: 1 },
+  hidden: { display: "none" },
   list: { padding: 16 },
   erro: { padding: 12, fontSize: 13, fontFamily: "Inter_400Regular" },
   empty: { alignItems: "center", paddingTop: 60, gap: 8 },
