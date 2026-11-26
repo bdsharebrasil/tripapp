@@ -1,0 +1,129 @@
+/*
+ * Native checkbox and radio skins: the inputs stay real <input>s with
+ * appearance: none, so keyboard, forms, :checked and :indeterminate keep their native behavior.
+ * Select 180 ms ease-out (box fills, tick draws, dot scales in); clear 120 ms ease-in. Durations
+ * mirror ./timing.ts. Transitions live only inside prefers-reduced-motion: no-preference, so
+ * reduced motion has none at all (state changes at once).
+ */
+.mk-choice {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+}
+
+.mk-choice > input {
+  grid-area: 1 / 1;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  appearance: none;
+  border: 1.5px solid var(--mk-control-border);
+  background: var(--mk-surface);
+  cursor: pointer;
+  outline-offset: 2px;
+}
+
+.mk-choice > input:hover:not(:checked, :indeterminate, :disabled) {
+  border-color: var(--mk-text-muted);
+}
+
+.mk-choice > input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.mk-choice > svg,
+.mk-choice > .mk-dot {
+  grid-area: 1 / 1;
+  pointer-events: none;
+}
+
+/* Checkbox */
+.mk-checkbox > input {
+  border-radius: 5px;
+}
+
+.mk-checkbox > input:checked,
+.mk-checkbox > input:indeterminate {
+  border-color: var(--mk-accent);
+  background: var(--mk-accent);
+}
+
+.mk-checkbox > svg {
+  width: 14px;
+  height: 14px;
+  color: var(--mk-accent-fg);
+}
+
+.mk-tick {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+
+.mk-checkbox > input:checked:not(:indeterminate) + svg .mk-tick {
+  stroke-dashoffset: 0;
+}
+
+.mk-dash {
+  transform: scaleX(0);
+  transform-origin: center;
+}
+
+.mk-checkbox > input:indeterminate + svg .mk-dash {
+  transform: scaleX(1);
+}
+
+/* Radio */
+.mk-radio > input {
+  border-radius: 50%;
+}
+
+.mk-radio > input:checked {
+  border-color: var(--mk-accent);
+}
+
+.mk-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mk-accent);
+  transform: scale(0);
+}
+
+.mk-radio > input:checked + .mk-dot {
+  transform: scale(1);
+}
+
+/* Motion: clearing (the default) uses the exit curve, selecting overrides it with the enter curve. */
+@media (prefers-reduced-motion: no-preference) {
+  .mk-choice > input {
+    transition:
+      background-color 120ms var(--mk-ease-in),
+      border-color 120ms var(--mk-ease-in);
+  }
+
+  .mk-tick {
+    transition: stroke-dashoffset 120ms var(--mk-ease-in);
+  }
+
+  .mk-dash {
+    transition: transform 120ms var(--mk-ease-in);
+  }
+
+  .mk-dot {
+    transition: transform 120ms var(--mk-ease-in);
+  }
+
+  .mk-checkbox > input:checked,
+  .mk-checkbox > input:indeterminate,
+  .mk-radio > input:checked,
+  .mk-checkbox > input:checked:not(:indeterminate) + svg .mk-tick,
+  .mk-checkbox > input:indeterminate + svg .mk-dash,
+  .mk-radio > input:checked + .mk-dot {
+    transition-duration: 180ms;
+    transition-timing-function: var(--mk-ease-out);
+  }
+}

@@ -82,6 +82,7 @@ export default function PreparacaoVoo() {
     [loading, setLoading] = useState(true),
     [error, setError] = useState("");
   const [tab, setTab] = useState<"aeronave" | "tripulacao">("aeronave");
+  const [openSection, setOpenSection] = useState("");
   const [dirty, setDirty] = useState(false);
   const [openingPdf, setOpeningPdf] = useState(false);
   const base = `/api/interno/agendamento/${encodeURIComponent(id || "")}/preparacao`;
@@ -200,11 +201,16 @@ export default function PreparacaoVoo() {
     () => (snapshot?.secoes || []).filter((s) => s.segmento === tab),
     [snapshot?.secoes, tab],
   );
+  useEffect(() => {
+    if (sections.length && !openSection) setOpenSection(sections[0].id);
+  }, [sections, openSection]);
   const statePicker = (value: Estado, change: (v: Estado) => void) => (
     <View style={styles.states}>
-      {states.map((s) => (
+      {states.filter((s) => s.id !== "PENDENTE").map((s) => (
         <Toque
           key={s.id}
+          accessibilityRole="button"
+          accessibilityState={{ selected: value === s.id, disabled: readonly }}
           disabled={readonly}
           onPress={() => change(s.id)}
           style={[styles.state, value === s.id && styles.stateActive]}
@@ -288,7 +294,10 @@ export default function PreparacaoVoo() {
               {(["aeronave", "tripulacao"] as const).map((t) => (
                 <Toque
                   key={t}
-                  onPress={() => setTab(t)}
+                  onPress={() => {
+                    setTab(t);
+                    setOpenSection("");
+                  }}
                   style={[styles.tab, tab === t && styles.tabActive]}
                 >
                   <Icon
@@ -302,29 +311,71 @@ export default function PreparacaoVoo() {
                 </Toque>
               ))}
             </View>
-            {sections.map((sec) => (
-              <View key={sec.id}>
-                <Text style={styles.section}>{sec.titulo}</Text>
-                {sec.itens.map((item) => (
-                  <View key={item.id} style={styles.card}>
-                    <Text style={styles.itemTitle}>{item.label}</Text>
-                    {statePicker(
-                      draft.itens[item.id]?.estado || "PENDENTE",
-                      (v) => setItem(item.id, { estado: v }),
-                    )}
-                    <TextInput
-                      editable={!readonly}
-                      placeholder="Observação (opcional)"
-                      placeholderTextColor={muted}
-                      multiline
-                      value={draft.itens[item.id]?.observacao || ""}
-                      onChangeText={(v) => setItem(item.id, { observacao: v })}
-                      style={styles.input}
-                    />
-                  </View>
-                ))}
-              </View>
-            ))}
+            {sections.map((sec) => {
+              const respostas = sec.itens.map((item) =>
+                draft.itens[item.id]?.estado || "PENDENTE",
+              );
+              const concluidos = respostas.filter(
+                (estado) => estado === "CONCLUIDO" || estado === "NAO_APLICAVEL",
+              ).length;
+              const isOpen = openSection === sec.id;
+              return (
+                <View key={sec.id} style={styles.stage}>
+                  <Toque
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: isOpen }}
+                    onPress={() => setOpenSection(isOpen ? "" : sec.id)}
+                    style={styles.stageHeader}
+                  >
+                    <View style={styles.stageProgress}>
+                      <Text style={styles.stageCount}>{concluidos}/{sec.itens.length}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.stageTitle}>{sec.titulo}</Text>
+                      <Text style={styles.stageSubtitle}>
+                        {concluidos === sec.itens.length ? "Etapa concluída" : `${sec.itens.length - concluidos} pendências nesta etapa`}
+                      </Text>
+                    </View>
+                    <Icon name={isOpen ? "chevron-up" : "chevron-down"} size={19} color={muted} />
+                  </Toque>
+                  {isOpen ? sec.itens.map((item) => {
+                    const estado = draft.itens[item.id]?.estado || "PENDENTE";
+                    const concluido = estado === "CONCLUIDO" || estado === "NAO_APLICAVEL";
+                    return (
+                      <View key={item.id} style={styles.checkItem}>
+                        <Toque
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: concluido, disabled: readonly }}
+                          disabled={readonly}
+                          onPress={() => setItem(item.id, {
+                            estado: concluido ? "PENDENTE" : "CONCLUIDO",
+                          })}
+                          style={styles.checkRow}
+                        >
+                          <View style={[styles.nativeCheck, concluido && styles.nativeCheckActive]}>
+                            {concluido ? <Icon name="check" size={16} color="#fff" /> : null}
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.itemTitle, concluido && styles.itemTitleDone]}>{item.label}</Text>
+                            <Text style={styles.itemStatus}>{states.find((s) => s.id === estado)?.label}</Text>
+                          </View>
+                        </Toque>
+                        {statePicker(estado, (v) => setItem(item.id, { estado: v }))}
+                        <TextInput
+                          editable={!readonly}
+                          placeholder="Observação (opcional)"
+                          placeholderTextColor={muted}
+                          multiline
+                          value={draft.itens[item.id]?.observacao || ""}
+                          onChangeText={(v) => setItem(item.id, { observacao: v })}
+                          style={styles.input}
+                        />
+                      </View>
+                    );
+                  }) : null}
+                </View>
+              );
+            })}
             {tab === "aeronave" ? (
               <View style={styles.card}>
                 <Text style={styles.itemTitle}>Nível de óleo</Text>
@@ -502,6 +553,50 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 12,
   },
+  stage: {
+    backgroundColor: panel,
+    borderRadius: 16,
+    marginTop: 12,
+    overflow: "hidden",
+  },
+  stageHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+  },
+  stageProgress: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: accent,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stageCount: { color: "#fff", fontSize: 12, fontWeight: "900" },
+  stageTitle: { color: "#fff", fontSize: 15, fontWeight: "800" },
+  stageSubtitle: { color: muted, fontSize: 11, marginTop: 4 },
+  checkItem: {
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 14,
+    borderTopWidth: 1,
+    borderTopColor: line,
+  },
+  checkRow: { flexDirection: "row", alignItems: "center", gap: 11 },
+  nativeCheck: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: line,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nativeCheckActive: { backgroundColor: "#248b70", borderColor: "#248b70" },
+  itemTitleDone: { color: muted },
+  itemStatus: { color: accent, fontSize: 11, marginTop: 3 },
   itemTitle: {
     color: "#fff",
     fontSize: 15,

@@ -30,6 +30,7 @@ type Voo = {
   horario_previsto_agendamento?: string;
   matricula_registro?: string;
   status?: string;
+  pagamento_total?: number;
 };
 
 type Periodo = "hoje" | "semana" | "escala";
@@ -53,14 +54,14 @@ const ATALHOS: {
   {
     rotulo: "Relatórios",
     icone: "file-text",
-    path: "/relatorio-voo",
+    path: "/relatorio-viagem",
     cor: "#A78BFA",
     corSuave: "rgba(167, 139, 250, 0.16)",
   },
   {
     rotulo: "Financeiro",
     icone: "receipt",
-    path: "/(tabs)/despesa-viagem",
+    path: "/(tabs)/financeiro",
     cor: "#6FCF97",
     corSuave: "rgba(111, 207, 151, 0.16)",
   },
@@ -369,20 +370,26 @@ export default function HomeScreen() {
               <View style={s.heroAcoes}>
                 <Toque
                   accessibilityRole="button"
-                  accessibilityLabel="Plano de voo"
+                  accessibilityLabel="Abrir plano de voo"
                   onPress={() => router.push("/(tabs)/plano-voo")}
-                  style={s.botaoPrimario}
+                  style={s.botaoPlano}
                 >
-                  <Icon name="navigation" size={18} color="#FFFFFF" />
-                  <Text style={s.botaoPrimarioTexto}>Plano de voo</Text>
+                  <Icon name="navigation" size={16} color={tema.texto} />
+                  <Text style={s.botaoPlanoTexto}>Plano de voo</Text>
                 </Toque>
                 <Toque
                   accessibilityRole="button"
-                  accessibilityLabel="Diário de bordo"
-                  onPress={() => router.push("/diario-bordo")}
-                  style={s.botaoDiario}
+                  accessibilityLabel={`Ver detalhes do voo ${proximo.numero_voo || ""}`}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(tabs)/agenda",
+                      params: { vooId: proximo.id },
+                    })
+                  }
+                  style={s.botaoDetalhes}
                 >
-                  <Icon name="book-open" size={20} color={tema.fundo} />
+                  <Text style={s.botaoDetalhesTexto}>Ver detalhes</Text>
+                  <Icon name="chevron-right" size={18} color="#FFFFFF" />
                 </Toque>
               </View>
             </View>
@@ -678,28 +685,38 @@ const s = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
   },
-  botaoPrimario: {
+  botaoPlano: {
+    height: 46,
+    maxWidth: 142,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: tema.superficie,
+    borderWidth: 1,
+    borderColor: tema.borda,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+  botaoPlanoTexto: {
+    color: tema.texto,
+    fontFamily: "Inter_700Bold",
+    fontSize: 13,
+  },
+  botaoDetalhes: {
     flex: 1,
-    height: 52,
-    borderRadius: 16,
+    height: 46,
+    borderRadius: 14,
     backgroundColor: tema.azul,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
+    gap: 8,
   },
-  botaoPrimarioTexto: {
+  botaoDetalhesTexto: {
     color: "#FFFFFF",
     fontFamily: "Inter_700Bold",
-    fontSize: 16,
-  },
-  botaoDiario: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
+    fontSize: 14,
   },
   secaoLinha: {
     flexDirection: "row",

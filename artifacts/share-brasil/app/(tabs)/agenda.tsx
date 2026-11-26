@@ -46,6 +46,10 @@ type Flight = {
   matricula_registro?: string;
   modelo?: string;
   status?: string;
+  solicitacao_id?: string;
+  aeronave_id?: string;
+  cliente_id?: string;
+  socio_id?: string;
 };
 
 type Leg = {
@@ -769,6 +773,34 @@ export default function AgendaScreen() {
                 </View>
               )}
 
+              <View style={{ height: 10 }} />
+              <Toque
+                accessibilityRole="button"
+                accessibilityLabel="Criar nova perna nesta solicitação"
+                onPress={() => {
+                  const jornada = detail.jornadas[0];
+                  const ultimaPerna = jornada?.pernas?.[jornada.pernas.length - 1];
+                  router.push({
+                    pathname: "/criar-agendamento",
+                    params: {
+                      vooId: detail.voo.id,
+                      solicitacaoId: detail.voo.solicitacao_id || detail.voo.id,
+                      jornadaId: jornada?.id || "",
+                      aeronaveId: detail.voo.aeronave_id || "",
+                      clienteId: detail.voo.cliente_id || "",
+                      socioId: detail.voo.socio_id || "",
+                      origem: ultimaPerna?.destino || detail.voo.destino || "",
+                      destino: "",
+                      data: detail.voo.data_agendada?.slice(0, 10) || today(),
+                    },
+                  });
+                }}
+                style={[s.action, { backgroundColor: CORES.azul, borderColor: CORES.azul, marginBottom: 14 }]}
+              >
+                <Icon name="plus-circle" size={18} color="#fff" />
+                <Text style={[s.actionText, { color: "#FFFFFF" }]}>Nova perna nesta solicitação</Text>
+              </Toque>
+
               <Text style={s.section}>HORÁRIOS · UTC</Text>
               {detail.jornadas.length ? (
                 detail.jornadas.map((j) => (
@@ -835,18 +867,6 @@ export default function AgendaScreen() {
             </>
           )}
         </ScrollView>
-      )}
-
-      {!detail && !editing && (
-        <Toque
-          accessibilityRole="button"
-          accessibilityLabel="Criar agendamento"
-          onPress={() => router.push("/criar-agendamento")}
-          style={[s.fab, { bottom: Math.max(insets.bottom, 12) + 84 }]}
-        >
-          <Text style={s.fabPlus}>+</Text>
-          <Text style={s.fabText}>Criar agendamento</Text>
-        </Toque>
       )}
 
       <Modal

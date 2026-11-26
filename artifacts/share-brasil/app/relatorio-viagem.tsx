@@ -12,6 +12,7 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -134,20 +135,37 @@ export default function RelatorioViagemScreen() {
   const [section, setSection] = useState<"lancamentos" | "historico">(
     "lancamentos",
   );
+  const [reportFilter, setReportFilter] = useState<"todos" | "rascunho" | "aprovacao" | "aprovado">("todos");
   const [items, setItems] = useState<Expense[]>([]);
   const [dirty, setDirty] = useState(false);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  const [expenseSheetId, setExpenseSheetId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
   const selected = reports.find((r) => reportId(r) === selectedId);
+  const sheetItem = items.find((item) => item.id === expenseSheetId);
+  const sheetIndex = items.findIndex((item) => item.id === expenseSheetId);
   const editable = isEditable(selected);
   const total = useMemo(
     () => items.reduce((v, x) => v + Number(x.valor || 0), 0),
     [items],
   );
+  const reportStats = useMemo(() => {
+    const rascunhos = reports.filter(isEditable).length;
+    const aprovacao = reports.filter((r) => ["aguardando_aprovacao", "ajuste_concluido"].includes(reportStatus(r))).length;
+    const aprovados = reports.filter((r) => reportStatus(r) === "aprovado").length;
+    const totalGeral = reports.reduce((sum, r) => sum + Number(r.total_valor ?? arr(r.despesas).reduce((v, x) => v + Number(x.valor || 0), 0)), 0);
+    return { rascunhos, aprovacao, aprovados, totalGeral };
+  }, [reports]);
+  const filteredReports = useMemo(() => {
+    if (reportFilter === "rascunho") return reports.filter(isEditable);
+    if (reportFilter === "aprovacao") return reports.filter((r) => ["aguardando_aprovacao", "ajuste_concluido"].includes(reportStatus(r)));
+    if (reportFilter === "aprovado") return reports.filter((r) => reportStatus(r) === "aprovado");
+    return reports;
+  }, [reports, reportFilter]);
   const ownPayer =
     Number(selected?.tripulante_pos) === 2 ? "tripulante_2" : "tripulante_1";
   const hasSecondCrew = Boolean(selected?.tripulante_id_2);
@@ -263,7 +281,8 @@ export default function RelatorioViagemScreen() {
   const add = () => {
     if (!selected || !editable) return;
     const id = randomUUID();
-    setExpandedItem(id);
+    setExpandedItem(null);
+    setExpenseSheetId(id);
     setItems((prev) => [
       ...prev,
       {
@@ -598,6 +617,21 @@ export default function RelatorioViagemScreen() {
                   </Toque>
                 ))}
               </View>
+              <View style={styles.reportStats}>
+                <View style={styles.reportStatItem}><Text style={styles.reportStatValue}>{reports.length}</Text><Text style={styles.reportStatLabel}>Relatórios</Text></View>
+                <View style={styles.reportStatDivider} /><View style={styles.reportStatItem}><Text style={[styles.reportStatValue, { color: tema.destaque }]}>{reportStats.rascunhos}</Text><Text style={styles.reportStatLabel}>Rascunhos</Text></View>
+                <View style={styles.reportStatDivider} /><View style={styles.reportStatItem}><Text style={[styles.reportStatValue, { color: "#7aa7ff" }]}>{reportStats.aprovacao}</Text><Text style={styles.reportStatLabel}>Em análise</Text></View>
+                <View style={styles.reportStatDivider} /><View style={styles.reportStatItem}><Text style={[styles.reportStatValue, { color: tema.verde }]}>{reportStats.aprovados}</Text><Text style={styles.reportStatLabel}>Aprovados</Text></View>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reportFilters}>
+                {([
+                  ["todos", "Todos"], ["rascunho", "Rascunhos"], ["aprovacao", "Em análise"], ["aprovado", "Aprovados"],
+                ] as const).map(([key, label]) => (
+                  <Toque key={key} onPress={() => setReportFilter(key)} style={[styles.reportFilter, reportFilter === key && styles.reportFilterActive]}>
+                    <Text style={[styles.reportFilterText, reportFilter === key && styles.reportFilterTextActive]}>{label}</Text>
+                  </Toque>
+                ))}
+              </ScrollView>
               {section === "lancamentos" ? (
                 <>
                   <Text style={styles.sectionTitle}>
@@ -688,8 +722,8 @@ export default function RelatorioViagemScreen() {
                   <Text style={styles.sectionTitle}>
                     MEUS RELATÓRIOS · {reports.length}
                   </Text>
-                  {reports.map(showReport)}
-                  {!reports.length && (
+                  {filteredReports.map(showReport)}
+                  {!filteredReports.length && (
                     <Text style={styles.muted}>
                       Não há relatórios registrados.
                     </Text>
@@ -699,39 +733,6 @@ export default function RelatorioViagemScreen() {
             </>
           ) : (
             <>
-              <View style={styles.steps}>
-                {["Voo vinculado", "Despesas", "Finalização"].map(
-                  (step, index) => (
-                    <View key={step} style={styles.step}>
-                      <View
-                        style={[
-                          styles.stepNumber,
-                          (index === 0 ||
-                            (index === 1 && editable) ||
-                            (index === 2 && !editable)) &&
-                            styles.stepCurrent,
-                        ]}
-                      >
-                        <Text
-                          style={{
-                            fontSize: 10,
-                            fontWeight: "800",
-                            color:
-                              index === 0 ||
-                              (index === 1 && editable) ||
-                              (index === 2 && !editable)
-                                ? tema.fundo
-                                : tema.suave,
-                          }}
-                        >
-                          {index + 1}
-                        </Text>
-                      </View>
-                      <Text style={styles.stepLabel}>{step}</Text>
-                    </View>
-                  ),
-                )}
-              </View>
               <View style={styles.summaryCard}>
                 <Text style={styles.eyebrow}>
                   {selected.numero_relatorio || "RELATÓRIO DE VIAGEM"}
@@ -798,9 +799,7 @@ export default function RelatorioViagemScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`Despesa ${i + 1}: ${item.categoria}`}
                     accessibilityState={{ expanded: expandedItem === item.id }}
-                    onPress={() =>
-                      setExpandedItem((v) => (v === item.id ? null : item.id))
-                    }
+                    onPress={() => setExpenseSheetId(item.id)}
                     style={styles.expenseSummary}
                   >
                     <View style={styles.expenseIcon}>
@@ -1086,6 +1085,129 @@ export default function RelatorioViagemScreen() {
           )}
         </ScrollView>
       )}
+      <Modal
+        transparent
+        animationType="slide"
+        visible={Boolean(sheetItem)}
+        onRequestClose={() => setExpenseSheetId(null)}
+      >
+        {sheetItem && sheetIndex >= 0 ? (
+          <View style={styles.sheetBackdrop}>
+            <View style={[styles.expenseSheet, { paddingBottom: Math.max(insets.bottom, 18) }]}>
+              <View style={styles.sheetHandle} />
+              <View style={styles.sheetHeader}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.sheetKicker}>DESPESA {sheetIndex + 1}</Text>
+                  <Text style={styles.sheetTitle}>{sheetItem.categoria}</Text>
+                </View>
+                <Toque
+                  accessibilityRole="button"
+                  accessibilityLabel="Fechar formulário da despesa"
+                  onPress={() => setExpenseSheetId(null)}
+                  style={styles.sheetClose}
+                >
+                  <Icon name="x" size={20} color={tema.texto} />
+                </Toque>
+              </View>
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.sheetContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <Text style={styles.sheetLabel}>Categoria</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+                  {CATEGORIES.map((cat) => (
+                    <Toque
+                      key={cat}
+                      disabled={!editable}
+                      onPress={() => update(sheetIndex, { categoria: cat })}
+                      style={[styles.chip, sheetItem.categoria === cat && styles.chipActive]}
+                    >
+                      <Text style={{ color: sheetItem.categoria === cat ? tema.fundo : tema.suave, fontSize: 12, fontWeight: "700" }}>{cat}</Text>
+                    </Toque>
+                  ))}
+                </ScrollView>
+                <View style={styles.two}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.sheetLabel}>Data</Text>
+                    <TextInput editable={editable} style={styles.input} value={sheetItem.data} onChangeText={(v) => update(sheetIndex, { data: v })} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.sheetLabel}>Valor (R$)</Text>
+                    <TextInput
+                      editable={editable}
+                      style={styles.input}
+                      keyboardType="decimal-pad"
+                      value={sheetItem.valorTexto ?? (sheetItem.valor ? String(sheetItem.valor).replace(".", ",") : "")}
+                      onChangeText={(v) => update(sheetIndex, { valorTexto: v, valor: valorDespesa(v) })}
+                      placeholder="0,00"
+                      placeholderTextColor={tema.suave}
+                    />
+                  </View>
+                </View>
+                <Text style={styles.sheetLabel}>Pago por</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+                  {PAYERS.filter(([id]) => id !== "tripulante_2" || hasSecondCrew).map(([id, name]) => (
+                    <Toque key={id} disabled={!editable} onPress={() => update(sheetIndex, { pago_por: id })} style={[styles.chip, sheetItem.pago_por === id && styles.chipActive]}>
+                      <Text style={{ color: sheetItem.pago_por === id ? tema.fundo : tema.suave, fontSize: 12, fontWeight: "700" }}>{name}</Text>
+                    </Toque>
+                  ))}
+                </ScrollView>
+                <Text style={styles.sheetLabel}>Descrição</Text>
+                <TextInput
+                  editable={editable}
+                  maxLength={500}
+                  multiline
+                  style={[styles.input, { minHeight: 82, textAlignVertical: "top" }]}
+                  value={sheetItem.descricao}
+                  onChangeText={(v) => update(sheetIndex, { descricao: v })}
+                  placeholder="Ex.: refeição da tripulação"
+                  placeholderTextColor={tema.suave}
+                />
+                <Text style={styles.sectionTitle}>COMPROVANTES · {sheetItem.anexos.length}</Text>
+                {sheetItem.anexos.map((a) => (
+                  <View key={a.id} style={styles.proofRow}>
+                    <Icon name="paperclip" size={17} color={tema.azul} />
+                    <Toque accessibilityRole="button" style={{ flex: 1 }} disabled={!!busy} onPress={() => void viewProof(a)}>
+                      <Text style={styles.link} numberOfLines={2}>{a.nome_arquivo || "Abrir comprovante"}</Text>
+                    </Toque>
+                    {editable && <Toque onPress={() => removeProof(a)}><Icon name="x-circle" size={19} color="#fb8d8d" /></Toque>}
+                  </View>
+                ))}
+                {editable && (
+                  <View style={styles.attachActions}>
+                    <Toque disabled={!!busy} onPress={() => void upload(sheetIndex, "camera")} style={styles.attach}><Icon name="camera" size={17} color={tema.azul} /><Text style={styles.link}>Câmera</Text></Toque>
+                    <Toque disabled={!!busy} onPress={() => void upload(sheetIndex, "foto")} style={styles.attach}><Icon name="image" size={17} color={tema.azul} /><Text style={styles.link}>Fotos</Text></Toque>
+                    <Toque disabled={!!busy} onPress={() => void upload(sheetIndex, "arquivo")} style={styles.attach}><Icon name="file" size={17} color={tema.azul} /><Text style={styles.link}>Arquivo</Text></Toque>
+                  </View>
+                )}
+              </ScrollView>
+              <View style={styles.sheetFooter}>
+                {editable && (
+                  <Toque
+                    accessibilityRole="button"
+                    onPress={() => confirmar("Remover despesa?", "A remoção será aplicada ao salvar o relatório.", () => {
+                      setItems((prev) => prev.filter((_, i) => i !== sheetIndex));
+                      setDirty(true);
+                      setExpenseSheetId(null);
+                    }, true)}
+                    style={styles.sheetDelete}
+                  >
+                    <Icon name="trash-2" size={18} color={tema.perigo} />
+                  </Toque>
+                )}
+                <Toque
+                  accessibilityRole="button"
+                  onPress={() => setExpenseSheetId(null)}
+                  style={[styles.primary, styles.sheetDone]}
+                >
+                  <Text style={styles.primaryText}>Concluir edição</Text>
+                </Toque>
+              </View>
+            </View>
+          </View>
+        ) : null}
+      </Modal>
       {selected && editable && !loading && (
         <View
           style={[styles.saveBar, { bottom: Math.max(insets.bottom, 10) + 82 }]}
@@ -1114,6 +1236,65 @@ export default function RelatorioViagemScreen() {
 }
 
 const styles = StyleSheet.create({
+  sheetBackdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(3, 7, 18, 0.72)",
+  },
+  expenseSheet: {
+    maxHeight: "92%",
+    backgroundColor: tema.superficie,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: tema.borda,
+    overflow: "hidden",
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 42,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: tema.borda,
+    marginTop: 8,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
+  },
+  sheetKicker: { color: tema.azul, fontSize: 10, fontWeight: "800", letterSpacing: 1.2 },
+  sheetTitle: { color: tema.texto, fontSize: 20, fontWeight: "800", marginTop: 3 },
+  sheetClose: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: tema.fundo,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheetContent: { paddingHorizontal: 16, paddingBottom: 12 },
+  sheetLabel: { color: tema.suave, fontSize: 12, fontWeight: "700", marginTop: 12, marginBottom: 7 },
+  sheetFooter: {
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: tema.borda,
+  },
+  sheetDelete: {
+    width: 50,
+    height: 50,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: tema.borda,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheetDone: { flex: 1, minHeight: 50 },
   saveBar: {
     position: "absolute",
     left: 16,
@@ -1148,7 +1329,7 @@ const styles = StyleSheet.create({
   },
   stepCurrent: { backgroundColor: tema.azul },
   stepLabel: { fontSize: 10, color: tema.suave },
-  expenseSummary: { flexDirection: "row", alignItems: "center", gap: 12 },
+  expenseSummary: { flexDirection: "row", alignItems: "center", gap: 12, minWidth: 0 },
   expenseIcon: {
     width: 42,
     height: 46,
@@ -1217,6 +1398,32 @@ const styles = StyleSheet.create({
     marginTop: 21,
     marginBottom: 11,
   },
+  reportStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: tema.superficie,
+    borderRadius: 16,
+    paddingVertical: 12,
+    marginBottom: 10,
+  },
+  reportStatItem: { flex: 1, alignItems: "center" },
+  reportStatValue: { color: "#fff", fontSize: 20, fontWeight: "800" },
+  reportStatLabel: { color: tema.suave, fontSize: 10, marginTop: 3 },
+  reportStatDivider: { width: 1, height: 34, backgroundColor: tema.borda },
+  reportFilters: { gap: 8, paddingVertical: 4, marginBottom: 4 },
+  reportFilter: {
+    minHeight: 34,
+    paddingHorizontal: 13,
+    borderRadius: 17,
+    backgroundColor: tema.superficie,
+    borderWidth: 1,
+    borderColor: tema.borda,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reportFilterActive: { backgroundColor: tema.azul, borderColor: tema.azul },
+  reportFilterText: { color: tema.suave, fontSize: 12, fontWeight: "700" },
+  reportFilterTextActive: { color: "#fff" },
   reportCard: {
     backgroundColor: tema.superficie,
     borderRadius: 19,

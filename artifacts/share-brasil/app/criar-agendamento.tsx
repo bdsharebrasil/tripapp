@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import { ActivityIndicator, ScrollView, Text } from "react-native";
 import { CampoTexto, Escolha } from "@/src/components/CamposOperacao";
@@ -29,6 +29,17 @@ type Opcoes = {
 
 export default function CriarAgendamento() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    vooId?: string;
+    solicitacaoId?: string;
+    jornadaId?: string;
+    aeronaveId?: string;
+    clienteId?: string;
+    socioId?: string;
+    origem?: string;
+    destino?: string;
+    data?: string;
+  }>();
   const lista = useQuery({
     queryKey: ["opcoes-agendamento"],
     queryFn: () => apiFetch<Opcoes>("/api/interno/agendamento/opcoes"),
@@ -37,11 +48,18 @@ export default function CriarAgendamento() {
     queryKey: ["perfil-agendamento"],
     queryFn: () => apiFetch<PerfilCompleto>("/api/colaborador/perfil"),
   });
-  const [aeronave, setAeronave] = useState(""),
-    [titular, setTitular] = useState("");
-  const [origem, setOrigem] = useState(""),
-    [destino, setDestino] = useState("");
-  const [data, setData] = useState(hoje),
+  const modoSolicitacao = Boolean(params.solicitacaoId);
+  const [aeronave, setAeronave] = useState(params.aeronaveId || ""),
+    [titular, setTitular] = useState(
+      params.clienteId
+        ? `cliente:${params.clienteId}`
+        : params.socioId
+          ? `socio:${params.socioId}`
+          : "",
+    );
+  const [origem, setOrigem] = useState(params.origem || ""),
+    [destino, setDestino] = useState(params.destino || "");
+  const [data, setData] = useState(params.data || hoje),
     [hora, setHora] = useState("");
   const [funcao, setFuncao] = useState("piloto_id");
   const [salvando, setSalvando] = useState(false),
@@ -63,27 +81,37 @@ export default function CriarAgendamento() {
   const salvar = async () => {
     if (salvando) return;
     if (
-      !aeronave ||
-      !titular ||
+      (!modoSolicitacao && (!aeronave || !titular)) ||
       !origem.trim() ||
       !destino.trim() ||
       !dataValida(data) ||
       (hora && !horaValida(hora))
     ) {
       setErro(
-        "Selecione a aeronave e o titular e confira a rota, a data e o horário.",
+        modoSolicitacao
+          ? "Confira a rota, a data e o horário da nova perna."
+          : "Selecione a aeronave e o titular e confira a rota, a data e o horário.",
       );
       return;
     }
     setSalvando(true);
     setErro("");
     try {
-      const [tipo, id] = titular.split(":");
+      const titularSeparado = titular.includes(":") ? titular.split(":") : [];
+      const tipo = titularSeparado[0];
+      const id = titularSeparado[1];
       await apiFetch("/api/interno/agendamento", {
         method: "POST",
         body: JSON.stringify({
+          ...(modoSolicitacao
+            ? {
+                solicitacao_id: params.solicitacaoId,
+                voo_id: params.vooId,
+                jornada_id: params.jornadaId,
+              }
+            : {}),
           aeronave_id: aeronave,
-          [tipo + "_id"]: id,
+          ...(tipo && id ? { [tipo + "_id"]: id } : {}),
           origem: origem.trim(),
           destino: destino.trim(),
           data_agendada: data,
@@ -92,7 +120,12 @@ export default function CriarAgendamento() {
         }),
       });
       router.back();
-      avisar("Agendamento criado", "O agendamento aguarda aprovação.");
+      avisar(
+        modoSolicitacao ? "Nova perna criada" : "Agendamento criado",
+        modoSolicitacao
+          ? "A perna foi vinculada à solicitação existente e aguarda atualização da agenda."
+          : "O agendamento aguarda aprovação.",
+      );
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Falha ao criar o agendamento.");
     } finally {
@@ -102,8 +135,8 @@ export default function CriarAgendamento() {
   return (
     <Tela>
       <Cabecalho
-        titulo="Criar agendamento"
-        apoio="Meus voos"
+        titulo={modoSolicitacao ? "Nova perna" : "Criar agendamento"}
+        apoio={modoSolicitacao ? "SOLICITAÇÃO EXISTENTE" : "Meus voos"}
         voltar={() => router.back()}
       />
       <ScrollView
@@ -122,7 +155,7 @@ export default function CriarAgendamento() {
           />
         ) : (
           <>
-            <Escolha
+            {!modoSolicitacao && <Escolha
               rotulo="Aeronave"
               opcoes={(opcoes?.aeronaves || []).map((a) => ({
                 id: a.id,
@@ -133,8 +166,8 @@ export default function CriarAgendamento() {
                 setAeronave(id);
                 setTitular("");
               }}
-            />
-            {!!aeronave && (
+            />}
+            {!modoSolicitacao && !!aeronave && (
               <Escolha
                 key={aeronave}
                 rotulo="Titular"
@@ -185,7 +218,7 @@ export default function CriarAgendamento() {
               </Text>
             )}
             <Botao
-              texto="Criar agendamento"
+              texto={modoSolicitacao ? "Adicionar perna" : "Criar agendamento"}
               carregando={salvando}
               onPress={() => void salvar()}
             />

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Tabs, useRouter, useSegments, type Href } from "expo-router";
+import { useRouter, useSegments, type Href } from "expo-router";
+import { Tabs } from "expo-router/js-tabs";
 import {
   AccessibilityInfo,
   Animated,
@@ -147,9 +148,9 @@ export function MenuInferiorGlobal() {
 
   const raiz = String(segments[0] || "");
   const segunda = String(segments[1] || "");
-  let selected = "index";
+  let selected = "";
   if (raiz === "(tabs)") {
-    selected = itens[segunda] ? segunda : "index";
+    selected = itens[segunda] ? segunda : "";
   } else if (["diario-bordo", "novo-lancamento", "relatorio-viagem", "relatorio-voo"].includes(raiz)) {
     selected = "diario";
   } else if (raiz === "plano-voo") {
@@ -174,9 +175,10 @@ export function MenuInferiorGlobal() {
             ativo={nome === selected}
             reduzir={reduzir}
             onPress={() => {
-              if (nome !== selected) {
-                const path = nome === "index" ? "/(tabs)" : `/(tabs)/${nome}`;
-                router.navigate(path as Href);
+              if (nome === "index") {
+                router.replace("/(tabs)" as Href);
+              } else if (nome !== selected) {
+                router.navigate(`/(tabs)/${nome}` as Href);
               }
             }}
           />
@@ -221,8 +223,8 @@ export function MenuInferior({ state }: Props) {
     state.routes.find((r) => r.name === nome),
   ).filter((r): r is (typeof state.routes)[number] => Boolean(r));
 
-  const selected = state.routes[state.index]?.name ?? "index";
-  const visible = itens[selected] ? selected : "index";
+  const selected = state.routes[state.index]?.name ?? "";
+  const visible = itens[selected] ? selected : "";
 
   return (
     <View
@@ -238,10 +240,10 @@ export function MenuInferior({ state }: Props) {
             ativo={route.name === visible}
             reduzir={reduzir}
             onPress={() => {
-              if (route.name !== selected) {
-                const path =
-                  route.name === "index" ? "/(tabs)" : `/(tabs)/${route.name}`;
-                router.navigate(path as Href);
+              if (route.name === "index") {
+                router.replace("/(tabs)" as Href);
+              } else if (route.name !== selected) {
+                router.navigate(`/(tabs)/${route.name}` as Href);
               }
             }}
           />
