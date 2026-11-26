@@ -29,6 +29,8 @@ type Voo = {
   data_agendada?: string;
   horario_previsto_agendamento?: string;
   matricula_registro?: string;
+  modelo?: string;
+  numero_passageiros?: number | null;
   status?: string;
   pagamento_total?: number;
 };
@@ -110,6 +112,21 @@ const MESES = [
   "dezembro",
 ];
 
+const MESES_ABREVIADOS = [
+  "JAN",
+  "FEV",
+  "MAR",
+  "ABR",
+  "MAI",
+  "JUN",
+  "JUL",
+  "AGO",
+  "SET",
+  "OUT",
+  "NOV",
+  "DEZ",
+];
+
 const EM_OPERACAO = new Set(["EM_SOLO", "EM_ROTA", "EM_VOO"]);
 const CONFIRMADOS = new Set([
   "APROVADA",
@@ -151,6 +168,24 @@ const diaMes = (d?: string | null) => {
   const [, m, dia] = d.slice(0, 10).split("-");
   const mes = MESES[Number(m) - 1] ?? "";
   return `${dia} ${mes.charAt(0).toUpperCase()}${mes.slice(1, 3)}`;
+};
+
+const dataEmDestaque = (d?: string) => {
+  const [ano, mes, dia] = String(d || "")
+    .slice(0, 10)
+    .split("-");
+  const mesAbreviado = MESES_ABREVIADOS[Number(mes) - 1];
+  return ano && dia && mesAbreviado
+    ? `${dia} ${mesAbreviado} ${ano}`
+    : "A definir";
+};
+
+const identificadorSolicitacao = (id?: string) => {
+  const codigo = String(id || "")
+    .replace(/[^a-z0-9]/gi, "")
+    .slice(0, 8)
+    .toUpperCase();
+  return codigo ? `SOL-${codigo}` : "—";
 };
 
 const tempoParaPartida = (v: Voo) => {
@@ -235,8 +270,9 @@ export default function HomeScreen() {
     if (periodo === "semana") return dataDo(v) <= fimSemana;
     return true;
   });
-  const relatoriosPendentes = relatorios.filter((relatorio) =>
-    Boolean(relatorio.id || relatorio.relatorio_id) &&
+  const relatoriosPendentes = relatorios.filter(
+    (relatorio) =>
+      Boolean(relatorio.id || relatorio.relatorio_id) &&
       STATUS_APROVACAO_RELATORIO.has(normalizarStatus(relatorio.status)),
   );
   const totalPendencias = filtrados.length + relatoriosPendentes.length;
@@ -358,10 +394,11 @@ export default function HomeScreen() {
                     {kicker}
                   </Text>
                   <Text style={s.matricula} numberOfLines={1}>
-                    {proximo.matricula_registro || "PR-SHB"}
-                  </Text>
-                  <Text style={s.vooNumero} numberOfLines={1}>
-                    {proximo.numero_voo || "Voo programado"}
+                    {[proximo.matricula_registro, proximo.modelo]
+                      .filter(Boolean)
+                      .join(" · ") ||
+                      proximo.numero_voo ||
+                      "Aeronave a definir"}
                   </Text>
                 </View>
 
@@ -373,6 +410,13 @@ export default function HomeScreen() {
                   </Text>
                 </View>
               </Toque>
+
+              <View style={s.dataVoo}>
+                <Text style={s.dataVooRotulo}>DATA DO VOO</Text>
+                <Text style={s.dataVooValor}>
+                  {dataEmDestaque(proximo.data_agendada)}
+                </Text>
+              </View>
 
               <View style={s.rota}>
                 <View>
@@ -393,6 +437,21 @@ export default function HomeScreen() {
                 <View style={{ alignItems: "flex-end" }}>
                   <Text style={s.aeroporto}>{proximo.destino || "—"}</Text>
                   <Text style={s.horaRota}>Destino</Text>
+                </View>
+              </View>
+
+              <View style={s.resumoVoo}>
+                <View style={s.resumoItem}>
+                  <Text style={s.resumoRotulo}>SOLICITAÇÃO</Text>
+                  <Text style={s.resumoValor} numberOfLines={1}>
+                    {identificadorSolicitacao(proximo.id)}
+                  </Text>
+                </View>
+                <View style={s.resumoItem}>
+                  <Text style={s.resumoRotulo}>PAX</Text>
+                  <Text style={s.resumoValor}>
+                    {proximo.numero_passageiros ?? "—"}
+                  </Text>
                 </View>
               </View>
 
@@ -497,7 +556,8 @@ export default function HomeScreen() {
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={s.itemTitulo} numberOfLines={1}>
-                          Relatório de viagem{referencia ? ` ${referencia}` : ""}
+                          Relatório de viagem
+                          {referencia ? ` ${referencia}` : ""}
                         </Text>
                         <Text style={s.itemApoio} numberOfLines={1}>
                           Aguardando aprovação
@@ -690,7 +750,7 @@ const s = StyleSheet.create({
   hero: {
     borderRadius: 24,
     padding: 18,
-    gap: 18,
+    gap: 14,
     backgroundColor: tema.superficie,
     borderWidth: 1,
     borderColor: tema.borda,
@@ -713,10 +773,26 @@ const s = StyleSheet.create({
     fontSize: 22,
     marginTop: 2,
   },
-  vooNumero: {
-    color: tema.texto,
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 16,
+  dataVoo: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: "rgba(244, 197, 66, 0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(244, 197, 66, 0.24)",
+    gap: 3,
+  },
+  dataVooRotulo: {
+    color: tema.suave,
+    fontFamily: "Inter_700Bold",
+    fontSize: 9,
+    letterSpacing: 1,
+  },
+  dataVooValor: {
+    color: tema.destaque,
+    fontFamily: "Inter_700Bold",
+    fontSize: 18,
+    letterSpacing: 0.4,
   },
   pillStatus: {
     paddingHorizontal: 10,
@@ -764,6 +840,33 @@ const s = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: AZUL_CLARO,
+  },
+  resumoVoo: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  resumoItem: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRadius: 12,
+    backgroundColor: tema.fundo,
+    borderWidth: 1,
+    borderColor: tema.borda,
+    gap: 3,
+  },
+  resumoRotulo: {
+    color: tema.suave,
+    fontFamily: "Inter_500Medium",
+    fontSize: 9,
+    letterSpacing: 0.5,
+  },
+  resumoValor: {
+    color: tema.texto,
+    fontFamily: "Inter_700Bold",
+    fontSize: 13,
+    fontVariant: ["tabular-nums"],
   },
   heroAcoes: {
     flexDirection: "row",
