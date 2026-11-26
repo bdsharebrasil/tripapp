@@ -43,8 +43,14 @@ export function CartaoPlano({
           </Text>
         </View>
       </View>
+      {!!plano.numeroVoo && (
+        <Text style={[pStyles.flightNumber, { color: colors.secondary }]}>
+          Voo {plano.numeroVoo}
+        </Text>
+      )}
       <Text style={[pStyles.aircraft, { color: colors.mutedForeground }]}>
-        {plano.aeronave} · {plano.matricula}
+        {plano.aeronave || "Aeronave não informada"}
+        {plano.matricula ? ` · Matrícula ${plano.matricula}` : ""}
       </Text>
       <View style={pStyles.detailRow}>
         <View style={pStyles.detail}>
@@ -110,6 +116,7 @@ export const pStyles = StyleSheet.create({
   },
   routeRow: { flexDirection: "row", alignItems: "center" },
   iata: { fontSize: 20, fontFamily: "Inter_700Bold" },
+  flightNumber: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginTop: 3 },
   aircraft: { fontSize: 12, fontFamily: "Inter_400Regular", marginBottom: 8 },
   badge: { borderRadius: 100, paddingHorizontal: 10, paddingVertical: 4 },
   badgeText: { fontSize: 11, fontFamily: "Inter_500Medium" },

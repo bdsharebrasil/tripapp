@@ -1,11 +1,13 @@
 import { MapaVoo } from "@/src/components/MapaVoo";
 import type { Icone } from "@/src/components/ui";
 import { Icon, Toque } from "@/src/components/ui";
+import { avisar } from "@/src/lib/confirmar";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
   Platform,
+  Share,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,18 +24,26 @@ import {
   buscarClima,
   buscarRota,
   formatarData,
+  gerarMensagemIcao,
   mensagemErro,
+  validarFpl,
 } from "./modelo";
 
 export function DetalheVoo({
   plano,
   visivel,
   onFechar,
+  onAbrirAerodromo,
+  onAbrirChecklist,
+  onAbrirPreparacaoOperacional,
   colors,
 }: {
   plano: PlanoVoo | null;
   visivel: boolean;
   onFechar: () => void;
+  onAbrirAerodromo: (icao: string) => void;
+  onAbrirChecklist: (plano: PlanoVoo) => void;
+  onAbrirPreparacaoOperacional: (solicitacaoId: string) => void;
   colors: Cores;
 }) {
   const insets = useSafeAreaInsets();
@@ -53,7 +63,7 @@ export function DetalheVoo({
     setErroRota(null);
 
     setCarregandoRota(true);
-    buscarRota(plano.partida, plano.chegada)
+    buscarRota(plano.partida, plano.chegada, plano.aeronaveId)
       .then((d) => {
         if (!ativo) return;
         if (d.error) setErroRota(d.error);
@@ -88,13 +98,41 @@ export function DetalheVoo({
 
   if (!plano) return null;
   const cfg = STATUS_CONFIG[plano.status];
+  const fplCompartilhavel = {
+    ...plano.fpl,
+    adep: plano.fpl.adep || plano.partida,
+    ades: plano.fpl.ades || plano.chegada,
+    rota: plano.fpl.rota || plano.trecho,
+    piloto: plano.fpl.piloto || plano.piloto,
+  };
+  const errosFpl = validarFpl(fplCompartilhavel);
+  const compartilharFpl = async () => {
+    if (errosFpl.length) {
+      avisar("FPL incompleto", errosFpl.join("\n"));
+      return;
+    }
+    try {
+      await Share.share({
+        title: `Plano FPL ${fplCompartilhavel.identificacao}`,
+        message: gerarMensagemIcao(fplCompartilhavel),
+      });
+    } catch (cause) {
+      avisar("Não foi possível compartilhar", mensagemErro(cause));
+    }
+  };
   const linhas: { icone: Icone; rotulo: string; valor: string }[] = [
+    {
+      icone: "airplane",
+      rotulo: "Número do voo",
+      valor: plano.numeroVoo || "—",
+    },
     { icone: "user", rotulo: "Comandante", valor: plano.piloto || "—" },
     { icone: "users", rotulo: "Co-piloto", valor: plano.copiloto || "—" },
     {
       icone: "cpu",
-      rotulo: "Aeronave",
-      valor: `${plano.aeronave} · ${plano.matricula}`,
+      rotulo: "Aeronave / matrícula",
+      valor:
+        [plano.aeronave, plano.matricula].filter(Boolean).join(" · ") || "—",
     },
     { icone: "calendar", rotulo: "Data", valor: formatarData(plano.data) },
     {
@@ -350,6 +388,78 @@ export function DetalheVoo({
             </>
           ) : null}
 
+          <View
+            style={[
+              dStyles.actionsCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[dStyles.actionTitle, { color: colors.foreground }]}>
+              PREPARAÇÃO E ENCAMINHAMENTO
+            </Text>
+            <Text
+              style={[dStyles.actionHelp, { color: colors.mutedForeground }]}
+            >
+              O app prepara e compartilha o texto para revisão. Não transmite
+              nem recebe aceite do SIGMA.
+            </Text>
+            <View style={dStyles.actionButtons}>
+              <Toque
+                accessibilityRole="button"
+                onPress={() => onAbrirChecklist(plano)}
+                style={[
+                  dStyles.actionButton,
+                  { backgroundColor: colors.primary },
+                ]}
+              >
+                <Icon name="check-square" size={15} color="#FFFFFF" />
+                <Text style={dStyles.actionButtonPrimaryText}>
+                  Checklist do plano
+                </Text>
+              </Toque>
+              <Toque
+                accessibilityRole="button"
+                onPress={() => void compartilharFpl()}
+                style={[
+                  dStyles.actionButton,
+                  { backgroundColor: colors.muted, borderColor: colors.border },
+                ]}
+              >
+                <Icon name="send" size={15} color={colors.foreground} />
+                <Text
+                  style={[
+                    dStyles.actionButtonText,
+                    { color: colors.foreground },
+                  ]}
+                >
+                  Compartilhar FPL
+                </Text>
+              </Toque>
+            </View>
+            {plano.solicitacaoId ? (
+              <Toque
+                accessibilityRole="button"
+                onPress={() =>
+                  onAbrirPreparacaoOperacional(plano.solicitacaoId)
+                }
+                style={[
+                  dStyles.operationalButton,
+                  { borderColor: colors.border },
+                ]}
+              >
+                <Icon name="check-square" size={15} color={colors.secondary} />
+                <Text
+                  style={[
+                    dStyles.actionButtonText,
+                    { color: colors.foreground },
+                  ]}
+                >
+                  Preparação operacional do agendamento
+                </Text>
+              </Toque>
+            ) : null}
+          </View>
+
           <Text
             style={[
               dStyles.sectionLabel,
@@ -420,6 +530,30 @@ export function DetalheVoo({
               </View>
             ) : null}
           </View>
+          <View style={dStyles.aerodromeActions}>
+            {[plano.partida, plano.chegada].filter(Boolean).map((icao) => (
+              <Toque
+                key={icao}
+                accessibilityRole="button"
+                accessibilityLabel={`Consultar meteorologia, NOTAM, ROTAER e cartas de ${icao}`}
+                onPress={() => onAbrirAerodromo(icao)}
+                style={[
+                  dStyles.aerodromeButton,
+                  { backgroundColor: colors.muted, borderColor: colors.border },
+                ]}
+              >
+                <Icon name="map" size={14} color={colors.secondary} />
+                <Text
+                  style={[
+                    dStyles.actionButtonText,
+                    { color: colors.foreground },
+                  ]}
+                >
+                  Consultar {icao}
+                </Text>
+              </Toque>
+            ))}
+          </View>
         </ScrollView>
       </View>
     </Modal>
@@ -439,6 +573,60 @@ export const dStyles = StyleSheet.create({
   headerTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
   headerSub: { fontSize: 12, fontFamily: "Inter_500Medium" },
   scroll: { padding: 16 },
+  actionsCard: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 13,
+    marginTop: 16,
+  },
+  actionTitle: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.8,
+  },
+  actionHelp: { fontSize: 11, lineHeight: 16, marginTop: 5, marginBottom: 10 },
+  actionButtons: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  actionButton: {
+    minHeight: 40,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 10,
+    paddingHorizontal: 11,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  actionButtonPrimaryText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  actionButtonText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  operationalButton: {
+    minHeight: 40,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingHorizontal: 11,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    marginTop: 8,
+  },
+  aerodromeActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 14,
+  },
+  aerodromeButton: {
+    minHeight: 36,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 9,
+  },
   sectionLabel: {
     fontSize: 11,
     fontFamily: "Inter_600SemiBold",

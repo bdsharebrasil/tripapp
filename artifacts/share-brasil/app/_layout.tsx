@@ -63,43 +63,54 @@ function RootLayoutNav({
 
   return (
     <>
-    <Stack
-      key={session?.user.id || "login"}
-      screenOptions={{ headerBackTitle: "Voltar" }}
-    >
-      <Stack.Screen
-        name="login"
-        options={{ headerShown: false, gestureEnabled: false }}
-      />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="novo-lancamento"
-        options={{ presentation: "modal", headerShown: false }}
-      />
-      <Stack.Screen name="criar-agendamento" options={{ presentation: "modal", headerShown: false }} />
-      <Stack.Screen name="preparacao-voo" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="relatorio-viagem"
-        options={{ presentation: "modal", headerShown: false }}
-      />
-      <Stack.Screen
-        name="manutencao"
-        options={{ presentation: "modal", headerShown: false }}
-      />
-      <Stack.Screen
-        name="ferias"
-        options={{ presentation: "modal", headerShown: false }}
-      />
-      <Stack.Screen
-        name="relatorio-voo"
-        options={{ presentation: "modal", headerShown: false }}
-      />
-      <Stack.Screen name="acompanhar-voo" options={{ headerShown: false }} />
-      <Stack.Screen name="minhas-horas" options={{ headerShown: false }} />
-      <Stack.Screen name="diario-bordo" options={{ headerShown: false }} />
-      <Stack.Screen name="notificacoes" options={{ headerShown: false }} />
-    </Stack>
-    {currentRoot !== "login" && <MenuInferiorGlobal />}
+      <Stack
+        key={session?.user.id || "login"}
+        screenOptions={{ headerBackTitle: "Voltar" }}
+      >
+        <Stack.Screen
+          name="login"
+          options={{ headerShown: false, gestureEnabled: false }}
+        />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="novo-lancamento"
+          options={{ presentation: "modal", headerShown: false }}
+        />
+        <Stack.Screen
+          name="criar-agendamento"
+          options={{ presentation: "modal", headerShown: false }}
+        />
+        <Stack.Screen name="preparacao-voo" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="relatorio-viagem"
+          options={{ presentation: "modal", headerShown: false }}
+        />
+        <Stack.Screen
+          name="manutencao"
+          options={{ presentation: "modal", headerShown: false }}
+        />
+        <Stack.Screen
+          name="ferias"
+          options={{ presentation: "modal", headerShown: false }}
+        />
+        <Stack.Screen
+          name="relatorio-voo"
+          options={{ presentation: "modal", headerShown: false }}
+        />
+        <Stack.Screen name="acompanhar-voo" options={{ headerShown: false }} />
+        <Stack.Screen name="minhas-horas" options={{ headerShown: false }} />
+        <Stack.Screen name="diario-bordo" options={{ headerShown: false }} />
+        <Stack.Screen name="notificacoes" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="consulta-aerodromo"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="preparacao-plano"
+          options={{ headerShown: false }}
+        />
+      </Stack>
+      {currentRoot !== "login" && <MenuInferiorGlobal />}
     </>
   );
 }

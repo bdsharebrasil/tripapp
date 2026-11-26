@@ -17,9 +17,11 @@ import {
   CONDICOES,
   Clima,
   Cores,
+  FormularioIcao,
   FormularioPlano,
   ICAO,
   NovoPlano,
+  PessoaTripulacao,
   StatusPlano,
   VooSolicitacao,
   buscarClima,
@@ -27,7 +29,9 @@ import {
   corMetar,
   AeronaveSolicitacao,
   criarFormulario,
+  criarFormularioIcao,
   mensagemErro,
+  validarFpl,
 } from "./modelo";
 
 export function NovoPlanoModal({
@@ -42,6 +46,9 @@ export function NovoPlanoModal({
   colors: Cores;
 }) {
   const [form, setForm] = useState<FormularioPlano>(criarFormulario);
+  const [fpl, setFpl] = useState<FormularioIcao>(criarFormularioIcao);
+  const [numeroVoo, setNumeroVoo] = useState("");
+  const [solicitacaoId, setSolicitacaoId] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [clima, setClima] = useState<{ partida?: Clima; chegada?: Clima }>({});
   const [carregandoClima, setCarregandoClima] = useState(false);
@@ -59,9 +66,16 @@ export function NovoPlanoModal({
 
   const set = (campo: keyof FormularioPlano, valor: string) =>
     setForm((atual) => ({ ...atual, [campo]: valor }));
+  const setCampoFpl = (campo: keyof FormularioIcao, valor: string) =>
+    setFpl((atual) => ({ ...atual, [campo]: valor }));
 
   useEffect(() => {
-    if (visivel) setForm(criarFormulario());
+    if (visivel) {
+      setForm(criarFormulario());
+      setFpl(criarFormularioIcao());
+      setNumeroVoo("");
+      setSolicitacaoId("");
+    }
   }, [visivel]);
 
   useEffect(() => {
@@ -94,13 +108,21 @@ export function NovoPlanoModal({
   useEffect(() => {
     if (!visivel) return;
     let ativo = true;
+    setVoos([]);
+    setAeronaves([]);
     setCarregandoAeronaves(true);
-    apiFetch<{ aeronaves: Record<string, any>[] }>("/api/sharebrasil/aeronaves")
+    setCarregandoVoos(true);
+    setErroVoos("");
+    apiFetch<{
+      agendamentos: VooSolicitacao[];
+      tripulacao?: PessoaTripulacao[];
+      aeronaves?: Record<string, any>[];
+    }>("/api/interno/agendamento?inicio=2000-01-01&fim=2099-12-31")
       .then((r) => {
         if (!ativo) return;
         setAeronaves(
-          (r.aeronaves || []).map((row) => ({
-            id: row.id,
+          (Array.isArray(r.aeronaves) ? r.aeronaves : []).map((row) => ({
+            id: String(row.id ?? ""),
             registration:
               row.registration || row.matricula_registro || row.matricula || "",
             matricula:
@@ -111,61 +133,36 @@ export function NovoPlanoModal({
             modelo: row.modelo || row.model || "",
             manufacturer: row.manufacturer || row.fabricante || "",
             fabricante: row.fabricante || row.manufacturer || "",
-            fuel_consumption: row.fuel_consumption,
+            tipo_aeronave: row.tipo_aeronave || row.designador_icao || "",
+            fuel_consumption: row.fuel_consumption ?? row.consumo_hora_litros,
           })),
         );
-      })
-      .catch(async () => {
-        if (!ativo) return;
-        try {
-          const r = await apiFetch<{
-            aeronaves: Array<{
-              id: string;
-              registration?: string;
-              model?: string;
-            }>;
-          }>("/api/ctm/relatorios-manutencao");
-          setAeronaves(
-            (r.aeronaves || []).map((row) => ({
-              id: row.id,
-              registration: row.registration,
-              matricula_registro: row.registration,
-              matricula: row.registration,
-              model: row.model,
-              modelo: row.model,
-            })),
-          );
-        } catch {
-          setAeronaves([]);
-        }
-      })
-      .finally(() => {
-        if (ativo) setCarregandoAeronaves(false);
-      });
-    return () => {
-      ativo = false;
-    };
-  }, [visivel]);
-
-  useEffect(() => {
-    if (!visivel) return;
-    let ativo = true;
-    setCarregandoVoos(true);
-    setErroVoos("");
-    apiFetch<{ voos: VooSolicitacao[] }>(
-      "/api/financeiro/relatorios-despesa-viagem/meus-voos",
-    )
-      .then((r) => {
-        if (ativo)
-          setVoos(
-            Array.isArray(r.voos) ? r.voos.filter((voo) => voo.numero_voo) : [],
-          );
+        const pessoas = Array.isArray(r.tripulacao) ? r.tripulacao : [];
+        const nome = (id?: string | null) =>
+          pessoas.find((pessoa) => String(pessoa.id) === String(id))
+            ?.nome_completo ||
+          pessoas.find((pessoa) => String(pessoa.id) === String(id))?.nome ||
+          "";
+        setVoos(
+          Array.isArray(r.agendamentos)
+            ? r.agendamentos
+                .filter((voo) => voo.numero_voo)
+                .map((voo) => ({
+                  ...voo,
+                  piloto_nome: voo.piloto_nome || nome(voo.piloto_id),
+                  copiloto_nome: voo.copiloto_nome || nome(voo.copiloto_id),
+                }))
+            : [],
+        );
       })
       .catch((e) => {
         if (ativo) setErroVoos(mensagemErro(e));
       })
       .finally(() => {
-        if (ativo) setCarregandoVoos(false);
+        if (ativo) {
+          setCarregandoVoos(false);
+          setCarregandoAeronaves(false);
+        }
       });
     return () => {
       ativo = false;
@@ -173,18 +170,41 @@ export function NovoPlanoModal({
   }, [visivel]);
 
   const selecionarAeronave = (aeronave: AeronaveSolicitacao) => {
+    const matricula =
+      aeronave.registration ||
+      aeronave.matricula_registro ||
+      aeronave.matricula ||
+      "";
+    const identificacaoSugerida = matricula
+      .replace(/[^A-Z0-9]/gi, "")
+      .toUpperCase();
     setForm((atual) => ({
       ...atual,
       aeronaveId: aeronave.id,
-      aeronave:
-        [aeronave.manufacturer || aeronave.fabricante, aeronave.model || aeronave.modelo]
-          .filter(Boolean)
-          .join(" "),
+      aeronave: [
+        aeronave.manufacturer || aeronave.fabricante,
+        aeronave.model || aeronave.modelo,
+      ]
+        .filter(Boolean)
+        .join(" "),
       matricula:
         aeronave.registration ||
         aeronave.matricula_registro ||
         aeronave.matricula ||
         "",
+    }));
+    setFpl((atual) => ({
+      ...atual,
+      identificacao:
+        atual.identificacao ||
+        (/^[A-Z0-9]{2,7}$/.test(identificacaoSugerida)
+          ? identificacaoSugerida
+          : ""),
+      tipoAeronave: aeronave.tipo_aeronave?.toUpperCase() || atual.tipoAeronave,
+      outrasInformacoes:
+        aeronave.registration || aeronave.matricula_registro
+          ? `REG/${String(aeronave.registration || aeronave.matricula_registro).replace(/-/g, "")}`
+          : atual.outrasInformacoes,
     }));
     setAeronaveAberta(false);
   };
@@ -196,22 +216,38 @@ export function NovoPlanoModal({
     }
     setCalculandoRota(true);
     try {
-      const rota = await buscarRota(partidaIcao, chegadaIcao);
+      const rota = await buscarRota(partidaIcao, chegadaIcao, form.aeronaveId);
       if (rota.error) {
         avisar("Não foi possível calcular", rota.error);
         return;
       }
+      const rotaTexto =
+        rota.flightplan?.route || `${partidaIcao}-${chegadaIcao}`;
       setForm((atual) => ({
         ...atual,
-        trecho:
-          rota.flightplan?.route ||
-          `${partidaIcao}-${chegadaIcao}`,
-        estimativaVoo:
-          rota.flightplan?.estimated_time || atual.estimativaVoo,
+        trecho: rotaTexto,
+        estimativaVoo: rota.flightplan?.estimated_time || atual.estimativaVoo,
         combustivelPrevisto:
           rota.fuel?.total_required != null
             ? String(Math.round(rota.fuel.total_required))
             : atual.combustivelPrevisto,
+      }));
+      setFpl((atual) => ({
+        ...atual,
+        adep: partidaIcao,
+        ades: chegadaIcao,
+        rota: rotaTexto,
+        tipoAeronave:
+          atual.tipoAeronave ||
+          rota.performance?.tipo_aeronave ||
+          atual.tipoAeronave,
+        equipamento:
+          atual.equipamento || rota.performance?.equipamentos_icao || "",
+        velocidade:
+          atual.velocidade ||
+          (rota.performance?.velocidade_cruzeiro_kt
+            ? `N${String(Math.round(rota.performance.velocidade_cruzeiro_kt)).padStart(4, "0")}`
+            : ""),
       }));
     } catch (e) {
       avisar("Não foi possível calcular", mensagemErro(e));
@@ -220,28 +256,126 @@ export function NovoPlanoModal({
     }
   };
 
-  const selecionarVoo = (voo: VooSolicitacao) =>
+  const selecionarVoo = (voo: VooSolicitacao) => {
+    const partida = voo.origem?.trim().toUpperCase() || "";
+    const chegada = voo.destino?.trim().toUpperCase() || "";
+    const aeronaveSelecionada = aeronaves.find(
+      (item) => item.id === String(voo.aeronave_id || ""),
+    );
+    const matricula =
+      voo.matricula_registro ||
+      voo.matricula ||
+      aeronaveSelecionada?.registration ||
+      aeronaveSelecionada?.matricula_registro ||
+      "";
+    const identificacaoSugerida = matricula
+      .replace(/[^A-Z0-9]/gi, "")
+      .toUpperCase();
+    const tipo =
+      voo.tipo_aeronave ||
+      aeronaveSelecionada?.tipo_aeronave ||
+      voo.modelo ||
+      aeronaveSelecionada?.model ||
+      aeronaveSelecionada?.modelo ||
+      "";
+    const nomeAeronave = aeronaveSelecionada
+      ? [
+          aeronaveSelecionada.manufacturer || aeronaveSelecionada.fabricante,
+          aeronaveSelecionada.model || aeronaveSelecionada.modelo,
+        ]
+          .filter(Boolean)
+          .join(" ")
+      : "";
+    const eobt = (voo.horario_previsto_agendamento || "").slice(0, 5);
+    const comandante = voo.piloto_nome || "";
+    const copiloto = voo.copiloto_nome || "";
+    const passageiros = String(voo.numero_passageiros ?? 0);
+    const pessoasConhecidas = String(
+      (Number.parseInt(passageiros, 10) || 0) +
+        Number(Boolean(comandante)) +
+        Number(Boolean(copiloto)),
+    );
+    setNumeroVoo(voo.numero_voo.trim().toUpperCase());
+    setSolicitacaoId(String(voo.id ?? voo.solicitacao_id ?? ""));
     setForm((atual) => ({
       ...atual,
-      partida: voo.origem?.trim().toUpperCase() || atual.partida,
-      chegada: voo.destino?.trim().toUpperCase() || atual.chegada,
+      partida,
+      chegada,
       data: voo.data_agendada?.slice(0, 10) || atual.data,
-      matricula: voo.matricula?.trim().toUpperCase() || atual.matricula,
+      aeronaveId: voo.aeronave_id || atual.aeronaveId,
+      aeronave: nomeAeronave || tipo || atual.aeronave,
+      matricula: matricula.trim().toUpperCase() || atual.matricula,
+      horaPrevista: eobt || atual.horaPrevista,
+      passageiros,
+      piloto: comandante || atual.piloto,
+      copiloto: copiloto || atual.copiloto,
     }));
+    setFpl((atual) => ({
+      ...atual,
+      identificacao:
+        atual.identificacao ||
+        (/^[A-Z0-9]{2,7}$/.test(identificacaoSugerida)
+          ? identificacaoSugerida
+          : ""),
+      adep: partida || atual.adep,
+      ades: chegada || atual.ades,
+      eobt: eobt.replace(":", "") || atual.eobt,
+      tipoAeronave: (tipo || atual.tipoAeronave).toUpperCase(),
+      pessoasABordo: pessoasConhecidas,
+      piloto: comandante || atual.piloto,
+      outrasInformacoes: matricula
+        ? `REG/${matricula.replace(/-/g, "")} TYP/${tipo}`.trim().toUpperCase()
+        : atual.outrasInformacoes,
+    }));
+  };
+
+  const buscarNumeroVoo = () => {
+    const alvo = numeroVoo.trim().toLocaleUpperCase("pt-BR");
+    const voo = voos.find(
+      (item) => item.numero_voo.trim().toLocaleUpperCase("pt-BR") === alvo,
+    );
+    if (!voo) {
+      avisar(
+        "Voo não encontrado",
+        "Não localizei esse número nas solicitações disponíveis. Você pode continuar preenchendo manualmente.",
+      );
+      return;
+    }
+    selecionarVoo(voo);
+  };
 
   const enviar = async (status: StatusPlano) => {
     const dataValida = /^\d{4}-\d{2}-\d{2}$/.test(form.data.trim());
     const alternativoValido =
-      !form.alternates.trim() || /^[A-Z]{4}$/.test(form.alternates.trim().toUpperCase());
-    if (!icaoValidos || !dataValida || !alternativoValido) {
+      !form.alternates.trim() ||
+      /^[A-Z]{4}$/.test(form.alternates.trim().toUpperCase());
+    const dadosFpl = {
+      ...fpl,
+      identificacao: fpl.identificacao,
+      adep: partidaIcao,
+      ades: chegadaIcao,
+      eobt: form.horaPrevista.replace(/:/g, "").trim() || fpl.eobt,
+      tipoAeronave: fpl.tipoAeronave || form.aeronave,
+      pessoasABordo: fpl.pessoasABordo,
+      piloto: fpl.piloto || form.piloto,
+      rota: fpl.rota || form.trecho,
+    };
+    const errosFpl = status === "preparado" ? validarFpl(dadosFpl) : [];
+    if (!icaoValidos || !dataValida || !alternativoValido || errosFpl.length) {
       avisar(
-        "Campos obrigatórios",
-        "Preencha partida e chegada (ICAO, 4 letras), use data AAAA-MM-DD e informe um alternado válido com 4 letras.",
+        status === "preparado"
+          ? "Revise o formulário ICAO"
+          : "Campos obrigatórios",
+        status === "preparado"
+          ? errosFpl.join("\n")
+          : "Preencha partida e chegada (ICAO, 4 letras), use data AAAA-MM-DD e informe um alternado válido com 4 letras.",
       );
       return;
     }
     setSalvando(true);
     const ok = await onSalvar({
+      numeroVoo: numeroVoo.trim().toUpperCase(),
+      solicitacaoId,
       partida: partidaIcao,
       chegada: chegadaIcao,
       trecho: form.trecho.trim() || `${partidaIcao}-${chegadaIcao}`,
@@ -259,6 +393,7 @@ export function NovoPlanoModal({
       copiloto: form.copiloto.trim(),
       observacoes: form.observacoes.trim(),
       condicoes: form.condicoes,
+      fpl: dadosFpl,
       status,
     });
     setSalvando(false);
@@ -298,14 +433,14 @@ export function NovoPlanoModal({
             disabled={salvando}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              void enviar("enviado");
+              void enviar("preparado");
             }}
           >
             {salvando ? (
               <ActivityIndicator color={colors.secondary} />
             ) : (
               <Text style={[mStyles.saveText, { color: colors.secondary }]}>
-                Enviar
+                Preparar FPL
               </Text>
             )}
           </Toque>
@@ -319,6 +454,38 @@ export function NovoPlanoModal({
           <Text style={[mStyles.secao, { color: colors.mutedForeground }]}>
             SOLICITAÇÃO DE VOO
           </Text>
+          <View style={mStyles.numeroRow}>
+            <View style={{ flex: 1 }}>
+              <Campo
+                rotulo="Número do voo"
+                colors={colors}
+                value={numeroVoo}
+                onChangeText={(valor) => {
+                  const normalizado = valor.toUpperCase();
+                  setNumeroVoo(normalizado);
+                  setSolicitacaoId("");
+                }}
+                placeholder="Ex.: EBL-0003/26"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                returnKeyType="search"
+                onSubmitEditing={buscarNumeroVoo}
+              />
+            </View>
+            <Toque
+              accessibilityRole="button"
+              disabled={carregandoVoos}
+              onPress={buscarNumeroVoo}
+              style={[mStyles.buscarBtn, { backgroundColor: colors.primary }]}
+            >
+              {carregandoVoos ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Icon name="search" size={17} color="#FFFFFF" />
+              )}
+              <Text style={mStyles.calcularText}>Buscar</Text>
+            </Toque>
+          </View>
           <SeletorSolicitacao
             voos={voos}
             carregando={carregandoVoos}
@@ -417,16 +584,24 @@ export function NovoPlanoModal({
           )}
 
           <Campo
-            rotulo="Aeródromo alternado"
+            rotulo="Item 16 · Aeródromo alternado 1"
             colors={colors}
-            value={form.alternates}
-            onChangeText={(v) => set("alternates", v)}
+            value={fpl.alternado1}
+            onChangeText={(v) => {
+              setCampoFpl("alternado1", v.toUpperCase());
+              set("alternates", v.toUpperCase());
+            }}
             placeholder="SBSP"
             autoCapitalize="characters"
+            maxLength={4}
           />
 
           <View style={mStyles.calcularLinha}>
-            <Text style={[mStyles.secaoInline, { color: colors.mutedForeground }]}>ROTA</Text>
+            <Text
+              style={[mStyles.secaoInline, { color: colors.mutedForeground }]}
+            >
+              ROTA
+            </Text>
             <Toque
               disabled={calculandoRota || !icaoValidos}
               onPress={() => void calcularRota()}
@@ -445,39 +620,103 @@ export function NovoPlanoModal({
             AERONAVE E DATA
           </Text>
           <View>
-            <Text style={[mStyles.label, { color: colors.foreground }]}>Aeronave</Text>
+            <Text style={[mStyles.label, { color: colors.foreground }]}>
+              Aeronave
+            </Text>
             <Toque
               accessibilityRole="button"
               onPress={() => setAeronaveAberta((aberta) => !aberta)}
-              style={[mStyles.input, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }]}
+              style={[
+                mStyles.input,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                },
+              ]}
             >
-              <Text numberOfLines={1} style={{ color: form.aeronave ? colors.foreground : colors.mutedForeground, flex: 1 }}>
+              <Text
+                numberOfLines={1}
+                style={{
+                  color: form.aeronave
+                    ? colors.foreground
+                    : colors.mutedForeground,
+                  flex: 1,
+                }}
+              >
                 {carregandoAeronaves
                   ? "Carregando aeronaves…"
                   : form.aeronave
                     ? `${form.matricula} · ${form.aeronave}`
                     : "Selecionar aeronave"}
               </Text>
-              <Icon name="chevron-down" size={18} color={colors.mutedForeground} />
+              <Icon
+                name="chevron-down"
+                size={18}
+                color={colors.mutedForeground}
+              />
             </Toque>
             {aeronaveAberta && (
-              <View style={{ maxHeight: 180, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, marginBottom: 10, overflow: "hidden" }}>
+              <View
+                style={{
+                  maxHeight: 180,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.card,
+                  marginBottom: 10,
+                  overflow: "hidden",
+                }}
+              >
                 {aeronaves.map((aeronave) => (
                   <Toque
                     key={aeronave.id}
                     onPress={() => selecionarAeronave(aeronave)}
-                    style={{ padding: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }}
+                    style={{
+                      padding: 12,
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: colors.border,
+                    }}
                   >
-                    <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14 }}>
-                      {aeronave.registration || aeronave.matricula_registro || aeronave.matricula}
+                    <Text
+                      style={{
+                        color: colors.foreground,
+                        fontFamily: "Inter_700Bold",
+                        fontSize: 14,
+                      }}
+                    >
+                      {aeronave.registration ||
+                        aeronave.matricula_registro ||
+                        aeronave.matricula}
                     </Text>
-                    <Text style={{ color: colors.mutedForeground, fontSize: 12, marginTop: 2 }}>
-                      {[aeronave.manufacturer || aeronave.fabricante, aeronave.model || aeronave.modelo].filter(Boolean).join(" ")}
+                    <Text
+                      style={{
+                        color: colors.mutedForeground,
+                        fontSize: 12,
+                        marginTop: 2,
+                      }}
+                    >
+                      {[
+                        aeronave.manufacturer || aeronave.fabricante,
+                        aeronave.model || aeronave.modelo,
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
                     </Text>
                   </Toque>
                 ))}
                 {!aeronaves.length && !carregandoAeronaves && (
-                  <Text style={{ color: colors.mutedForeground, padding: 12, fontSize: 12 }}>Nenhuma aeronave disponível</Text>
+                  <Text
+                    style={{
+                      color: colors.mutedForeground,
+                      padding: 12,
+                      fontSize: 12,
+                    }}
+                  >
+                    Nenhuma aeronave disponível
+                  </Text>
                 )}
               </View>
             )}
@@ -557,6 +796,323 @@ export function NovoPlanoModal({
           />
 
           <Text style={[mStyles.secao, { color: colors.mutedForeground }]}>
+            FORMULÁRIO ICAO · ITENS 7–19
+          </Text>
+          <Text
+            style={[
+              mStyles.aviso,
+              { color: colors.mutedForeground, backgroundColor: colors.muted },
+            ]}
+          >
+            Dados importados são apenas uma base. Confirme designador,
+            equipamentos, horários UTC, desempenho e todos os itens antes de
+            encaminhar pelo canal AIS/SIGMA autorizado.
+          </Text>
+          <Campo
+            rotulo="Item 7 · Identificação da aeronave ICAO"
+            colors={colors}
+            value={fpl.identificacao}
+            onChangeText={(v) =>
+              setCampoFpl(
+                "identificacao",
+                v
+                  .toUpperCase()
+                  .replace(/[^A-Z0-9]/g, "")
+                  .slice(0, 7),
+              )
+            }
+            placeholder="Ex.: PRABC"
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={7}
+          />
+          <View style={mStyles.row}>
+            <Campo
+              rotulo="Item 9 · Nº de aeronaves"
+              colors={colors}
+              value={fpl.numeroAeronaves}
+              onChangeText={(v) => setCampoFpl("numeroAeronaves", v)}
+              keyboardType="number-pad"
+              maxLength={2}
+            />
+            <Campo
+              rotulo="Item 9 · Tipo ICAO"
+              colors={colors}
+              value={fpl.tipoAeronave}
+              onChangeText={(v) => setCampoFpl("tipoAeronave", v.toUpperCase())}
+              placeholder="C172"
+              autoCapitalize="characters"
+              maxLength={4}
+            />
+          </View>
+          <Text style={[mStyles.label, { color: colors.foreground }]}>
+            Item 8 · Regra de voo
+          </Text>
+          <View style={mStyles.choiceRow}>
+            {(["I", "V", "Y", "Z"] as const).map((value) => (
+              <Toque
+                key={value}
+                accessibilityRole="button"
+                accessibilityState={{ selected: fpl.regraVoo === value }}
+                onPress={() =>
+                  setFpl((atual) => ({ ...atual, regraVoo: value }))
+                }
+                style={[
+                  mStyles.choice,
+                  {
+                    backgroundColor:
+                      fpl.regraVoo === value ? colors.primary : colors.muted,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    color:
+                      fpl.regraVoo === value ? "#FFFFFF" : colors.foreground,
+                    fontFamily: "Inter_600SemiBold",
+                    fontSize: 12,
+                  }}
+                >
+                  {value}
+                </Text>
+              </Toque>
+            ))}
+          </View>
+          <Text style={[mStyles.label, { color: colors.foreground }]}>
+            Item 8 · Tipo de voo
+          </Text>
+          <View style={mStyles.choiceRow}>
+            {(["S", "N", "G", "M", "X"] as const).map((value) => (
+              <Toque
+                key={value}
+                accessibilityRole="button"
+                accessibilityState={{ selected: fpl.tipoVoo === value }}
+                onPress={() =>
+                  setFpl((atual) => ({ ...atual, tipoVoo: value }))
+                }
+                style={[
+                  mStyles.choice,
+                  {
+                    backgroundColor:
+                      fpl.tipoVoo === value ? colors.primary : colors.muted,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    color:
+                      fpl.tipoVoo === value ? "#FFFFFF" : colors.foreground,
+                    fontFamily: "Inter_600SemiBold",
+                    fontSize: 12,
+                  }}
+                >
+                  {value}
+                </Text>
+              </Toque>
+            ))}
+          </View>
+          <Text style={[mStyles.label, { color: colors.foreground }]}>
+            Item 9 · Esteira de turbulência
+          </Text>
+          <View style={mStyles.choiceRow}>
+            {(["L", "M", "H", "J"] as const).map((value) => (
+              <Toque
+                key={value}
+                accessibilityRole="button"
+                accessibilityState={{ selected: fpl.esteira === value }}
+                onPress={() =>
+                  setFpl((atual) => ({ ...atual, esteira: value }))
+                }
+                style={[
+                  mStyles.choice,
+                  {
+                    backgroundColor:
+                      fpl.esteira === value ? colors.primary : colors.muted,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    color:
+                      fpl.esteira === value ? "#FFFFFF" : colors.foreground,
+                    fontFamily: "Inter_600SemiBold",
+                    fontSize: 12,
+                  }}
+                >
+                  {value}
+                </Text>
+              </Toque>
+            ))}
+          </View>
+          <Campo
+            rotulo="Item 10 · Equipamento / vigilância ICAO"
+            colors={colors}
+            value={fpl.equipamento}
+            onChangeText={(v) => setCampoFpl("equipamento", v.toUpperCase())}
+            placeholder="SDFG/LB1"
+            autoCapitalize="characters"
+          />
+
+          <Text style={[mStyles.secao, { color: colors.mutedForeground }]}>
+            ITEM 15 · VELOCIDADE, NÍVEL E ROTA
+          </Text>
+          <View style={mStyles.row}>
+            <Campo
+              rotulo="Velocidade TAS"
+              colors={colors}
+              value={fpl.velocidade}
+              onChangeText={(v) => setCampoFpl("velocidade", v.toUpperCase())}
+              placeholder="N0150"
+              autoCapitalize="characters"
+              maxLength={5}
+            />
+            <Campo
+              rotulo="Nível"
+              colors={colors}
+              value={fpl.nivel}
+              onChangeText={(v) => setCampoFpl("nivel", v.toUpperCase())}
+              placeholder="A045 / VFR"
+              autoCapitalize="characters"
+              maxLength={5}
+            />
+          </View>
+          <Campo
+            rotulo="Item 15 · Rota AISWEB ou planejada"
+            colors={colors}
+            value={fpl.rota}
+            onChangeText={(v) => setCampoFpl("rota", v.toUpperCase())}
+            placeholder="SBGR DCT ... SBBR"
+            autoCapitalize="characters"
+            multilinha
+            multiline
+            numberOfLines={3}
+          />
+          <Text style={[mStyles.secao, { color: colors.mutedForeground }]}>
+            ITEM 16 · EET E ALTERNADOS
+          </Text>
+          <View style={mStyles.row}>
+            <Campo
+              rotulo="EET (HHMM)"
+              colors={colors}
+              value={fpl.eet}
+              onChangeText={(v) =>
+                setCampoFpl("eet", v.replace(/\D/g, "").slice(0, 4))
+              }
+              placeholder="0135"
+              keyboardType="number-pad"
+              maxLength={4}
+            />
+            <Campo
+              rotulo="Alternado 2"
+              colors={colors}
+              value={fpl.alternado2}
+              onChangeText={(v) => setCampoFpl("alternado2", v.toUpperCase())}
+              placeholder="SBGO"
+              autoCapitalize="characters"
+              maxLength={4}
+            />
+          </View>
+          <Campo
+            rotulo="Item 18 · Outras informações (REG/, PBN/ etc.)"
+            colors={colors}
+            value={fpl.outrasInformacoes}
+            onChangeText={(v) =>
+              setCampoFpl("outrasInformacoes", v.toUpperCase())
+            }
+            placeholder="REG/PRABC TYP/C172"
+            autoCapitalize="characters"
+            multilinha
+            multiline
+            numberOfLines={3}
+          />
+
+          <Text style={[mStyles.secao, { color: colors.mutedForeground }]}>
+            ITEM 19 · INFORMAÇÃO SUPLEMENTAR
+          </Text>
+          <View style={mStyles.row}>
+            <Campo
+              rotulo="Autonomia (HHMM)"
+              colors={colors}
+              value={fpl.autonomia}
+              onChangeText={(v) =>
+                setCampoFpl("autonomia", v.replace(/\D/g, "").slice(0, 4))
+              }
+              placeholder="0520"
+              keyboardType="number-pad"
+              maxLength={4}
+            />
+            <Campo
+              rotulo="Pessoas a bordo"
+              colors={colors}
+              value={fpl.pessoasABordo}
+              onChangeText={(v) =>
+                setCampoFpl("pessoasABordo", v.replace(/\D/g, "").slice(0, 2))
+              }
+              placeholder="4"
+              keyboardType="number-pad"
+              maxLength={2}
+            />
+          </View>
+          <Campo
+            rotulo="Rádio de emergência"
+            colors={colors}
+            value={fpl.radioEmergencia}
+            onChangeText={(v) =>
+              setCampoFpl("radioEmergencia", v.toUpperCase())
+            }
+            placeholder="U V ELT"
+            autoCapitalize="characters"
+          />
+          <Campo
+            rotulo="Equipamento de sobrevivência"
+            colors={colors}
+            value={fpl.sobrevivencia}
+            onChangeText={(v) => setCampoFpl("sobrevivencia", v.toUpperCase())}
+            placeholder="P D M J"
+            autoCapitalize="characters"
+          />
+          <View style={mStyles.row}>
+            <Campo
+              rotulo="Coletes salva-vidas"
+              colors={colors}
+              value={fpl.coletes}
+              onChangeText={(v) => setCampoFpl("coletes", v.toUpperCase())}
+              autoCapitalize="characters"
+            />
+            <Campo
+              rotulo="Botes"
+              colors={colors}
+              value={fpl.botes}
+              onChangeText={(v) => setCampoFpl("botes", v.toUpperCase())}
+              autoCapitalize="characters"
+            />
+          </View>
+          <View style={mStyles.row}>
+            <Campo
+              rotulo="Cor e marcas"
+              colors={colors}
+              value={fpl.corAeronave}
+              onChangeText={(v) => setCampoFpl("corAeronave", v)}
+              placeholder="Branca e azul"
+            />
+            <Campo
+              rotulo="Piloto em comando"
+              colors={colors}
+              value={fpl.piloto || form.piloto}
+              onChangeText={(v) => setCampoFpl("piloto", v)}
+            />
+          </View>
+          <Campo
+            rotulo="Observações suplementares"
+            colors={colors}
+            value={fpl.observacoes}
+            onChangeText={(v) => setCampoFpl("observacoes", v)}
+            multilinha
+            multiline
+            numberOfLines={3}
+          />
+
+          <Text style={[mStyles.secao, { color: colors.mutedForeground }]}>
             CONDIÇÕES E OBS.
           </Text>
           <View style={mStyles.chipRow}>
@@ -624,6 +1180,37 @@ export const mStyles = StyleSheet.create({
   title: { fontSize: 17, fontFamily: "Inter_700Bold" },
   saveText: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
   form: { padding: 16, gap: 4, paddingBottom: 40 },
+  numeroRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
+  buscarBtn: {
+    minHeight: 42,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  aviso: {
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  choiceRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 10,
+  },
+  choice: {
+    minWidth: 42,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
   secao: {
     fontSize: 11,
     fontFamily: "Inter_600SemiBold",
@@ -648,9 +1235,25 @@ export const mStyles = StyleSheet.create({
     textAlignVertical: "top",
   },
   chipRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
-  calcularLinha: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12 },
-  secaoInline: { fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 1 },
-  calcularBtn: { minHeight: 38, borderRadius: 10, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 7 },
+  calcularLinha: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 12,
+  },
+  secaoInline: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 1,
+  },
+  calcularBtn: {
+    minHeight: 38,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
   calcularText: { color: "#FFFFFF", fontSize: 13, fontFamily: "Inter_700Bold" },
   chip: { borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8 },
   chipText: { fontSize: 13, fontFamily: "Inter_500Medium" },

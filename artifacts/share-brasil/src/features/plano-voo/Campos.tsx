@@ -79,15 +79,14 @@ export function SeletorSolicitacao({
       >
         <Icon name="search" size={16} color={colors.mutedForeground} />
         <TextInput
-          accessibilityLabel="Buscar solicitação de voo"
+          accessibilityLabel="Filtrar solicitações por número do voo"
           value={busca}
           onChangeText={(texto) => {
             setBusca(texto);
             setAberto(true);
           }}
           onFocus={() => setAberto(true)}
-          onBlur={() => setAberto(false)}
-          placeholder="Número da solicitação, ex.: EBL-0003/26"
+          placeholder="Filtrar lista por número do voo"
           placeholderTextColor={colors.mutedForeground}
           autoCapitalize="characters"
           autoCorrect={false}

@@ -2,6 +2,7 @@ import { useColors } from "@/hooks/useColors";
 import { Icon, Toque } from "@/src/components/ui";
 import { apiFetch } from "@/src/lib/api";
 import { avisar, confirmar } from "@/src/lib/confirmar";
+import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -26,6 +27,7 @@ import { NovoPlanoModal } from "@/src/features/plano-voo/NovoPlanoModal";
 
 export default function PlanoVooScreen() {
   const colors = useColors();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [planos, setPlanos] = useState<PlanoVoo[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -105,6 +107,14 @@ export default function PlanoVooScreen() {
           Plano de Voo
         </Text>
         <View style={styles.headerActions}>
+          <Toque
+            accessibilityRole="button"
+            accessibilityLabel="Consultar aeródromo, meteorologia, NOTAM e cartas"
+            style={[styles.iconBtn, { backgroundColor: colors.muted }]}
+            onPress={() => router.push("/consulta-aerodromo")}
+          >
+            <Icon name="map" size={18} color={colors.foreground} />
+          </Toque>
           <Toque
             accessibilityRole="button"
             accessibilityLabel="Atualizar planos"
@@ -191,6 +201,29 @@ export default function PlanoVooScreen() {
         plano={planoSelecionado}
         visivel={!!planoSelecionado}
         onFechar={() => setPlanoSelecionado(null)}
+        onAbrirAerodromo={(icao) => {
+          setPlanoSelecionado(null);
+          router.push({ pathname: "/consulta-aerodromo", params: { icao } });
+        }}
+        onAbrirChecklist={(plano) => {
+          setPlanoSelecionado(null);
+          router.push({
+            pathname: "/preparacao-plano",
+            params: {
+              id: plano.id,
+              numero: plano.numeroVoo,
+              adep: plano.partida,
+              ades: plano.chegada,
+            },
+          });
+        }}
+        onAbrirPreparacaoOperacional={(solicitacaoId) => {
+          setPlanoSelecionado(null);
+          router.push({
+            pathname: "/preparacao-voo",
+            params: { id: solicitacaoId },
+          });
+        }}
         colors={colors}
       />
     </View>
