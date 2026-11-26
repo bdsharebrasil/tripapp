@@ -413,7 +413,7 @@ const statusText = (s: string) =>
   ({
     rascunho: "Rascunho",
     finalizado: "Finalizado",
-    aguardando_aprovacao: "Em Análise",
+    aguardando_aprovacao: "Aguardando aprovação",
     aprovado: "Aprovado",
     ajuste_necessario: "Ajustes necessários",
     ajuste_concluido: "Ajustes enviados",
@@ -587,6 +587,8 @@ export default function RelatorioViagemScreen() {
     uri: string;
     title: string;
   } | null>(null);
+  const [approvalAction, setApprovalAction] = useState<"approve" | "reject" | null>(null);
+  const [approvalReason, setApprovalReason] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState("");
@@ -606,6 +608,16 @@ export default function RelatorioViagemScreen() {
       ),
   );
   const editable = isEditable(selected);
+  const ownApprovalStatus = String(
+    Number(selected?.tripulante_pos) === 2
+      ? selected?.status_aprovacao_tripulante_2
+      : selected?.status_aprovacao_tripulante,
+  ).toLowerCase();
+  const approvalPending = Boolean(
+    selected &&
+      ["aguardando_aprovacao", "ajuste_concluido"].includes(reportStatus(selected)) &&
+      !["aprovado", "reprovado", "rejeitado"].includes(ownApprovalStatus),
+  );
   const total = useMemo(
     () => items.reduce((v, x) => v + Number(x.valor || 0), 0),
     [items],
@@ -1316,6 +1328,44 @@ export default function RelatorioViagemScreen() {
       setBusy("");
     }
   };
+  const decideApproval = async () => {
+    if (!selected || !approvalAction || busy) return;
+    if (approvalAction === "reject" && !approvalReason.trim()) {
+      return avisar("Motivo obrigatório", "Informe o que precisa ser corrigido no relatório.");
+    }
+    setBusy("approval");
+    try {
+      const form = new FormData();
+      form.append("tripulante_pos", String(selected.tripulante_pos === 2 ? 2 : 1));
+      form.append("aprovado", String(approvalAction === "approve"));
+      form.append("observacoes", approvalReason.trim());
+      const result = await apiFetch<{ relatorio?: Obj }>(
+        `${BASE}/${encodeURIComponent(reportId(selected))}/aprovacao`,
+        { method: "POST", body: form },
+      );
+      if (!result.relatorio?.id) throw new Error("Servidor não retornou o relatório atualizado.");
+      setReports((previous) =>
+        previous.map((report) =>
+          reportId(report) === reportId(selected) ? result.relatorio as Obj : report,
+        ),
+      );
+      setApprovalAction(null);
+      setApprovalReason("");
+      avisar(
+        approvalAction === "approve" ? "Relatório aprovado" : "Relatório devolvido",
+        approvalAction === "approve"
+          ? "Sua aprovação foi registrada com sucesso."
+          : "O relatório foi devolvido para ajuste.",
+      );
+    } catch (e) {
+      avisar(
+        "Não foi possível registrar a decisão",
+        e instanceof Error ? e.message : "Tente novamente.",
+      );
+    } finally {
+      setBusy("");
+    }
+  };
 
   const showReport = (r: Obj) => {
     const status = reportStatus(r);
@@ -1612,7 +1662,7 @@ export default function RelatorioViagemScreen() {
                   </View>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reportFilters}>
                     {([
-                      ["todos", "Todos"], ["rascunho", "Rascunhos"], ["aprovacao", "Em análise"], ["aprovado", "Aprovados"],
+                      ["todos", "Todos"], ["rascunho", "Rascunhos"], ["aprovacao", "Aguardando aprovação"], ["aprovado", "Aprovados"],
                     ] as const).map(([key, label]) => (
                       <Toque key={key} onPress={() => setReportFilter(key)} style={[styles.reportFilter, reportFilter === key && styles.reportFilterActive]}>
                         <Text style={[styles.reportFilterText, reportFilter === key && styles.reportFilterTextActive]}>{label}</Text>
@@ -1937,6 +1987,41 @@ export default function RelatorioViagemScreen() {
                 <Text style={styles.secondary}>
                   Status: {statusText(reportStatus(selected))}
                 </Text>
+                {approvalPending && (
+                  <View style={styles.approvalActions}>
+                    <Text style={styles.approvalHint}>
+                      Este relatório aguarda sua aprovação.
+                    </Text>
+                    <View style={styles.approvalButtons}>
+                      <Toque
+                        accessibilityRole="button"
+                        accessibilityLabel="Rejeitar relatório"
+                        disabled={!!busy}
+                        onPress={() => {
+                          setApprovalReason("");
+                          setApprovalAction("reject");
+                        }}
+                        style={styles.rejectApprovalButton}
+                      >
+                        <Icon name="x" size={16} color="#FF7190" />
+                        <Text style={styles.rejectApprovalText}>Rejeitar</Text>
+                      </Toque>
+                      <Toque
+                        accessibilityRole="button"
+                        accessibilityLabel="Aprovar relatório"
+                        disabled={!!busy}
+                        onPress={() => {
+                          setApprovalReason("");
+                          setApprovalAction("approve");
+                        }}
+                        style={styles.approveApprovalButton}
+                      >
+                        <Icon name="check" size={16} color="#061A12" />
+                        <Text style={styles.approveApprovalText}>Aprovar relatório</Text>
+                      </Toque>
+                    </View>
+                  </View>
+                )}
                 {arr(selected.historico_ajustes).map((h, i) => (
                   <View key={String(h.id || i)} style={styles.historyRow}>
                     <Icon name="clock" size={15} color={tema.azul} />
@@ -2506,6 +2591,61 @@ export default function RelatorioViagemScreen() {
       <Modal
         transparent
         animationType="fade"
+        visible={Boolean(approvalAction)}
+        onRequestClose={() => setApprovalAction(null)}
+      >
+        <View style={styles.proofPreviewBackdrop}>
+          <View style={styles.approvalModal}>
+            <Text style={styles.approvalModalTitle}>
+              {approvalAction === "approve" ? "Aprovar este relatório?" : "Rejeitar este relatório?"}
+            </Text>
+            {approvalAction === "approve" ? (
+              <Text style={styles.approvalModalText}>
+                Você está confirmando a aprovação das despesas deste relatório.
+              </Text>
+            ) : (
+              <TextInput
+                accessibilityLabel="Motivo da rejeição"
+                value={approvalReason}
+                onChangeText={setApprovalReason}
+                placeholder="Informe o que precisa ser corrigido"
+                placeholderTextColor="#8E9FB4"
+                multiline
+                maxLength={2000}
+                textAlignVertical="top"
+                style={styles.approvalReasonInput}
+              />
+            )}
+            <View style={styles.approvalModalButtons}>
+              <Toque
+                accessibilityRole="button"
+                onPress={() => setApprovalAction(null)}
+                disabled={busy === "approval"}
+                style={styles.approvalCancelButton}
+              >
+                <Text style={styles.approvalCancelText}>Cancelar</Text>
+              </Toque>
+              <Toque
+                accessibilityRole="button"
+                onPress={() => void decideApproval()}
+                disabled={busy === "approval"}
+                style={approvalAction === "approve" ? styles.approveApprovalButton : styles.rejectApprovalButton}
+              >
+                {busy === "approval" ? (
+                  <ActivityIndicator color={approvalAction === "approve" ? "#061A12" : "#FF7190"} />
+                ) : (
+                  <Text style={approvalAction === "approve" ? styles.approveApprovalText : styles.rejectApprovalText}>
+                    {approvalAction === "approve" ? "Confirmar aprovação" : "Confirmar rejeição"}
+                  </Text>
+                )}
+              </Toque>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        transparent
+        animationType="fade"
         visible={Boolean(proofPreview)}
         onRequestClose={() => setProofPreview(null)}
       >
@@ -2865,6 +3005,74 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   proofPreviewImage: { flex: 1, width: "100%" },
+  approvalActions: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: tema.borda,
+    gap: 10,
+  },
+  approvalHint: { color: "#F8D16C", fontSize: 12, fontWeight: "700" },
+  approvalButtons: { flexDirection: "row", gap: 10 },
+  approveApprovalButton: {
+    flex: 1,
+    minHeight: 46,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    borderRadius: 12,
+    backgroundColor: "#35D6A0",
+  },
+  approveApprovalText: { color: "#061A12", fontSize: 12, fontWeight: "800" },
+  rejectApprovalButton: {
+    flex: 1,
+    minHeight: 46,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#71363D",
+    backgroundColor: "#1C1723",
+  },
+  rejectApprovalText: { color: "#FF7190", fontSize: 12, fontWeight: "800" },
+  approvalModal: {
+    width: "100%",
+    maxWidth: 520,
+    padding: 18,
+    borderRadius: 18,
+    backgroundColor: tema.superficie,
+    borderWidth: 1,
+    borderColor: tema.borda,
+  },
+  approvalModalTitle: { color: tema.texto, fontSize: 18, fontWeight: "800" },
+  approvalModalText: { marginTop: 12, color: tema.suave, fontSize: 13, lineHeight: 20 },
+  approvalReasonInput: {
+    minHeight: 110,
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: tema.borda,
+    color: tema.texto,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  approvalModalButtons: { flexDirection: "row", gap: 10, marginTop: 16 },
+  approvalCancelButton: {
+    flex: 1,
+    minHeight: 46,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: tema.borda,
+  },
+  approvalCancelText: { color: tema.suave, fontSize: 12, fontWeight: "800" },
   sheetFooter: {
     flexDirection: "row",
     gap: 10,

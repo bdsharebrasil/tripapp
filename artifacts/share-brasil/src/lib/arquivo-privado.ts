@@ -8,6 +8,7 @@ const allowed = [
   /^\/api\/colaborador\/minhas-horas\/pdf(?:\?(?:inicio|fim|aeronave_id)=[^#&]*(?:&(?:inicio|fim|aeronave_id)=[^#&]*)*)?$/,
   /^\/api\/interno\/agendamento\/[^/?]+\/preparacao\/pdf\?versao=\d+$/,
   /^\/api\/financeiro\/relatorios-despesa-viagem\/[^/?]+\/anexos-tripulante\/[^/?]+\/arquivo$/,
+  /^\/api\/financeiro\/relatorios-despesa-viagem\/[^/?]+\/anexos\/[^/?]+\/arquivo$/,
   /^\/api\/financeiro\/relatorios-despesa-viagem\/[^/?]+\/pdf$/,
   /^\/api\/colaborador\/documentos\/[^/?]+\/arquivo$/,
   /^\/api\/colaborador\/folha-pagamento\/anexos\?key=financeiro%2Fpagamentos-folha%2F/i,
