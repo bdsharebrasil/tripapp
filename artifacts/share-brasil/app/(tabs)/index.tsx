@@ -54,7 +54,7 @@ const ATALHOS: {
   {
     rotulo: "Relatórios",
     icone: "file-text",
-    path: "/relatorio-viagem",
+    path: "/(tabs)/despesa-viagem",
     cor: "#A78BFA",
     corSuave: "rgba(167, 139, 250, 0.16)",
   },

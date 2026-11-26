@@ -68,7 +68,7 @@ return json({filtros:{inicio:url.searchParams.get('inicio'),fim:url.searchParams
 }
 if(path.endsWith('/minhas'))return json({relatorios:reports});
 if(path.endsWith('/iniciar-do-voo')){const report={id:'qa-relatorio',numero_relatorio:'REL-QA-001/26',numero_voo:flight.numero_voo,status:'rascunho',aeronave_id:'qa-aviao',cliente_id:'qa-cliente',rota:'SBCY → SBBR',data_inicio:today,data_fim:today,tripulante_pos:1,despesas:[],total_valor:0};reports=[report];return json({relatorio:report},201)}
-if(path.endsWith('/despesas-tripulante')){saved=JSON.parse(init.body).despesas;reports[0].despesas=saved;reports[0].total_valor=saved.reduce((n,x)=>n+x.valor,0);return json({ok:true})}
+if(path.endsWith('/despesas-tripulante')){const body=JSON.parse(init.body);saved=body.despesas;reports[0].despesas=saved;reports[0].total_valor=saved.reduce((n,x)=>n+x.valor,0);reports[0].observacoes=body.observacoes||'';return json({ok:true})}
 if(path.endsWith('/anexos-tripulante')&&method==='POST'){reports[0].anexos=[{id:'qa-anexo',indice_despesa:0,nome_arquivo:'comprovante.png',tipo_arquivo:'image/png'}];return json({ok:true},201)}
 if(path.endsWith('/arquivo'))return realFetch('/icon.png');
 if(path.endsWith('/finalizar')){reports[0].status='finalizado';reports[0].pdf_path='qa.pdf';return json({ok:true})}

@@ -18,10 +18,13 @@ type Props = Parameters<
 >[0];
 
 const CORES = {
-  barra: "#10152B",
-  amarelo: "#F5CE3E",
-  bordaCentral: "#FFFFFF",
-  iconeInativo: "#8E96B0",
+  barra: "#0E1424",
+  borda: "rgba(255, 255, 255, 0.10)",
+  pilula: "#FFFFFF",
+  pilulaOculta: "rgba(255, 255, 255, 0)",
+  textoAtivo: "#10152B",
+  iconeInativo: "#9AA3BC",
+  homeAtivo: "#2F70E8",
 };
 
 const ORDEM_ROTAS = [
@@ -33,7 +36,7 @@ const ORDEM_ROTAS = [
 ] as const;
 
 const itens: Record<string, { titulo: string; icone: Icone }> = {
-  agenda: { titulo: "Voos", icone: "send" },
+  agenda: { titulo: "Voos", icone: "airplane" },
   diario: { titulo: "Diário", icone: "file-text" },
   index: { titulo: "Início", icone: "home" },
   "plano-voo": { titulo: "Plano", icone: "navigation" },
@@ -43,35 +46,70 @@ const itens: Record<string, { titulo: string; icone: Icone }> = {
 function Item({
   titulo,
   icone,
-  isHome,
   ativo,
+  destaqueHome = false,
   reduzir,
   onPress,
 }: {
   titulo: string;
   icone: Icone;
-  isHome: boolean;
   ativo: boolean;
+  destaqueHome?: boolean;
   reduzir: boolean;
   onPress: () => void;
 }) {
   const anim = useRef(new Animated.Value(ativo ? 1 : 0)).current;
+  const [larguraTexto, setLarguraTexto] = useState(0);
 
   useEffect(() => {
     const run = Animated.timing(anim, {
       toValue: ativo ? 1 : 0,
-      duration: reduzir ? 0 : 200,
+      duration: reduzir ? 0 : 280,
       easing: Easing.bezier(0.23, 1, 0.32, 1),
-      useNativeDriver: true,
+      // width/padding/backgroundColor não suportam o driver nativo
+      useNativeDriver: false,
     });
     run.start();
     return () => run.stop();
   }, [ativo, reduzir, anim]);
 
-  const homeScale = anim.interpolate({
+  const larguraLabel = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.96, 1.03],
+    outputRange: [0, larguraTexto],
   });
+  const margemLabel = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 8],
+  });
+  const paddingPilula = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [11, 18],
+  });
+  const fundoPilula = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [
+      CORES.pilulaOculta,
+      destaqueHome ? CORES.homeAtivo : CORES.pilula,
+    ],
+  });
+  const escalaPilula = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, destaqueHome ? 1.08 : 1],
+  });
+  const elevacaoHome = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, destaqueHome ? -5 : 0],
+  });
+  const opacidadeLabel = anim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0, 0, 1],
+  });
+  const corDestaqueHome = destaqueHome && ativo;
+  const corIcone = ativo
+    ? corDestaqueHome
+      ? "#FFFFFF"
+      : CORES.textoAtivo
+    : CORES.iconeInativo;
 
   return (
     <Toque
@@ -83,42 +121,58 @@ function Item({
       onPress={onPress}
       style={s.item}
     >
-      {isHome ? (
-        <View style={s.homeSlot}>
-          <Animated.View
-            style={[
-              s.homeOuter,
-              ativo && s.homeOuterAtivo,
-              { transform: [{ scale: homeScale }] },
-            ]}
-          >
-            <View style={s.homeInner}>
-              <Icon
-                name={icone}
-                size={25}
-                strokeWidth={2.5}
-                color={CORES.barra}
-              />
-            </View>
-          </Animated.View>
-        </View>
-      ) : (
-        <View style={s.iconWrap}>
-          <Icon
-            name={icone}
-            size={22}
-            strokeWidth={ativo ? 2.4 : 1.9}
-            color={ativo ? CORES.amarelo : CORES.iconeInativo}
-          />
-        </View>
-      )}
-
+      {/* Medidor invisível: descobre a largura real do texto */}
       <Text
+        style={[s.label, s.medidor]}
         numberOfLines={1}
-        style={[s.label, ativo && s.labelAtivo]}
+        onLayout={(e) =>
+          setLarguraTexto(Math.ceil(e.nativeEvent.layout.width) + 2)
+        }
       >
         {titulo}
       </Text>
+
+      <Animated.View
+        style={[
+          s.pilula,
+          corDestaqueHome && s.pilulaHomeAtiva,
+          {
+            backgroundColor: fundoPilula,
+            paddingHorizontal: paddingPilula,
+            transform: [
+              { translateY: elevacaoHome },
+              { scale: escalaPilula },
+            ],
+          },
+        ]}
+      >
+        <Icon
+          name={icone}
+          size={22}
+          strokeWidth={ativo ? 2.4 : 2}
+          color={corIcone}
+        />
+        <Animated.View
+          style={[
+            s.labelWrap,
+            { width: larguraLabel, marginLeft: margemLabel },
+          ]}
+        >
+          <Animated.Text
+            numberOfLines={1}
+            style={[
+              s.label,
+              {
+                width: larguraTexto,
+                opacity: opacidadeLabel,
+                color: corDestaqueHome ? "#FFFFFF" : CORES.textoAtivo,
+              },
+            ]}
+          >
+            {titulo}
+          </Animated.Text>
+        </Animated.View>
+      </Animated.View>
     </Toque>
   );
 }
@@ -135,10 +189,15 @@ export function MenuInferiorGlobal() {
     void AccessibilityInfo.isReduceMotionEnabled().then((v) => {
       if (active) setReduzir(v);
     });
+    const motion = AccessibilityInfo.addEventListener(
+      "reduceMotionChanged",
+      setReduzir,
+    );
     const show = Keyboard.addListener("keyboardDidShow", () => setKeyboard(true));
     const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboard(false));
     return () => {
       active = false;
+      motion.remove();
       show.remove();
       hide.remove();
     };
@@ -147,10 +206,16 @@ export function MenuInferiorGlobal() {
   if (keyboard) return null;
 
   const raiz = String(segments[0] || "");
-  const segunda = String(segments[1] || "");
+  const segunda = segments
+    .slice(1)
+    .find((segment) => Boolean(itens[String(segment)]));
   let selected = "";
   if (raiz === "(tabs)") {
-    selected = itens[segunda] ? segunda : "";
+    selected = segunda
+      ? String(segunda)
+      : segments.length === 1
+        ? "index"
+        : "";
   } else if (["diario-bordo", "novo-lancamento", "relatorio-viagem", "relatorio-voo"].includes(raiz)) {
     selected = "diario";
   } else if (raiz === "plano-voo") {
@@ -164,15 +229,18 @@ export function MenuInferiorGlobal() {
   return (
     <View
       accessibilityRole="tablist"
-      style={[s.bar, { zIndex: 1000, elevation: 1000, paddingBottom: Math.max(10, insets.bottom) }]}
+      style={[
+        s.bar,
+        { zIndex: 1000, elevation: 1000, bottom: Math.max(12, insets.bottom) },
+      ]}
     >
       <View style={s.items}>
         {ORDEM_ROTAS.map((nome) => (
           <Item
             key={nome}
             {...itens[nome]}
-            isHome={nome === "index"}
             ativo={nome === selected}
+            destaqueHome={nome === "index"}
             reduzir={reduzir}
             onPress={() => {
               if (nome === "index") {
@@ -229,15 +297,15 @@ export function MenuInferior({ state }: Props) {
   return (
     <View
       accessibilityRole="tablist"
-      style={[s.bar, { paddingBottom: Math.max(10, insets.bottom) }]}
+      style={[s.bar, { bottom: Math.max(12, insets.bottom) }]}
     >
       <View style={s.items}>
         {rotas.map((route) => (
           <Item
             key={route.key}
             {...itens[route.name]}
-            isHome={route.name === "index"}
             ativo={route.name === visible}
+            destaqueHome={route.name === "index"}
             reduzir={reduzir}
             onPress={() => {
               if (route.name === "index") {
@@ -256,82 +324,60 @@ export function MenuInferior({ state }: Props) {
 const s = StyleSheet.create({
   bar: {
     position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingTop: 10,
-    paddingHorizontal: 10,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    left: 16,
+    right: 16,
+    padding: 8,
+    borderRadius: 999,
     backgroundColor: CORES.barra,
-    overflow: "visible",
+    borderWidth: 1,
+    borderColor: CORES.borda,
     shadowColor: "#000000",
-    shadowOpacity: 0.22,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
     elevation: 16,
   },
   items: {
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "center",
     justifyContent: "space-between",
-    overflow: "visible",
   },
   item: {
-    flex: 1,
-    minHeight: 54,
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 4,
-    overflow: "visible",
-  },
-  iconWrap: {
-    width: 32,
-    height: 30,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
-  homeSlot: {
-    width: 68,
-    height: 30,
-    alignItems: "center",
-    justifyContent: "flex-end",
-    overflow: "visible",
-  },
-  homeOuter: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
-    marginBottom: 2,
-    backgroundColor: CORES.bordaCentral,
+  pilula: {
+    height: 44,
+    minWidth: 44,
+    borderRadius: 999,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+  },
+  pilulaHomeAtiva: {
+    borderWidth: 1,
+    borderColor: "#285DBB",
     shadowColor: "#000000",
-    shadowOpacity: 0.16,
-    shadowRadius: 10,
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 10,
+    elevation: 7,
   },
-  homeOuterAtivo: {
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-  },
-  homeInner: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: "rgba(233, 217, 57, 1)",
-    alignItems: "center",
+  labelWrap: {
+    overflow: "hidden",
     justifyContent: "center",
   },
   label: {
-    color: CORES.iconeInativo,
+    color: CORES.textoAtivo,
     fontFamily: "Inter_600SemiBold",
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 14,
+    lineHeight: 18,
   },
-  labelAtivo: {
-    color: CORES.amarelo,
+  medidor: {
+    position: "absolute",
+    opacity: 0,
+    left: 0,
+    top: 0,
   },
 });

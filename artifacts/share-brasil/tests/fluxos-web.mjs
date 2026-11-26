@@ -342,6 +342,16 @@ try {
   console.log(
     "PASS: início, perfil real, CMA/habilitações e criação de relatório.",
   );
+  const observations = doc.querySelector(
+    'textarea[aria-label="Observações do relatório"]',
+  );
+  const setTextarea = Object.getOwnPropertyDescriptor(
+    w.HTMLTextAreaElement.prototype,
+    "value",
+  ).set;
+  setTextarea.call(observations, "Pernoite autorizado pela coordenação.");
+  observations.dispatchEvent(new w.Event("input", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 100));
   await click("Criar nova despesa");
   await wait(() => text().includes("Despesa 1"), "nova despesa");
   const inputs = [...doc.querySelectorAll("input")];
@@ -359,15 +369,13 @@ try {
       inputs[1],
     "188,50",
   );
-  const description = doc.querySelector("textarea");
-  const set = Object.getOwnPropertyDescriptor(
-    w.HTMLTextAreaElement.prototype,
-    "value",
-  ).set;
-  set.call(description, "Refeição de teste");
+  const description = doc.querySelector(
+    'textarea[aria-label="Descrição da despesa"]',
+  );
+  setTextarea.call(description, "Refeição de teste");
   description.dispatchEvent(new w.Event("input", { bubbles: true }));
   await new Promise((r) => setTimeout(r, 100));
-  await click("Salvar despesas");
+  await click("Salvar em rascunho");
   await wait(
     () => w.qaRequests?.some((x) => x.path.endsWith("/despesas-tripulante")),
     "salvamento",
@@ -378,6 +386,11 @@ try {
   assert.ok(saved.id);
   assert.equal(saved.valor, 188.5);
   assert.equal(saved.descricao, "Refeição de teste");
+  assert.equal(
+    w.qaRequests.find((x) => x.path.endsWith("/despesas-tripulante")).body
+      .observacoes,
+    "Pernoite autorizado pela coordenação.",
+  );
   await wait(() => !text().includes("Salvando…"), "salvo");
   await click("Voltar");
   await wait(() => text().includes("Continuar"), "rascunho disponível");
@@ -389,10 +402,10 @@ try {
   assert.ok(draft);
   draft.click();
   await wait(
-    () => text().includes("Finalizar relatório"),
+    () => text().includes("Enviar ao financeiro"),
     "continuar rascunho",
   );
-  await click("Finalizar relatório");
+  await click("Enviar ao financeiro");
   await wait(
     () => w.qaRequests.some((x) => x.path.endsWith("/finalizar")),
     "finalização",

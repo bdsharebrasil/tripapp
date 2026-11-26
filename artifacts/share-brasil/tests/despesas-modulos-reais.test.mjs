@@ -24,14 +24,19 @@ const sources = Object.fromEntries(
 );
 
 test("Despesas cria relatório pelo voo e seleciona o registro salvo", () => {
+  assert.match(sources.home, /path: "\/\(tabs\)\/despesa-viagem"/);
   assert.match(sources.despesas, /\/iniciar-do-voo/);
   assert.match(
     sources.despesas,
-    /setSelectedId\(String\(result\.relatorio\.id\)\)/,
+    /setSelectedId\(String\(mergedReport\.id\)\)/,
   );
   assert.match(sources.despesas, /Criar nova despesa/);
   assert.match(sources.despesas, /despesas-tripulante/);
-  assert.match(sources.despesas, /finalizar/);
+  assert.match(sources.despesas, /placeholder="Inclua observações para o financeiro"/);
+  assert.match(sources.despesas, /accessibilityLabel="Salvar em rascunho"/);
+  assert.match(sources.despesas, /Enviar ao financeiro/);
+  assert.match(sources.despesas, /observacoes: observations\.trim\(\)/);
+  assert.match(sources.despesas, /\/finalizar/);
   assert.doesNotMatch(sources.despesas, /AsyncStorage|useApp\(/);
 });
 
@@ -46,6 +51,46 @@ test("Comprovantes podem ser enviados por fotos, câmera ou arquivo e abertos de
   assert.match(sources.files, /Sharing\.shareAsync/);
   assert.match(sources.files, /file\.delete\(\)/);
   assert.doesNotMatch(sources.files, /AsyncStorage|\?token=/);
+});
+
+test("Formulário de despesa permite salvar e continuar e visualizar comprovante de imagem", () => {
+  assert.match(sources.despesas, /onPress=\{\(\) => void saveAndAddAnother\(\)\}/);
+  assert.match(sources.despesas, /onPress=\{\(\) =>\s*editable \? void saveAndClose\(\)/);
+  assert.match(sources.despesas, /selectAttachment\("camera"\)/);
+  assert.match(sources.despesas, /selectAttachment\("foto"\)/);
+  assert.match(sources.despesas, /selectAttachment\("arquivo"\)/);
+  assert.match(sources.despesas, /visible=\{Boolean\(proofPreview\)\}/);
+  assert.match(sources.despesas, /source=\{\{ uri: proofPreview\.uri \}\}/);
+  assert.match(sources.despesas, /item\.pago_por === payerFilter/);
+  assert.match(sources.despesas, /setPayerPickerOpen\(true\)/);
+  assert.match(sources.despesas, /calendarCells\.map/);
+  assert.match(sources.despesas, /placeholder="DD\/MM"/);
+  assert.match(sources.despesas, /<ExpenseSwipeRow/);
+  assert.match(sources.despesas, /onPress=\{\(\) => deleteExpense\(sheetIndex\)\}/);
+});
+
+test("Voo atual exibe apenas escala aberta e histórico pesquisa relatórios", () => {
+  assert.match(sources.despesas, /const currentFlights = useMemo/);
+  assert.match(sources.despesas, /if \(isCompletedFlight\(flight\)\) return false/);
+  assert.match(sources.despesas, /currentFlights\.map/);
+  assert.doesNotMatch(sources.despesas, /RELATÓRIOS EM RASCUNHO/);
+  assert.match(sources.despesas, /Buscar relatório por número, cliente ou aeronave/);
+  assert.match(sources.despesas, /reportSearchValues\(report, flights\)\.includes\(query\)/);
+});
+
+test("Histórico permite rolar valores financeiros e mostra total junto ao período", () => {
+  assert.match(sources.despesas, /reportCardFinancials/);
+  assert.match(sources.despesas, /horizontal\s+nestedScrollEnabled\s+directionalLockEnabled/);
+  assert.match(sources.despesas, /style=\{styles\.reportCardFinancialScroll\}/);
+  assert.match(sources.despesas, /reportCategories\.map\(\(\{ category, amount \}\)/);
+  assert.match(sources.despesas, /styles\.reportCardTotalCol/);
+  assert.match(sources.despesas, /reportCardCategoryLabel\}>Total/);
+  assert.match(sources.despesas, /reportCardTotalValue[\s\S]{0,100}money\(totalAmount\)/);
+  assert.match(sources.despesas, /PAID_STATUSES\.has\(paymentStatus\)\s+\?\s+"Pago"/);
+  assert.match(sources.despesas, /:\s+"Em aberto"/);
+  assert.match(sources.despesas, /\{paymentLabel\}: \{money\(reimbursementAmount\)\}/);
+  assert.match(sources.despesas, /return `\$\{date\(toIsoFromParts\(startParts\)\)\} – \$\{date\(toIsoFromParts\(endParts\)\)\}`/);
+  assert.doesNotMatch(sources.despesas, /reportShortDate|reportPeriod[\s\S]{0,250}\(\$\{days\}d\)/);
 });
 
 test("Histórico e reembolsos usam campos do Worker", () => {

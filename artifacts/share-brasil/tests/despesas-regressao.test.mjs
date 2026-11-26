@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { valorDespesa, payloadDespesas } from "../src/lib/despesas.ts";
+import {
+  dataDespesaDeDiaMes,
+  formatarDataDiaMes,
+  valorDespesa,
+  payloadDespesas,
+} from "../src/lib/despesas.ts";
 
 test("valor em reais conserva centavos digitados com vírgula e separador de milhar", () => {
   for (const [texto, valor] of [
@@ -33,4 +38,13 @@ test("item novo conserva o identificador obrigatório e não envia metadados de 
     payloadDespesas([{ ...item, valor: 200 }]).despesas[0].id,
     first.despesas[0].id,
   );
+});
+
+test("data de despesa aceita DD/MM no ano do voo e valida dias do calendário", () => {
+  assert.equal(dataDespesaDeDiaMes("09/04", 2026), "2026-04-09");
+  assert.equal(dataDespesaDeDiaMes("29/02", 2024), "2024-02-29");
+  assert.equal(dataDespesaDeDiaMes("29/02", 2025), null);
+  assert.equal(dataDespesaDeDiaMes("31/04", 2026), null);
+  assert.equal(formatarDataDiaMes("2026-04-09"), "09/04");
+  assert.equal(formatarDataDiaMes("2026-02-30"), "");
 });
