@@ -168,6 +168,21 @@ export type AeronaveSolicitacao = {
   fabricante?: string;
   tipo_aeronave?: string;
   fuel_consumption?: number;
+  consumo_combustivel?: number;
+  consumo_hora_litros?: number;
+  velocidade_cruzeiro?: number | string;
+  performance_velocidade_cruzeiro_kt?: number | string;
+  performance_categoria?: string;
+  performance_teto_servico_ft?: number | string;
+  performance_taxa_subida_fpm?: number | string;
+  performance_taxa_descida_fpm?: number | string;
+  designador_icao?: string;
+  esteira_turbulencia?: string;
+  equipamentos_icao?: string;
+  vigilancia_icao?: string;
+  pbn_icao?: string;
+  autonomia_padrao_minutos?: number | string;
+  cor_marcas?: string;
 };
 
 export type VooSolicitacao = {
@@ -294,6 +309,50 @@ export const criarFormularioIcao = (): FormularioIcao => ({
   piloto: "",
 });
 
+const textoAeronave = (aeronave: AeronaveSolicitacao) =>
+  [aeronave.modelo, aeronave.tipo_aeronave].filter(Boolean).join(" ");
+
+/** O Item 9 usa o modelo cadastrado; designador_icao não é aplicado automaticamente. */
+export function modeloParaFormulario(aeronave: AeronaveSolicitacao) {
+  return String(aeronave.modelo || aeronave.model || "").trim();
+}
+
+/** Pistão/turboélice usam L; somente aeronaves identificadas como jato usam M. */
+export function esteiraDaAeronave(aeronave: AeronaveSolicitacao): Esteira {
+  return /jato|jet|turbojet|turbofan/i.test(textoAeronave(aeronave)) ? "M" : "L";
+}
+
+export function velocidadeCruzeiroDaAeronave(aeronave: AeronaveSolicitacao) {
+  const valor = Number(
+    aeronave.performance_velocidade_cruzeiro_kt || aeronave.velocidade_cruzeiro,
+  );
+  return Number.isFinite(valor) && valor > 0 ? valor : null;
+}
+
+export function velocidadeIcao(valor: number | null) {
+  return valor == null
+    ? ""
+    : `N${String(Math.round(valor)).padStart(4, "0")}`;
+}
+
+export function normalizarAeronaveSolicitacao(
+  row: Record<string, any>,
+): AeronaveSolicitacao {
+  return {
+    ...row,
+    id: String(row.id ?? ""),
+    registration: row.registration || row.matricula_registro || row.matricula || "",
+    matricula: row.matricula || row.matricula_registro || row.registration || "",
+    matricula_registro: row.matricula_registro || row.registration || row.matricula || "",
+    model: row.model || row.modelo || "",
+    modelo: row.modelo || row.model || "",
+    manufacturer: row.manufacturer || row.fabricante || "",
+    fabricante: row.fabricante || row.manufacturer || "",
+    tipo_aeronave: row.tipo_aeronave || "",
+    fuel_consumption: row.fuel_consumption ?? row.consumo_combustivel ?? row.consumo_hora_litros,
+  };
+}
+
 export const buscarClima = (icao: string) =>
   apiFetch<Clima>(`/api/v1/weather/${encodeURIComponent(icao)}`);
 
@@ -316,8 +375,8 @@ export function validarFpl(fpl: FormularioIcao): string[] {
     erros.push("A origem e o destino devem ser diferentes.");
   if (!/^\d{4}$/.test(fpl.eobt.replace(/:/g, "")))
     erros.push("Item 13: EOBT obrigatório no formato UTC HHMM.");
-  if (!/^[A-Z0-9]{1,4}$/.test(fpl.tipoAeronave.trim().toUpperCase()))
-    erros.push("Item 9: informe o designador ICAO da aeronave.");
+  if (!/^[A-Z0-9][A-Z0-9 /-]{0,19}$/.test(fpl.tipoAeronave.trim().toUpperCase()))
+    erros.push("Item 9: informe o modelo da aeronave.");
   if (!fpl.equipamento.trim())
     erros.push("Item 10: informe o equipamento a bordo.");
   if (!/^[NKM]\d{4}$/.test(fpl.velocidade.trim().toUpperCase()))

@@ -27,6 +27,11 @@ const {
   criarFormularioIcao,
   formatarHoraUtc,
   gerarMensagemIcao,
+  esteiraDaAeronave,
+  normalizarAeronaveSolicitacao,
+  velocidadeCruzeiroDaAeronave,
+  velocidadeIcao,
+  modeloParaFormulario,
   paraPlano,
   paraRegistro,
 } = modeloModule.exports;
@@ -208,4 +213,38 @@ test("identificação ICAO legada sem solicitação não é relida como número 
 
   assert.equal(plano.numeroVoo, "");
   assert.equal(plano.fpl.identificacao, "PRABC");
+});
+
+test("seleção de aeronave preserva os dados D1 e prioriza a performance", () => {
+  const aeronave = normalizarAeronaveSolicitacao({
+    id: 10,
+    matricula_registro: "PR-ABC",
+    fabricante: "Cessna",
+    modelo: "Cessna 172",
+    designador_icao: "C172",
+    tipo_aeronave: "PISTAO",
+    velocidade_cruzeiro: 110,
+    performance_velocidade_cruzeiro_kt: 125,
+    consumo_combustivel: 32,
+    equipamentos_icao: "SDFG",
+    vigilancia_icao: "LB1",
+    pbn_icao: "B2",
+    autonomia_padrao_minutos: 240,
+    cor_marcas: "BRANCA",
+  });
+
+  assert.equal(aeronave.id, "10");
+  assert.equal(modeloParaFormulario(aeronave), "Cessna 172");
+  assert.equal(velocidadeCruzeiroDaAeronave(aeronave), 125);
+  assert.equal(velocidadeIcao(velocidadeCruzeiroDaAeronave(aeronave)), "N0125");
+  assert.equal(esteiraDaAeronave(aeronave), "L");
+  assert.equal(aeronave.equipamentos_icao, "SDFG");
+  assert.equal(aeronave.autonomia_padrao_minutos, 240);
+});
+
+test("esteira de jato é M e não depende do campo designador ICAO", () => {
+  assert.equal(
+    esteiraDaAeronave({ id: "j1", modelo: "Phenom 100", tipo_aeronave: "JATO", designador_icao: "E50P" }),
+    "M",
+  );
 });

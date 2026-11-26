@@ -33,6 +33,11 @@ import {
   criarFormularioIcao,
   formatarHoraUtc,
   mensagemErro,
+  modeloParaFormulario,
+  normalizarAeronaveSolicitacao,
+  esteiraDaAeronave,
+  velocidadeCruzeiroDaAeronave,
+  velocidadeIcao,
   validarFpl,
 } from "./modelo";
 
@@ -64,6 +69,8 @@ export function NovoPlanoModal({
   const [carregandoVoos, setCarregandoVoos] = useState(false);
   const [erroVoos, setErroVoos] = useState("");
   const [aeronaves, setAeronaves] = useState<AeronaveSolicitacao[]>([]);
+  const [aeronaveSelecionada, setAeronaveSelecionada] =
+    useState<AeronaveSolicitacao | null>(null);
   const [carregandoAeronaves, setCarregandoAeronaves] = useState(false);
   const [aeronaveAberta, setAeronaveAberta] = useState(false);
   const [calculandoRota, setCalculandoRota] = useState(false);
@@ -83,6 +90,7 @@ export function NovoPlanoModal({
       setFpl(criarFormularioIcao());
       setNumeroVoo("");
       setSolicitacaoId("");
+      setAeronaveSelecionada(null);
     }
   }, [visivel, inline]);
 
@@ -133,19 +141,7 @@ export function NovoPlanoModal({
         if (!ativo) return;
         setAeronaves(
           (Array.isArray(r.aeronaves) ? r.aeronaves : []).map((row) => ({
-            id: String(row.id ?? ""),
-            registration:
-              row.registration || row.matricula_registro || row.matricula || "",
-            matricula:
-              row.matricula || row.matricula_registro || row.registration || "",
-            matricula_registro:
-              row.matricula_registro || row.registration || row.matricula || "",
-            model: row.model || row.modelo || "",
-            modelo: row.modelo || row.model || "",
-            manufacturer: row.manufacturer || row.fabricante || "",
-            fabricante: row.fabricante || row.manufacturer || "",
-            tipo_aeronave: row.tipo_aeronave || row.designador_icao || "",
-            fuel_consumption: row.fuel_consumption ?? row.consumo_hora_litros,
+            ...normalizarAeronaveSolicitacao(row),
           })),
         );
         const pessoas = Array.isArray(r.tripulacao) ? r.tripulacao : [];
@@ -193,6 +189,7 @@ export function NovoPlanoModal({
   }, [visivel]);
 
   const selecionarAeronave = (aeronave: AeronaveSolicitacao) => {
+    setAeronaveSelecionada(aeronave);
     const matricula =
       aeronave.registration ||
       aeronave.matricula_registro ||
@@ -223,7 +220,11 @@ export function NovoPlanoModal({
         (/^[A-Z0-9]{2,7}$/.test(identificacaoSugerida)
           ? identificacaoSugerida
           : ""),
-      tipoAeronave: aeronave.tipo_aeronave?.toUpperCase() || atual.tipoAeronave,
+      tipoAeronave:
+        modeloParaFormulario(aeronave) || atual.tipoAeronave,
+      esteira: esteiraDaAeronave(aeronave),
+      velocidade:
+        velocidadeIcao(velocidadeCruzeiroDaAeronave(aeronave)) || atual.velocidade,
       outrasInformacoes:
         aeronave.registration || aeronave.matricula_registro
           ? `REG/${String(aeronave.registration || aeronave.matricula_registro).replace(/-/g, "")}`
@@ -262,15 +263,13 @@ export function NovoPlanoModal({
         rota: rotaTexto,
         tipoAeronave:
           atual.tipoAeronave ||
+          rota.performance?.modelo ||
           rota.performance?.tipo_aeronave ||
           atual.tipoAeronave,
-        equipamento:
-          atual.equipamento || rota.performance?.equipamentos_icao || "",
         velocidade:
-          atual.velocidade ||
-          (rota.performance?.velocidade_cruzeiro_kt
+          rota.performance?.velocidade_cruzeiro_kt
             ? `N${String(Math.round(rota.performance.velocidade_cruzeiro_kt)).padStart(4, "0")}`
-            : ""),
+            : atual.velocidade,
       }));
     } catch (e) {
       avisar("Não foi possível calcular", mensagemErro(e));
@@ -295,11 +294,8 @@ export function NovoPlanoModal({
       .replace(/[^A-Z0-9]/gi, "")
       .toUpperCase();
     const tipo =
-      voo.tipo_aeronave ||
-      aeronaveSelecionada?.tipo_aeronave ||
+      modeloParaFormulario(aeronaveSelecionada || { id: "" }) ||
       voo.modelo ||
-      aeronaveSelecionada?.model ||
-      aeronaveSelecionada?.modelo ||
       "";
     const nomeAeronave = aeronaveSelecionada
       ? [
@@ -320,6 +316,7 @@ export function NovoPlanoModal({
     );
     setNumeroVoo(voo.numero_voo.trim().toUpperCase());
     setSolicitacaoId(String(voo.id ?? voo.solicitacao_id ?? ""));
+    setAeronaveSelecionada(aeronaveSelecionada || null);
     setForm((atual) => ({
       ...atual,
       partida,
@@ -349,6 +346,13 @@ export function NovoPlanoModal({
       outrasInformacoes: matricula
         ? `REG/${matricula.replace(/-/g, "")} TYP/${tipo}`.trim().toUpperCase()
         : atual.outrasInformacoes,
+      esteira: aeronaveSelecionada
+        ? esteiraDaAeronave(aeronaveSelecionada)
+        : atual.esteira,
+      velocidade:
+        (aeronaveSelecionada
+          ? velocidadeIcao(velocidadeCruzeiroDaAeronave(aeronaveSelecionada))
+          : "") || atual.velocidade,
     }));
   };
 
@@ -829,6 +833,34 @@ export function NovoPlanoModal({
               </View>
             )}
           </View>
+          {aeronaveSelecionada && (
+            <View
+              style={[
+                mStyles.aircraftDataCard,
+                { backgroundColor: colors.muted, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[mStyles.aircraftDataTitle, { color: colors.foreground }]}>
+                DADOS DA AERONAVE · D1
+              </Text>
+              {[
+                ["Fabricante / modelo", [aeronaveSelecionada.fabricante, aeronaveSelecionada.modelo].filter(Boolean).join(" ")],
+                ["Velocidade de cruzeiro", velocidadeCruzeiroDaAeronave(aeronaveSelecionada) ? `${velocidadeCruzeiroDaAeronave(aeronaveSelecionada)} kt` : "—"],
+                ["Consumo de combustível", aeronaveSelecionada.consumo_combustivel || aeronaveSelecionada.fuel_consumption ? `${aeronaveSelecionada.consumo_combustivel || aeronaveSelecionada.fuel_consumption} L/h` : "—"],
+                ["Categoria / teto", [aeronaveSelecionada.performance_categoria, aeronaveSelecionada.performance_teto_servico_ft ? `${aeronaveSelecionada.performance_teto_servico_ft} ft` : ""].filter(Boolean).join(" · ")],
+                ["Subida / descida", [aeronaveSelecionada.performance_taxa_subida_fpm ? `${aeronaveSelecionada.performance_taxa_subida_fpm} fpm` : "", aeronaveSelecionada.performance_taxa_descida_fpm ? `${aeronaveSelecionada.performance_taxa_descida_fpm} fpm` : ""].filter(Boolean).join(" / ")],
+                ["ICAO cadastrado", aeronaveSelecionada.designador_icao || "— (ignorado; usa o modelo)"],
+                ["Esteira aplicada", esteiraDaAeronave(aeronaveSelecionada)],
+                ["Equipamentos / vigilância / PBN", [aeronaveSelecionada.equipamentos_icao, aeronaveSelecionada.vigilancia_icao, aeronaveSelecionada.pbn_icao].filter(Boolean).join(" · ") || "— (preenchimento manual)"],
+                ["Autonomia / cor-marcas", [aeronaveSelecionada.autonomia_padrao_minutos ? `${aeronaveSelecionada.autonomia_padrao_minutos} min` : "", aeronaveSelecionada.cor_marcas].filter(Boolean).join(" · ") || "— (preenchimento manual)"],
+              ].map(([rotulo, valor]) => (
+                <View key={rotulo} style={mStyles.aircraftDataRow}>
+                  <Text style={[mStyles.aircraftDataLabel, { color: colors.mutedForeground }]}>{rotulo}</Text>
+                  <Text style={[mStyles.aircraftDataValue, { color: colors.foreground }]}>{valor || "—"}</Text>
+                </View>
+              ))}
+            </View>
+          )}
           <Campo
             rotulo="Matrícula"
             colors={colors}
@@ -944,13 +976,13 @@ export function NovoPlanoModal({
               maxLength={2}
             />
             <Campo
-              rotulo="Item 9 · Tipo ICAO"
+              rotulo="Item 9 · Modelo da aeronave"
               colors={colors}
               value={fpl.tipoAeronave}
               onChangeText={(v) => setCampoFpl("tipoAeronave", v.toUpperCase())}
-              placeholder="C172"
+              placeholder="Cessna 172"
               autoCapitalize="characters"
-              maxLength={4}
+              maxLength={20}
             />
           </View>
           <Text style={[mStyles.label, { color: colors.foreground }]}>
@@ -1332,6 +1364,25 @@ export const mStyles = StyleSheet.create({
   },
   resumoRotulo: { fontSize: 11, fontFamily: "Inter_500Medium" },
   resumoValor: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  aircraftDataCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  aircraftDataTitle: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  aircraftDataRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingVertical: 4,
+  },
+  aircraftDataLabel: { width: 142, fontSize: 11, fontFamily: "Inter_500Medium" },
+  aircraftDataValue: { flex: 1, fontSize: 12, fontFamily: "Inter_600SemiBold" },
   abaHint: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
