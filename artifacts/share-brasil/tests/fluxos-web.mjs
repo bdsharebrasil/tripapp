@@ -83,7 +83,8 @@ try {
   await waitFor(
     () =>
       text().includes("PRÓXIMO VOO") &&
-      text().includes("QA-TESTE · Cheyenne II"),
+      text().includes("QA-TESTE") &&
+      text().includes("Cheyenne II"),
     "dashboard Expo autenticado",
     document,
   );

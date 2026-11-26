@@ -25,14 +25,46 @@ type Voo = {
   id: string;
   numero_voo?: string;
   origem?: string;
+  origem_cidade?: string;
   destino?: string;
+  destino_cidade?: string;
   data_agendada?: string;
   horario_previsto_agendamento?: string;
   matricula_registro?: string;
   modelo?: string;
+  aeronave_modelo?: string;
+  url_imagem?: string | null;
+  aeronave_url_imagem?: string | null;
+  foto_aeronave?: string | null;
+  aeronave_foto_url?: string | null;
+  imagem_aeronave?: string | null;
+  aeronave?: {
+    matricula?: string;
+    modelo?: string;
+    url_imagem?: string | null;
+    foto_url?: string | null;
+    imagem_url?: string | null;
+  } | null;
   numero_passageiros?: number | null;
   status?: string;
   pagamento_total?: number;
+};
+
+const imagemAeronaveDo = (voo?: Voo): string | null => {
+  if (!voo) return null;
+  const candidata =
+    voo.url_imagem ||
+    voo.aeronave_url_imagem ||
+    voo.foto_aeronave ||
+    voo.aeronave_foto_url ||
+    voo.imagem_aeronave ||
+    voo.aeronave?.url_imagem ||
+    voo.aeronave?.foto_url ||
+    voo.aeronave?.imagem_url ||
+    null;
+  return typeof candidata === "string" && candidata.trim()
+    ? candidata.trim()
+    : null;
 };
 
 type RelatorioDespesa = {
@@ -54,11 +86,12 @@ const PERIODOS: { chave: Periodo; rotulo: string }[] = [
   { chave: "escala", rotulo: "Escala" },
 ];
 
-const AZUL_CLARO = "#7AA7FF";
+const AZUL_CLARO = "#60A5FA";
 const LOGO = require("@/assets/images/share-icon.png");
 
 const ATALHOS: {
   rotulo: string;
+  apoio: string;
   icone: Icone;
   path: Href;
   cor: string;
@@ -66,6 +99,7 @@ const ATALHOS: {
 }[] = [
   {
     rotulo: "Relatórios",
+    apoio: "Despesas",
     icone: "file-text",
     path: "/(tabs)/despesa-viagem",
     cor: "#A78BFA",
@@ -73,17 +107,19 @@ const ATALHOS: {
   },
   {
     rotulo: "Financeiro",
+    apoio: "Extratos",
     icone: "receipt",
     path: "/(tabs)/financeiro",
-    cor: "#6FCF97",
-    corSuave: "rgba(111, 207, 151, 0.16)",
+    cor: "#34D399",
+    corSuave: "rgba(52, 211, 153, 0.16)",
   },
   {
     rotulo: "Manutenção",
+    apoio: "Ocorrências",
     icone: "tool",
     path: "/manutencao",
-    cor: "#FF8A8A",
-    corSuave: "rgba(255, 138, 138, 0.16)",
+    cor: "#FB7185",
+    corSuave: "rgba(251, 113, 133, 0.16)",
   },
 ];
 
@@ -239,7 +275,7 @@ export default function HomeScreen() {
   );
 
   const p = perfil?.perfil;
-  const nome = p?.nome_exibicao || p?.nome_completo || "Cmte";
+  const nome = p?.nome_exibicao || p?.nome_completo || "Comandante";
   const agora = new Date();
   const horaAtual = agora.getHours();
   const saudacao =
@@ -281,6 +317,11 @@ export default function HomeScreen() {
   const proximoAtivo =
     !!proximo && EM_OPERACAO.has(normalizarStatus(proximo.status));
   const contagem = proximo && !proximoAtivo ? tempoParaPartida(proximo) : null;
+  const fotoAeronave = imagemAeronaveDo(proximo);
+  const matriculaProximo =
+    proximo?.matricula_registro || proximo?.aeronave?.matricula || "PR-SHB";
+  const modeloProximo =
+    proximo?.aeronave_modelo || proximo?.aeronave?.modelo || proximo?.modelo;
 
   const kicker = proximoAtivo
     ? "EM OPERAÇÃO"
@@ -348,6 +389,12 @@ export default function HomeScreen() {
             <Text style={s.nome} numberOfLines={1}>
               {nome}
             </Text>
+            <View style={s.heroTituloWrap}>
+              <Text style={s.heroTitulo}>
+                Pronta para a{" "}
+                <Text style={s.heroTituloDestaque}>próxima</Text> missão
+              </Text>
+            </View>
           </View>
 
           <View style={s.chips}>
@@ -378,6 +425,24 @@ export default function HomeScreen() {
 
           {proximo && (
             <View style={s.hero}>
+              {fotoAeronave ? (
+                <Image
+                  source={{ uri: fotoAeronave }}
+                  resizeMode="cover"
+                  accessibilityIgnoresInvertColors
+                  style={s.heroBgImagem}
+                />
+              ) : (
+                <View style={s.heroBgFallback}>
+                  <Image
+                    source={LOGO}
+                    resizeMode="contain"
+                    style={s.heroBgLogoFallback}
+                  />
+                </View>
+              )}
+              <View pointerEvents="none" style={s.heroOverlayBase} />
+              <View pointerEvents="none" style={s.heroOverlayInferior} />
               <Toque
                 accessibilityRole="button"
                 accessibilityLabel={`Abrir voo ${proximo.numero_voo || ""}`}
@@ -394,12 +459,13 @@ export default function HomeScreen() {
                     {kicker}
                   </Text>
                   <Text style={s.matricula} numberOfLines={1}>
-                    {[proximo.matricula_registro, proximo.modelo]
-                      .filter(Boolean)
-                      .join(" · ") ||
-                      proximo.numero_voo ||
-                      "Aeronave a definir"}
+                    {matriculaProximo}
                   </Text>
+                  {!!modeloProximo && (
+                    <Text style={s.modelo} numberOfLines={1}>
+                      {modeloProximo}
+                    </Text>
+                  )}
                 </View>
 
                 <View
@@ -421,6 +487,11 @@ export default function HomeScreen() {
               <View style={s.rota}>
                 <View>
                   <Text style={s.aeroporto}>{proximo.origem || "—"}</Text>
+                  {!!proximo.origem_cidade && (
+                    <Text style={s.aeroportoSub} numberOfLines={1}>
+                      {proximo.origem_cidade}
+                    </Text>
+                  )}
                   <Text style={s.horaRota}>
                     {horarioDo(proximo) ? `${horarioDo(proximo)} LT` : "--:--"}
                   </Text>
@@ -436,7 +507,9 @@ export default function HomeScreen() {
 
                 <View style={{ alignItems: "flex-end" }}>
                   <Text style={s.aeroporto}>{proximo.destino || "—"}</Text>
-                  <Text style={s.horaRota}>Destino</Text>
+                  <Text style={s.aeroportoSub} numberOfLines={1}>
+                    {proximo.destino_cidade || "Destino"}
+                  </Text>
                 </View>
               </View>
 
@@ -495,10 +568,26 @@ export default function HomeScreen() {
                 onPress={() => router.push(a.path)}
                 style={s.atalho}
               >
-                <View style={[s.atalhoIcone, { backgroundColor: a.corSuave }]}>
-                  <Icon name={a.icone} size={20} color={a.cor} />
+                <View style={s.atalhoTopo}>
+                  <View
+                    style={[s.atalhoIcone, { backgroundColor: a.corSuave }]}
+                  >
+                    <Icon name={a.icone} size={20} color={a.cor} />
+                  </View>
+                  <Icon
+                    name="chevron-right"
+                    size={15}
+                    color="rgba(255,255,255,0.32)"
+                  />
                 </View>
-                <Text style={s.atalhoRotulo}>{a.rotulo}</Text>
+                <View style={s.atalhoTextos}>
+                  <Text style={s.atalhoRotulo} numberOfLines={1}>
+                    {a.rotulo}
+                  </Text>
+                  <Text style={s.atalhoApoio} numberOfLines={1}>
+                    {a.apoio}
+                  </Text>
+                </View>
               </Toque>
             ))}
           </View>
@@ -718,6 +807,20 @@ const s = StyleSheet.create({
     letterSpacing: -0.6,
     marginTop: 10,
   },
+  heroTituloWrap: {
+    marginTop: 18,
+    marginBottom: 4,
+  },
+  heroTitulo: {
+    color: tema.texto,
+    fontFamily: "Inter_700Bold",
+    fontSize: 28,
+    lineHeight: 36,
+    letterSpacing: -0.7,
+  },
+  heroTituloDestaque: {
+    color: AZUL_CLARO,
+  },
   chips: {
     flexDirection: "row",
     gap: 10,
@@ -748,12 +851,48 @@ const s = StyleSheet.create({
     color: "#FFFFFF",
   },
   hero: {
-    borderRadius: 24,
-    padding: 18,
+    borderRadius: 26,
+    padding: 20,
+    minHeight: 280,
+    justifyContent: "space-between",
+    overflow: "hidden",
     gap: 14,
-    backgroundColor: tema.superficie,
+    backgroundColor: "#0D172A",
     borderWidth: 1,
     borderColor: tema.borda,
+    shadowColor: "#000000",
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 7,
+  },
+  heroBgImagem: {
+    ...StyleSheet.absoluteFill,
+    width: "100%",
+    height: "100%",
+  },
+  heroBgFallback: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "#0E1B33",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroBgLogoFallback: {
+    width: 180,
+    height: 180,
+    opacity: 0.08,
+  },
+  heroOverlayBase: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(6, 11, 22, 0.50)",
+  },
+  heroOverlayInferior: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: "62%",
+    backgroundColor: "rgba(6, 11, 22, 0.72)",
   },
   heroTopo: {
     flexDirection: "row",
@@ -772,6 +911,11 @@ const s = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     fontSize: 22,
     marginTop: 2,
+  },
+  modelo: {
+    color: "rgba(248, 250, 252, 0.74)",
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
   },
   dataVoo: {
     paddingHorizontal: 12,
@@ -815,6 +959,12 @@ const s = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     fontSize: 30,
     letterSpacing: 0.4,
+  },
+  aeroportoSub: {
+    color: "rgba(248, 250, 252, 0.78)",
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    marginTop: 1,
   },
   horaRota: {
     color: tema.texto,
@@ -951,15 +1101,19 @@ const s = StyleSheet.create({
   },
   atalho: {
     width: "31.5%",
-    minHeight: 110,
-    paddingVertical: 14,
-    paddingHorizontal: 6,
-    alignItems: "center",
-    gap: 12,
+    minHeight: 114,
+    padding: 14,
+    justifyContent: "space-between",
+    alignItems: "stretch",
     borderRadius: 18,
     backgroundColor: tema.superficie,
     borderWidth: 1,
     borderColor: tema.borda,
+  },
+  atalhoTopo: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   atalhoIcone: {
     width: 40,
@@ -973,7 +1127,15 @@ const s = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 14,
     lineHeight: 18,
-    textAlign: "center",
+  },
+  atalhoTextos: {
+    marginTop: 14,
+    gap: 2,
+  },
+  atalhoApoio: {
+    color: tema.suave,
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
   },
   listaPendencias: {
     gap: 10,
