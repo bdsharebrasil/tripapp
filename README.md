@@ -35,7 +35,7 @@ pnpm test:web
 pnpm build:native
 ```
 
-`test:web` compila a aplicação e testa seus fluxos em DOM com API isolada. As fixtures ficam em `tests` e não entram no bundle. Câmera, compartilhamento e apresentação visual devem ser conferidos em aparelho.
+`test:web` exporta a aplicação Expo para web e testa seus fluxos em DOM com API isolada. As fixtures ficam em `tests` e não entram no bundle. Câmera, compartilhamento e apresentação visual devem ser conferidos em aparelho.
 
 Para iOS/Android, use o fluxo Expo/EAS do projeto.
 

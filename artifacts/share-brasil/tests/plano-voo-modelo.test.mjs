@@ -124,7 +124,7 @@ test("número operacional não substitui a identificação ICAO do Item 7", () =
   assert.doesNotMatch(gerarMensagemIcao(recuperado.fpl), /FPL-EBL-0003/);
 });
 
-test("converte payload Vite legado sem confundir número do voo com Item 7", () => {
+test("converte payload legado sem confundir número do voo com Item 7", () => {
   const legado = {
     identificacao: "EBL-0003/26",
     numeroAeronaves: "1",

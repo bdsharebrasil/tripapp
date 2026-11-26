@@ -13,7 +13,7 @@
     "build:web": "expo export --platform web",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test tests/*.test.mjs",
-    "test:web": "node ../share-brasil-pwa/build-web.mjs && node tests/fluxos-web.mjs"
+    "test:web": "pnpm build:web && node tests/fluxos-web.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.0",

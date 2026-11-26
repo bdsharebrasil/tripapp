@@ -14,12 +14,8 @@ async function files(dir) {
   }
   return result;
 }
-test("pacotes ativos não incluem servidor paralelo, banco cliente ou dependências do ambiente antigo", async () => {
-  const manifests = [
-    "package.json",
-    "artifacts/share-brasil/package.json",
-    "artifacts/share-brasil-pwa/package.json",
-  ];
+test("package.json ativos correspondem ao app Expo e não incluem dependências antigas", async () => {
+  const manifests = ["package.json", "artifacts/share-brasil/package.json"];
   for (const name of manifests) {
     const pkg = JSON.parse(await readFile(path.join(root, name), "utf8"));
     for (const dep of Object.keys({
@@ -32,6 +28,10 @@ test("pacotes ativos não incluem servidor paralelo, banco cliente ou dependênc
       );
     }
   }
+  const expo = JSON.parse(
+    await readFile(path.join(root, "artifacts/share-brasil/app.json"), "utf8"),
+  ).expo;
+  assert.equal(expo.web.bundler, "metro");
   for (const dir of [
     "artifacts/api-server",
     "artifacts/mockup-sandbox",

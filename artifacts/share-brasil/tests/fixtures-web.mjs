@@ -2,23 +2,19 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { resolve, extname } from "node:path";
 import { fileURLToPath } from "node:url";
+
 export async function criarServidorQA() {
-  const base = fileURLToPath(
-    new URL("../../share-brasil-pwa/dist", import.meta.url),
-  );
+  const base = fileURLToPath(new URL("../dist", import.meta.url));
   const sessionKey = "tripshare.auth.session.v1";
   const now = Math.floor(Date.now() / 1000);
   const user = {
     id: "qa-tripulante",
-    email: "login-interno@share-brasil.com",
+    email: "piloto.teste@exemplo.com",
     aud: "authenticated",
     role: "authenticated",
-    user_metadata: { nome: "Metadados antigos" },
-    app_metadata: { provider: "email" },
-    identities: [],
     created_at: new Date().toISOString(),
   };
-  const jwt = [
+  const accessToken = [
     Buffer.from("{}").toString("base64url"),
     Buffer.from(JSON.stringify({ sub: user.id, exp: now + 3600 })).toString(
       "base64url",
@@ -26,7 +22,7 @@ export async function criarServidorQA() {
     "qa",
   ].join(".");
   const session = {
-    access_token: jwt,
+    access_token: accessToken,
     refresh_token: "qa-refresh",
     expires_in: 3600,
     expires_at: now + 3600,
@@ -34,78 +30,104 @@ export async function criarServidorQA() {
     user,
   };
   const script = `<script>
-(()=>{
-const session=${JSON.stringify(session)};
-if(!sessionStorage.getItem('qa-seeded')){localStorage.setItem(${JSON.stringify(sessionKey)},JSON.stringify(session));sessionStorage.setItem('qa-seeded','1')}
-const today=new Date().toLocaleDateString('en-CA');
-const flight={id:'qa-voo',solicitacao_id:'qa-voo',numero_voo:'QA-001/26',origem:'SBCY',destino:'SBBR',data_agendada:today,horario_previsto_agendamento:'12:00',matricula_registro:'QA-TESTE',matricula:'QA-TESTE',status:'APROVADA',aeronave_id:'qa-aviao',cliente_id:'qa-cliente'};
-window.qaUpdateFlight=(patch)=>Object.assign(flight,patch);
-let reports=[],saved=[];let failPayments=false;window.qaRequests=[];
-const realFetch=window.fetch.bind(window);
-window.fetch=async(input,init={})=>{
-const url=new URL(typeof input==='string'?input:input.url,location.origin),path=url.pathname,method=init.method||'GET';
-if(url.hostname!=='api.share-brasil.com')return realFetch(input,init);
-window.qaRequests.push({path,search:url.search,method,body:typeof init.body==='string'?JSON.parse(init.body):null});
-const json=(x,status=200)=>new Response(JSON.stringify(x),{status,headers:{'content-type':'application/json'}});
-if(path==='/api/trip/auth/login'||path==='/api/trip/auth/refresh')return json({...session,user:{id:session.user.id}});
-if(path==='/api/trip/auth/logout')return json({sucesso:true});
-if(path==='/api/colaborador/perfil')return json({perfil:{id:session.user.id,nome_completo:'Piloto de Teste',nome_exibicao:'Piloto de Teste',email:'piloto.teste@exemplo.com',canac:'QA123',departamento:'Tripulação',foto_url:'/api/colaborador/foto'},tripulante:{canac:'QA123',tipo_licenca:'PLA'},metricas:{horas_totais:42,voos_escalados:1},habilitacoes:[{id:'h1',tipo_habilitacao:'MLTE',data_validade:'2027-12-01'},{id:'h2',tipo_habilitacao:'IFRA',data_validade:'2027-11-01'}],cma:{id:'c1',classe:'1',validade:'2027-06-30'},resumo_ferias:{dias_direito:30,dias_utilizados:10,dias_disponiveis:20}});
-if(path==='/api/colaborador/foto')return realFetch('/icon.png');
-if(path==='/api/colaborador/documentos')return json([]);
-if(path==='/api/colaborador/folha-pagamento')return failPayments?json({error:'Folha temporariamente indisponível'},503):json({pagamentos:[{id:'qa-folha',competencia_ano:2026,competencia_mes:11,rotulo:'Pagamento de teste',valor_centavos:123456,status:'PENDENTE'}]});
-if(path==='/api/colaborador/meus-voos'||path.endsWith('/meus-voos'))return json({voos:[flight]});
-if(path==='/api/colaborador/meus-voos/qa-voo/acompanhamento'){
- if(window.qaLiveOffline)throw new TypeError('Rede de acompanhamento indisponível');
- return json({...flight,origem_coord:{lat:-15.65,lon:-56.12},destino_coord:{lat:-15.87,lon:-47.92},modelo:'Cheyenne II',perna_atual:{id:'qa-perna',horario_dep:new Date(Date.now()-3600000).toISOString(),horario_pouso:null,horario_corte:null},rastreio:{lat:-15.7,lon:-52,alt_ft:16000,gs_kt:230,rumo_graus:90,visto_ha_s:2},observado_em:new Date(Date.now()-2000).toISOString(),rastreio_status:'ao_vivo',trilha:[]});
-}
-if(path==='/api/colaborador/meus-voos/qa-voo/posicoes-gps')return json({recebidos:JSON.parse(init.body).pontos.map(p=>p.id)});
-if(path==='/api/colaborador/meus-voos/qa-voo')return json({voo:{...flight,cliente_razao_social:'Cliente de teste'},jornadas:[],hospedagens:[]});
-if(path==='/api/colaborador/diario-bordo/voos/qa-voo')return json({pode_assinar:true,lancamentos:[{perna_id:'qa-perna',jornada_id:'qa-jornada',numero_perna:1,origem:'SBCY',destino:'SBBR',horario_ac:today+'T10:00:00Z',horario_dep:today+'T10:15:00Z',horario_pouso:today+'T11:45:00Z',horario_corte:today+'T12:00:00Z',lancamento_id:'qa-perna',numero_sequencial:1,data_registro:today,tempo_voo:1.5,tempo_total:2,status_lancamento:'RASCUNHO'}]});
-if(path==='/api/ctm/relatorios-manutencao')return json({aeronaves:[{id:'qa-aviao',registration:'QA-TESTE',model:'Cheyenne II',in_maintenance:false},{id:'qa-aviao2',registration:'QA-OUTRO',model:'Seneca V',in_maintenance:false}],data:[{id:'qa-report',aircraft_id:'qa-aviao',report_date:today,description:'Discrepância de teste restrita à pasta',severity:'medium',status:'open',aircraft:{id:'qa-aviao',registration:'QA-TESTE',model:'Cheyenne II',in_maintenance:false}}]});
-if(path==='/api/colaborador/minhas-horas'){
-const specific=url.searchParams.get('aeronave_id')==='qa-aviao';
-return json({filtros:{inicio:url.searchParams.get('inicio'),fim:url.searchParams.get('fim'),aeronave_id:url.searchParams.get('aeronave_id')},resumo:{minutos_voo:specific?90:150,minutos_totais:specific?120:180,lancamentos:specific?1:2,rascunhos:1},aeronaves:[{id:'qa-aviao',matricula:'QA-TESTE'},{id:'qa-aviao2',matricula:'QA-OUTRO'}],por_aeronave:[{id:'qa-aviao',rotulo:'QA-TESTE',minutos_voo:90,minutos_totais:120,lancamentos:1},...specific?[]:[{id:'qa-aviao2',rotulo:'QA-OUTRO',minutos_voo:60,minutos_totais:60,lancamentos:1}]],por_mes:[{id:'2026-11',rotulo:'2026-11',minutos_voo:specific?90:150,minutos_totais:specific?120:180,lancamentos:specific?1:2}]});
-}
-if(path.endsWith('/minhas'))return json({relatorios:reports});
-if(path.endsWith('/iniciar-do-voo')){const report={id:'qa-relatorio',numero_relatorio:'REL-QA-001/26',numero_voo:flight.numero_voo,status:'rascunho',aeronave_id:'qa-aviao',cliente_id:'qa-cliente',rota:'SBCY → SBBR',data_inicio:today,data_fim:today,tripulante_pos:1,despesas:[],total_valor:0};reports=[report];return json({relatorio:report},201)}
-if(path.endsWith('/despesas-tripulante')){const body=JSON.parse(init.body);saved=body.despesas;reports[0].despesas=saved;reports[0].total_valor=saved.reduce((n,x)=>n+x.valor,0);reports[0].observacoes=body.observacoes||'';return json({ok:true})}
-if(path.endsWith('/anexos-tripulante')&&method==='POST'){reports[0].anexos=[{id:'qa-anexo',indice_despesa:0,nome_arquivo:'comprovante.png',tipo_arquivo:'image/png'}];return json({ok:true},201)}
-if(path.endsWith('/arquivo'))return realFetch('/icon.png');
-if(path.endsWith('/finalizar')){reports[0].status='finalizado';reports[0].pdf_path='qa.pdf';return json({ok:true})}
-if(path.endsWith('/pdf'))return new Response('%PDF-1.4\\n1 0 obj<</Type/Catalog>>endobj\\n%%EOF',{headers:{'content-type':'application/pdf'}});
-if(path.includes('notificacoes'))return json({data:[],notificacoes:[]});
-return json({error:'Rota não prevista no teste: '+path},404);
-};
-})();
-</script>`;
+    (() => {
+      const session = ${JSON.stringify(session)};
+      const user = session.user;
+      const sessionKey = ${JSON.stringify(sessionKey)};
+      if (!sessionStorage.getItem("qa-seeded")) {
+        localStorage.setItem(sessionKey, JSON.stringify(session));
+        sessionStorage.setItem("qa-seeded", "1");
+      }
+      const today = new Date().toLocaleDateString("en-CA");
+      const flight = {
+        id: "qa-voo",
+        numero_voo: "QA-001/26",
+        origem: "SBCY",
+        destino: "SBBR",
+        data_agendada: today,
+        horario_previsto_agendamento: "12:00",
+        matricula_registro: "QA-TESTE",
+        modelo: "Cheyenne II",
+        numero_passageiros: 4,
+        status: "APROVADA"
+      };
+      const realFetch = window.fetch.bind(window);
+      window.qaResponses = [];
+      window.fetch = async (input, init = {}) => {
+        const url = new URL(
+          typeof input === "string" ? input : input.url,
+          location.origin,
+        );
+        if (url.hostname !== "api.share-brasil.com") return realFetch(input, init);
+        const json = (value, status = 200) => {
+          window.qaResponses.push({ path: url.pathname, status });
+          return new Response(JSON.stringify(value), {
+            status,
+            headers: { "content-type": "application/json" },
+          });
+        };
+        if (url.pathname === "/api/trip/auth/login" || url.pathname === "/api/trip/auth/refresh") {
+          return json({ ...session, user: { id: user.id } });
+        }
+        if (url.pathname === "/api/trip/auth/logout") return json({ sucesso: true });
+        if (url.pathname === "/api/colaborador/perfil") {
+          return json({
+            perfil: {
+              id: user.id,
+              nome_completo: "Piloto de Teste",
+              nome_exibicao: "Piloto de Teste",
+              email: user.email,
+              canac: "QA123",
+              departamento: "Tripulação"
+            },
+            tripulante: { canac: "QA123", tipo_licenca: "PLA" },
+            metricas: { horas_totais: 42, voos_escalados: 1 }
+          });
+        }
+        if (url.pathname === "/api/colaborador/meus-voos") {
+          return json({ voos: [flight] });
+        }
+        if (url.pathname === "/api/financeiro/relatorios-despesa-viagem/minhas") {
+          return json({ relatorios: [] });
+        }
+        return json({ error: "Rota não prevista no teste: " + url.pathname }, 404);
+      };
+    })();
+  </script>`;
+
   const server = createServer(async (req, res) => {
     try {
-      let path = decodeURIComponent(
+      const path = decodeURIComponent(
         new URL(req.url, "http://localhost").pathname,
       );
-      let filename = resolve(base, "." + path);
-      if (!filename.startsWith(base + "/")) filename = base + "/index.html";
+      let filename = resolve(base, `.${path}`);
+      if (!filename.startsWith(`${base}/`))
+        filename = resolve(base, "index.html");
       let bytes;
       try {
         bytes = await readFile(filename);
       } catch {
-        filename = base + "/index.html";
+        filename = resolve(base, "index.html");
         bytes = await readFile(filename);
       }
       const ext = extname(filename);
       const types = {
         ".html": "text/html; charset=utf-8",
         ".js": "text/javascript",
+        ".json": "application/json",
         ".png": "image/png",
         ".jpg": "image/jpeg",
+        ".svg": "image/svg+xml",
         ".ttf": "font/ttf",
+        ".woff": "font/woff",
+        ".woff2": "font/woff2",
         ".ico": "image/x-icon",
-        ".json": "application/json",
       };
-      if (ext === ".html")
+      if (ext === ".html") {
         bytes = Buffer.from(
-          bytes.toString().replace("<head>", "<head>" + script),
+          bytes.toString().replace("<head>", `<head>${script}`),
         );
+      }
       res.writeHead(200, {
         "content-type": types[ext] || "application/octet-stream",
         "cache-control": "no-store",
@@ -116,6 +138,8 @@ return json({error:'Rota não prevista no teste: '+path},404);
       res.end("erro");
     }
   });
-  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  await new Promise((resolveListen) =>
+    server.listen(0, "127.0.0.1", resolveListen),
+  );
   return { server, url: `http://127.0.0.1:${server.address().port}` };
 }
