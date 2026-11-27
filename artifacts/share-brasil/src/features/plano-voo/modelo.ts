@@ -157,6 +157,197 @@ export type PlanoRota = {
   error?: string;
 };
 
+export type AerodromoRotaer = {
+  icao?: string;
+  name?: string;
+  city?: string | null;
+  state?: string | null;
+  elevation?: string | number | null;
+  coordinates?: { lat: number; lng: number } | null;
+  runways?: Record<string, unknown>[];
+  frequencies?: Record<string, unknown>[];
+  restrictions?: unknown[];
+  operational?: Record<string, unknown>;
+  contact?: Record<string, unknown>;
+  raw_data?: Record<string, unknown>;
+};
+
+const objeto = (valor: unknown): Record<string, unknown> | null =>
+  valor && typeof valor === "object" && !Array.isArray(valor)
+    ? (valor as Record<string, unknown>)
+    : null;
+
+function numeroCoordenada(valor: unknown): number | null {
+  if (typeof valor === "number")
+    return Number.isFinite(valor) && Math.abs(valor) <= 180 ? valor : null;
+  if (typeof valor !== "string") return null;
+  const texto = valor.trim().replace(",", ".");
+  const decimal = texto.match(/^(-?\d{1,3}(?:\.\d+)?)\s*[NSEW]?$/i);
+  if (decimal) {
+    const numero = Number(decimal[1]);
+    return Number.isFinite(numero) && Math.abs(numero) <= 180 ? numero : null;
+  }
+  const dms = texto.match(
+    /^(\d{1,3})[^\d]+(\d{1,2})(?:[^\d]+(\d{1,2}(?:\.\d+)?))?[^NSEW]*([NSEW])?$/i,
+  );
+  if (!dms) return null;
+  const graus = Number(dms[1]);
+  const minutos = Number(dms[2]);
+  const segundos = Number(dms[3] || 0);
+  if (minutos >= 60 || segundos >= 60) return null;
+  const direcao = dms[4]?.toUpperCase();
+  const sinal = direcao === "S" || direcao === "W" ? -1 : 1;
+  const resultado = sinal * (graus + minutos / 60 + segundos / 3600);
+  return Math.abs(resultado) <= 180 ? resultado : null;
+}
+
+/** Aceita a resposta direta do ROTAER e envelopes comuns (data/result/airport/rotaer). */
+export function normalizarRespostaRotaer(
+  resposta: unknown,
+  icaoEsperado = "",
+): AerodromoRotaer | undefined {
+  const fila: Record<string, unknown>[] = [];
+  const visitados = new Set<object>();
+  const adicionar = (valor: unknown) => {
+    if (Array.isArray(valor)) {
+      valor.forEach(adicionar);
+      return;
+    }
+    const registro = objeto(valor);
+    if (!registro || visitados.has(registro)) return;
+    visitados.add(registro);
+    fila.push(registro);
+    for (const [chave, filho] of Object.entries(registro)) {
+      if (
+        /^(airport|aerodrome|aeroporto|rotaer|data|result|results|payload|record)$/i.test(
+          chave,
+        )
+      )
+        adicionar(filho);
+    }
+  };
+  adicionar(resposta);
+
+  const pontuar = (item: Record<string, unknown>) => {
+    let pontos = 0;
+    if (item.icao || item.icaoCode || item.AeroCode || item.loc) pontos += 4;
+    if (item.name || item.nome || item.aero) pontos += 3;
+    if (item.coordinates || item.coordenadas || item.lat || item.latitude)
+      pontos += 4;
+    if (item.runways || item.pistas || item.services || item.operational)
+      pontos += 2;
+    if (item.raw_data || item.rawData) pontos += 1;
+    return pontos;
+  };
+  const aeroporto = fila.sort((a, b) => pontuar(b) - pontuar(a))[0];
+  if (!aeroporto || pontuar(aeroporto) === 0) return undefined;
+
+  const coordenadas = objeto(aeroporto.coordinates ?? aeroporto.coordenadas);
+  const lat = numeroCoordenada(
+    coordenadas?.lat ??
+      coordenadas?.latitude ??
+      aeroporto.lat ??
+      aeroporto.latitude,
+  );
+  const lng = numeroCoordenada(
+    coordenadas?.lng ??
+      coordenadas?.lon ??
+      coordenadas?.longitude ??
+      aeroporto.lng ??
+      aeroporto.lon ??
+      aeroporto.longitude,
+  );
+  const listas = (...valores: unknown[]) => {
+    const valor = valores.find((item) => item != null);
+    if (Array.isArray(valor))
+      return valor.filter((item) => objeto(item)) as Record<string, unknown>[];
+    const registro = objeto(valor);
+    if (!registro) return [];
+    for (const [chave, filho] of Object.entries(registro)) {
+      if (
+        /^(runway|pista|frequency|frequencia|freq|service|servico|item)$/i.test(
+          chave,
+        )
+      )
+        return Array.isArray(filho)
+          ? (filho.filter((item) => objeto(item)) as Record<string, unknown>[])
+          : objeto(filho)
+            ? [objeto(filho)!]
+            : [];
+    }
+    return [registro];
+  };
+  const raw =
+    objeto(aeroporto.raw_data ?? aeroporto.rawData ?? aeroporto.raw) ??
+    aeroporto;
+  const coordinates = lat != null && lng != null ? { lat, lng } : null;
+  const servicos = listas(aeroporto.services ?? aeroporto.servicos);
+  const frequenciasDeServico = servicos.flatMap((servico) => {
+    const tipoServico = String(
+      servico["@_type"] ?? servico.type ?? "",
+    ).toUpperCase();
+    if (tipoServico !== "COM" && tipoServico !== "COMUNICATION") return [];
+    const freqs = objeto(servico.freqs ?? servico.frequencies);
+    const valores = freqs?.freq ?? freqs?.frequency;
+    const lista = Array.isArray(valores)
+      ? valores
+      : valores == null
+        ? []
+        : [valores];
+    return lista
+      .map((valor) => {
+        const registro = objeto(valor);
+        const frequencia = registro?.["#text"] ?? registro?.value ?? valor;
+        return frequencia == null || frequencia === ""
+          ? null
+          : {
+              type: String(servico.type ?? servico.name ?? "COM"),
+              frequency: String(frequencia),
+              name: String(servico.callsign ?? servico.name ?? "") || undefined,
+            };
+      })
+      .filter((item): item is NonNullable<typeof item> => item != null);
+  });
+  const frequencias = listas(aeroporto.frequencies, aeroporto.frequencias);
+  return {
+    ...(aeroporto as AerodromoRotaer),
+    icao: String(
+      aeroporto.icao ??
+        aeroporto.icaoCode ??
+        aeroporto.AeroCode ??
+        aeroporto.loc ??
+        icaoEsperado,
+    ).toUpperCase(),
+    name: String(aeroporto.name ?? aeroporto.nome ?? aeroporto.aero ?? ""),
+    city: String(aeroporto.city ?? aeroporto.cidade ?? "") || null,
+    state:
+      String(aeroporto.state ?? aeroporto.uf ?? aeroporto.estado ?? "") || null,
+    elevation: (aeroporto.elevation ??
+      aeroporto.altitude ??
+      aeroporto.altFt ??
+      null) as string | number | null,
+    coordinates,
+    runways: listas(aeroporto.runways, aeroporto.pistas),
+    frequencies: frequencias.length ? frequencias : frequenciasDeServico,
+    restrictions: Array.isArray(aeroporto.restrictions)
+      ? aeroporto.restrictions
+      : Array.isArray(aeroporto.restricoes)
+        ? aeroporto.restricoes
+        : [],
+    operational:
+      objeto(aeroporto.operational ?? aeroporto.operacional) ?? undefined,
+    contact: objeto(aeroporto.contact ?? aeroporto.contato) ?? undefined,
+    raw_data: raw,
+  };
+}
+
+export async function buscarAerodromoRotaer(icao: string) {
+  const resposta = await apiFetch<unknown>(
+    `/api/rotaer/${encodeURIComponent(icao)}`,
+  );
+  return normalizarRespostaRotaer(resposta, icao);
+}
+
 export type AeronaveSolicitacao = {
   id: string;
   registration?: string;
@@ -176,6 +367,13 @@ export type AeronaveSolicitacao = {
   performance_teto_servico_ft?: number | string;
   performance_taxa_subida_fpm?: number | string;
   performance_taxa_descida_fpm?: number | string;
+  performance?: {
+    velocidade_cruzeiro_kt?: number | string | null;
+    categoria?: string | null;
+    teto_servico_ft?: number | string | null;
+    taxa_subida_fpm?: number | string | null;
+    taxa_descida_fpm?: number | string | null;
+  } | null;
   designador_icao?: string;
   esteira_turbulencia?: string;
   equipamentos_icao?: string;
@@ -312,49 +510,184 @@ export const criarFormularioIcao = (): FormularioIcao => ({
 const textoAeronave = (aeronave: AeronaveSolicitacao) =>
   [aeronave.modelo, aeronave.tipo_aeronave].filter(Boolean).join(" ");
 
-/** O Item 9 usa o modelo cadastrado; designador_icao não é aplicado automaticamente. */
+/** Item 9 usa o designador cadastrado; o modelo completo fica preservado em TYP/ no Item 18. */
 export function modeloParaFormulario(aeronave: AeronaveSolicitacao) {
-  return String(aeronave.modelo || aeronave.model || "").trim();
+  return String(
+    aeronave.designador_icao || aeronave.modelo || aeronave.model || "",
+  ).trim();
 }
 
-/** Pistão/turboélice usam L; somente aeronaves identificadas como jato usam M. */
+/** Usa a esteira cadastrada; se estiver vazia, estima L para pistão/turboélice e M para jato. */
 export function esteiraDaAeronave(aeronave: AeronaveSolicitacao): Esteira {
-  return /jato|jet|turbojet|turbofan/i.test(textoAeronave(aeronave)) ? "M" : "L";
+  const cadastrada = String(aeronave.esteira_turbulencia || "")
+    .trim()
+    .toUpperCase();
+  if (["L", "M", "H", "J"].includes(cadastrada)) return cadastrada as Esteira;
+  return /jato|jet|turbojet|turbofan/i.test(textoAeronave(aeronave))
+    ? "M"
+    : "L";
+}
+
+function numeroPositivo(valor: unknown): number | null {
+  const match = String(valor ?? "")
+    .replace(",", ".")
+    .match(/\d+(?:\.\d+)?/);
+  const numero = match ? Number(match[0]) : NaN;
+  return Number.isFinite(numero) && numero > 0 ? numero : null;
 }
 
 export function velocidadeCruzeiroDaAeronave(aeronave: AeronaveSolicitacao) {
-  const valor = Number(
-    aeronave.performance_velocidade_cruzeiro_kt || aeronave.velocidade_cruzeiro,
+  return (
+    numeroPositivo(aeronave.performance?.velocidade_cruzeiro_kt) ??
+    numeroPositivo(aeronave.performance_velocidade_cruzeiro_kt) ??
+    numeroPositivo(aeronave.velocidade_cruzeiro)
   );
-  return Number.isFinite(valor) && valor > 0 ? valor : null;
 }
 
 export function velocidadeIcao(valor: number | null) {
-  return valor == null
-    ? ""
-    : `N${String(Math.round(valor)).padStart(4, "0")}`;
+  return valor == null ? "" : `N${String(Math.round(valor)).padStart(4, "0")}`;
+}
+
+export function autonomiaIcao(valor: number | string | null | undefined) {
+  const minutos = numeroPositivo(valor);
+  if (minutos == null || minutos > 5999) return "";
+  const total = Math.floor(minutos);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}${String(total % 60).padStart(2, "0")}`;
+}
+
+function atualizarInformacaoIcao(atual: string, tag: string, valor: string) {
+  const demais = atual
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((parte) => !new RegExp(`^${tag}/`, "i").test(parte));
+  return [...demais, ...(valor ? [`${tag}/${valor}`] : [])]
+    .join(" ")
+    .toUpperCase();
+}
+
+/** Transfere para o FPL os dados de aeronave disponíveis no cadastro, preservando campos sem valor. */
+export function preencherDadosAeronaveIcao(
+  aeronave: AeronaveSolicitacao,
+  atual: FormularioIcao,
+  matricula?: string,
+): FormularioIcao {
+  const modelo = String(aeronave.modelo || aeronave.model || "").trim();
+  const registro = String(
+    matricula ||
+      aeronave.matricula_registro ||
+      aeronave.registration ||
+      aeronave.matricula ||
+      "",
+  )
+    .replace(/-/g, "")
+    .toUpperCase();
+  const equipamento = String(aeronave.equipamentos_icao || "")
+    .trim()
+    .toUpperCase();
+  const vigilancia = String(aeronave.vigilancia_icao || "")
+    .trim()
+    .toUpperCase();
+  const equipamentoComVigilancia =
+    equipamento || vigilancia
+      ? `${equipamento || "N"}/${vigilancia || "N"}`
+      : "";
+  let outrasInformacoes = atualizarInformacaoIcao(
+    atual.outrasInformacoes,
+    "REG",
+    registro,
+  );
+  outrasInformacoes = atualizarInformacaoIcao(outrasInformacoes, "TYP", modelo);
+  outrasInformacoes = atualizarInformacaoIcao(
+    outrasInformacoes,
+    "PBN",
+    String(aeronave.pbn_icao || "").trim(),
+  );
+  return {
+    ...atual,
+    identificacao: registro.replace(/[^A-Z0-9]/g, "").slice(0, 7),
+    tipoAeronave: modeloParaFormulario(aeronave).toUpperCase(),
+    esteira: esteiraDaAeronave(aeronave),
+    equipamento: equipamentoComVigilancia,
+    velocidade: velocidadeIcao(velocidadeCruzeiroDaAeronave(aeronave)),
+    autonomia: autonomiaIcao(aeronave.autonomia_padrao_minutos),
+    corAeronave: String(aeronave.cor_marcas || "")
+      .trim()
+      .toUpperCase(),
+    outrasInformacoes,
+  };
 }
 
 export function normalizarAeronaveSolicitacao(
   row: Record<string, any>,
 ): AeronaveSolicitacao {
+  const performance = row.performance ?? row.performance_aeronave ?? null;
+  const consumo =
+    row.consumo_combustivel ?? row.consumo_hora_litros ?? row.fuel_consumption;
   return {
     ...row,
     id: String(row.id ?? ""),
-    registration: row.registration || row.matricula_registro || row.matricula || "",
-    matricula: row.matricula || row.matricula_registro || row.registration || "",
-    matricula_registro: row.matricula_registro || row.registration || row.matricula || "",
+    registration:
+      row.registration || row.matricula_registro || row.matricula || "",
+    matricula:
+      row.matricula || row.matricula_registro || row.registration || "",
+    matricula_registro:
+      row.matricula_registro || row.registration || row.matricula || "",
     model: row.model || row.modelo || "",
     modelo: row.modelo || row.model || "",
     manufacturer: row.manufacturer || row.fabricante || "",
     fabricante: row.fabricante || row.manufacturer || "",
     tipo_aeronave: row.tipo_aeronave || "",
-    fuel_consumption: row.fuel_consumption ?? row.consumo_combustivel ?? row.consumo_hora_litros,
+    fuel_consumption: numeroPositivo(consumo) ?? undefined,
+    consumo_combustivel: numeroPositivo(consumo) ?? undefined,
+    performance,
+    performance_velocidade_cruzeiro_kt:
+      row.performance_velocidade_cruzeiro_kt ??
+      performance?.velocidade_cruzeiro_kt,
+    performance_categoria: row.performance_categoria ?? performance?.categoria,
+    performance_teto_servico_ft:
+      row.performance_teto_servico_ft ?? performance?.teto_servico_ft,
+    performance_taxa_subida_fpm:
+      row.performance_taxa_subida_fpm ?? performance?.taxa_subida_fpm,
+    performance_taxa_descida_fpm:
+      row.performance_taxa_descida_fpm ?? performance?.taxa_descida_fpm,
+    designador_icao: row.designador_icao || "",
+    esteira_turbulencia: row.esteira_turbulencia || "",
+    equipamentos_icao: row.equipamentos_icao || "",
+    vigilancia_icao: row.vigilancia_icao || "",
+    pbn_icao: row.pbn_icao || "",
+    autonomia_padrao_minutos: row.autonomia_padrao_minutos ?? "",
+    cor_marcas: row.cor_marcas || "",
   };
 }
 
-export const buscarClima = (icao: string) =>
-  apiFetch<Clima>(`/api/v1/weather/${encodeURIComponent(icao)}`);
+export async function buscarClima(icao: string): Promise<Clima> {
+  const resposta = await apiFetch<unknown>(
+    `/api/v1/weather/${encodeURIComponent(icao)}`,
+  );
+  let atual: unknown = resposta;
+  for (let nivel = 0; nivel < 5; nivel += 1) {
+    const registro = objeto(atual);
+    if (!registro) break;
+    const metar = registro.metar ?? registro.METAR;
+    const taf = registro.taf ?? registro.TAF;
+    if (metar != null || taf != null) {
+      return {
+        loc: String(registro.loc ?? registro.icao ?? icao),
+        metar: metar == null ? undefined : String(metar),
+        taf: taf == null ? undefined : String(taf),
+        source: registro.source == null ? undefined : String(registro.source),
+        error: registro.error == null ? undefined : String(registro.error),
+      };
+    }
+    atual =
+      registro.weather ?? registro.data ?? registro.result ?? registro.report;
+  }
+  return {
+    loc: icao,
+    error: "Resposta meteorológica sem METAR/TAF reconhecível.",
+  };
+}
 
 export const buscarRota = (adep: string, ades: string, aeronaveId?: string) => {
   const params = new URLSearchParams({ adep, ades });
@@ -375,7 +708,9 @@ export function validarFpl(fpl: FormularioIcao): string[] {
     erros.push("A origem e o destino devem ser diferentes.");
   if (!/^\d{4}$/.test(fpl.eobt.replace(/:/g, "")))
     erros.push("Item 13: EOBT obrigatório no formato UTC HHMM.");
-  if (!/^[A-Z0-9][A-Z0-9 /-]{0,19}$/.test(fpl.tipoAeronave.trim().toUpperCase()))
+  if (
+    !/^[A-Z0-9][A-Z0-9 /-]{0,19}$/.test(fpl.tipoAeronave.trim().toUpperCase())
+  )
     erros.push("Item 9: informe o modelo da aeronave.");
   if (!fpl.equipamento.trim())
     erros.push("Item 10: informe o equipamento a bordo.");

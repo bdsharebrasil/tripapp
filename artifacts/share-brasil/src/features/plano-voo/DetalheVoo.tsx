@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CartaoClima } from "./CartaoClima";
+import { MapaMeteorologico } from "./MapaMeteorologico";
 import {
   Clima,
   Cores,
@@ -76,23 +77,31 @@ export function DetalheVoo({
         if (ativo) setCarregandoRota(false);
       });
 
-    setCarregandoClima(true);
-    Promise.allSettled([buscarClima(plano.partida), buscarClima(plano.chegada)])
-      .then(([p, c]) => {
-        if (!ativo) return;
-        setClimaPartida(
-          p.status === "fulfilled" ? p.value : { error: "Falha ao buscar" },
-        );
-        setClimaChegada(
-          c.status === "fulfilled" ? c.value : { error: "Falha ao buscar" },
-        );
-      })
-      .finally(() => {
-        if (ativo) setCarregandoClima(false);
-      });
+    const atualizarClima = () => {
+      setCarregandoClima(true);
+      Promise.allSettled([
+        buscarClima(plano.partida),
+        buscarClima(plano.chegada),
+      ])
+        .then(([p, c]) => {
+          if (!ativo) return;
+          setClimaPartida(
+            p.status === "fulfilled" ? p.value : { error: "Falha ao buscar" },
+          );
+          setClimaChegada(
+            c.status === "fulfilled" ? c.value : { error: "Falha ao buscar" },
+          );
+        })
+        .finally(() => {
+          if (ativo) setCarregandoClima(false);
+        });
+    };
+    atualizarClima();
+    const climaTimer = setInterval(atualizarClima, 5 * 60 * 1000);
 
     return () => {
       ativo = false;
+      clearInterval(climaTimer);
     };
   }, [visivel, plano]);
 
@@ -218,15 +227,24 @@ export function DetalheVoo({
           ) : rota ? (
             <>
               {rota.departure && rota.destination ? (
-                <MapaVoo
-                  origem={rota.departure}
-                  destino={rota.destination}
-                  posicao={null}
-                  trilha={[]}
-                  origemNome={rota.departure.icao}
-                  destinoNome={rota.destination.icao}
-                  atual={false}
-                />
+                <>
+                  <MapaVoo
+                    origem={rota.departure}
+                    destino={rota.destination}
+                    posicao={null}
+                    trilha={[]}
+                    origemNome={rota.departure.icao}
+                    destinoNome={rota.destination.icao}
+                    atual={false}
+                  />
+                  <MapaMeteorologico
+                    latitude={(rota.departure.lat + rota.destination.lat) / 2}
+                    longitude={(rota.departure.lon + rota.destination.lon) / 2}
+                    icao={`${plano.partida}–${plano.chegada}`}
+                    colors={colors}
+                    altura={300}
+                  />
+                </>
               ) : null}
               <View style={dStyles.airports}>
                 <View style={{ flex: 1 }}>

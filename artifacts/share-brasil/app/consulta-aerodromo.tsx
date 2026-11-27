@@ -16,6 +16,7 @@ import {
 import { Cabecalho, Icon, tema, Toque } from "@/src/components/ui";
 import { avisar } from "@/src/lib/confirmar";
 import { API_URL, apiFetch } from "@/src/lib/api";
+import { normalizarRespostaRotaer } from "@/src/features/plano-voo/modelo";
 
 type Weather = { metar?: string; taf?: string; source?: string };
 type Notam = {
@@ -32,20 +33,7 @@ type Chart = {
   descricao?: string;
   url?: string;
 };
-type Airport = {
-  icao?: string;
-  name?: string;
-  city?: string | null;
-  state?: string | null;
-  elevation?: string | number | null;
-  coordinates?: { lat: number; lng: number } | null;
-  runways?: Record<string, unknown>[];
-  frequencies?: Record<string, unknown>[];
-  restrictions?: unknown[];
-  operational?: Record<string, unknown>;
-  contact?: Record<string, unknown>;
-  raw_data?: { rotaer?: Record<string, unknown> } | Record<string, unknown>;
-};
+type Airport = NonNullable<ReturnType<typeof normalizarRespostaRotaer>>;
 type Report = {
   weather?: Weather;
   notams: Notam[];
@@ -74,6 +62,60 @@ function apresentarCampo(item: Record<string, unknown>, chaves: string[]) {
   return chaves
     .map((chave) => item[chave])
     .find((valor) => valor != null && valor !== "");
+}
+
+function registrosDaResposta(resposta: unknown): Record<string, unknown>[] {
+  const fila: unknown[] = [resposta];
+  const vistos = new Set<object>();
+  while (fila.length) {
+    const atual = fila.shift();
+    if (Array.isArray(atual)) {
+      if (atual.every((item) => item && typeof item === "object"))
+        return atual as Record<string, unknown>[];
+      fila.push(...atual);
+      continue;
+    }
+    if (!atual || typeof atual !== "object" || vistos.has(atual)) continue;
+    vistos.add(atual);
+    const registro = atual as Record<string, unknown>;
+    for (const chave of [
+      "items",
+      "results",
+      "notams",
+      "charts",
+      "solar",
+      "data",
+      "result",
+    ]) {
+      const valor = registro[chave];
+      if (Array.isArray(valor)) return valor as Record<string, unknown>[];
+      if (valor && typeof valor === "object") fila.push(valor);
+    }
+  }
+  return [];
+}
+
+function dadosDaResposta<T>(
+  resposta: unknown,
+  chaves: string[],
+): T | undefined {
+  let atual: unknown = resposta;
+  const vistos = new Set<object>();
+  for (
+    let nivel = 0;
+    nivel < 5 && atual && typeof atual === "object";
+    nivel += 1
+  ) {
+    if (Array.isArray(atual)) return (atual[0] as T | undefined) ?? undefined;
+    const registro = atual as Record<string, unknown>;
+    if (vistos.has(registro)) break;
+    vistos.add(registro);
+    for (const chave of chaves) {
+      if (registro[chave] != null) return registro[chave] as T;
+    }
+    atual = registro.data ?? registro.result ?? registro.payload;
+  }
+  return (atual as T | undefined) ?? undefined;
 }
 
 export default function ConsultaAerodromoScreen({
@@ -118,27 +160,19 @@ export default function ConsultaAerodromoScreen({
         airportResponse,
       ] = await Promise.all([
         seguro("Meteorologia", () =>
-          apiFetch<Weather>(`/api/weather/${encodeURIComponent(codigo)}`),
+          apiFetch<unknown>(`/api/weather/${encodeURIComponent(codigo)}`),
         ),
         seguro("NOTAM", () =>
-          apiFetch<{ notams?: Notam[] }>(
-            `/api/notam/${encodeURIComponent(codigo)}`,
-          ),
+          apiFetch<unknown>(`/api/notam/${encodeURIComponent(codigo)}`),
         ),
         seguro("Cartas", () =>
-          apiFetch<{ charts?: Chart[] }>(
-            `/api/charts/${encodeURIComponent(codigo)}`,
-          ),
+          apiFetch<unknown>(`/api/charts/${encodeURIComponent(codigo)}`),
         ),
         seguro("Horários solares", () =>
-          apiFetch<{ solar?: Report["solar"] }>(
-            `/api/solar/${encodeURIComponent(codigo)}`,
-          ),
+          apiFetch<unknown>(`/api/solar/${encodeURIComponent(codigo)}`),
         ),
         seguro("Ficha ROTAER", () =>
-          apiFetch<{ airport?: Airport }>(
-            `/api/rotaer/${encodeURIComponent(codigo)}`,
-          ),
+          apiFetch<unknown>(`/api/rotaer/${encodeURIComponent(codigo)}`),
         ),
       ]);
       const hasAnyData =
@@ -155,11 +189,40 @@ export default function ConsultaAerodromoScreen({
         return;
       }
       setRelatorio({
-        weather,
-        notams: notamResponse?.notams ?? [],
-        charts: chartResponse?.charts ?? [],
-        solar: solarResponse?.solar ?? [],
-        airport: airportResponse?.airport,
+        notams: registrosDaResposta(notamResponse).map((item) => ({
+          id: texto(item.id ?? item.key),
+          number: texto(item.number ?? item.numero ?? item.notamNumber) || null,
+          type: texto(item.type ?? item.tipo) || null,
+          message: texto(
+            item.message ?? item.text ?? item.mensagem ?? item.description,
+          ),
+          start: texto(item.start ?? item.inicio ?? item.valid_from) || null,
+          end: texto(item.end ?? item.fim ?? item.valid_to) || null,
+        })),
+        charts: registrosDaResposta(chartResponse).map((item) => ({
+          title: texto(item.title ?? item.titulo ?? item.name ?? item.nome),
+          tipo: texto(item.tipo ?? item.type ?? item.category),
+          descricao: texto(item.descricao ?? item.description),
+          url: texto(item.url ?? item.link ?? item.href),
+        })),
+        solar: (() => {
+          const values = registrosDaResposta(solarResponse);
+          if (values.length) return values as Report["solar"];
+          const item = dadosDaResposta<Record<string, unknown>>(solarResponse, [
+            "solar",
+            "sun",
+            "sunriseSunset",
+          ]);
+          return item ? [item as Report["solar"][number]] : [];
+        })(),
+        weather:
+          dadosDaResposta<Weather>(weather, ["weather", "meteo", "report"]) ??
+          (weather && typeof weather === "object"
+            ? (weather as Weather)
+            : undefined),
+        airport: airportResponse
+          ? normalizarRespostaRotaer(airportResponse, codigo)
+          : undefined,
         errors: erros,
       });
     } finally {
@@ -208,9 +271,10 @@ export default function ConsultaAerodromoScreen({
     const source = airport?.raw_data;
     if (!source || typeof source !== "object") return {};
     const nested = (source as { rotaer?: Record<string, unknown> }).rotaer;
-    return nested && typeof nested === "object"
-      ? nested
-      : (source as Record<string, unknown>);
+    return {
+      ...airport,
+      ...(nested && typeof nested === "object" ? nested : source),
+    };
   }, [airport?.raw_data]);
   const detalhes = useMemo(() => {
     if (!airport) return [] as [string, string][];
@@ -237,10 +301,6 @@ export default function ConsultaAerodromoScreen({
       "altitude",
       "coordinates",
       "coordenadas",
-      "runways",
-      "pistas",
-      "frequencies",
-      "frequencias",
     ]);
     const raw = Object.entries(rawFicha).filter(
       ([key, value]) => !ignored.has(key) && value != null && value !== "",

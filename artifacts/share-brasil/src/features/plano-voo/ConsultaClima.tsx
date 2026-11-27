@@ -1,5 +1,5 @@
 import { Icon, Toque } from "@/src/components/ui";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -9,8 +9,9 @@ import {
   View,
 } from "react-native";
 import { CartaoClima } from "./CartaoClima";
-import { buscarClima, mensagemErro } from "./modelo";
+import { buscarAerodromoRotaer, buscarClima, mensagemErro } from "./modelo";
 import type { Clima, Cores } from "./modelo";
+import { MapaMeteorologico } from "./MapaMeteorologico";
 
 export function ConsultaClima({ colors }: { colors: Cores }) {
   const [icao, setIcao] = useState("");
@@ -18,6 +19,11 @@ export function ConsultaClima({ colors }: { colors: Cores }) {
   const [dados, setDados] = useState<Clima | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
+  const [coordenadas, setCoordenadas] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [versaoConsulta, setVersaoConsulta] = useState(0);
 
   const consultar = async () => {
     const codigo = icao.trim().toUpperCase();
@@ -27,18 +33,43 @@ export function ConsultaClima({ colors }: { colors: Cores }) {
       return;
     }
 
-    setCarregando(true);
     setErro("");
     setPesquisado(codigo);
     setDados(null);
-    try {
-      setDados(await buscarClima(codigo));
-    } catch (cause) {
-      setErro(mensagemErro(cause));
-    } finally {
-      setCarregando(false);
-    }
+    setCoordenadas(null);
+    setVersaoConsulta((valor) => valor + 1);
   };
+
+  useEffect(() => {
+    if (!pesquisado) return;
+    let ativo = true;
+    const atualizar = async () => {
+      setCarregando(true);
+      const [clima, aeroporto] = await Promise.allSettled([
+        buscarClima(pesquisado),
+        buscarAerodromoRotaer(pesquisado),
+      ]);
+      if (!ativo) return;
+      if (clima.status === "fulfilled") {
+        setDados(clima.value);
+        setErro("");
+      } else {
+        setErro(mensagemErro(clima.reason));
+      }
+      setCoordenadas(
+        aeroporto.status === "fulfilled"
+          ? (aeroporto.value?.coordinates ?? null)
+          : null,
+      );
+      setCarregando(false);
+    };
+    void atualizar();
+    const timer = setInterval(() => void atualizar(), 5 * 60 * 1000);
+    return () => {
+      ativo = false;
+      clearInterval(timer);
+    };
+  }, [pesquisado, versaoConsulta]);
 
   return (
     <ScrollView
@@ -120,6 +151,20 @@ export function ConsultaClima({ colors }: { colors: Cores }) {
           carregando={carregando}
           colors={colors}
         />
+      )}
+      {!!pesquisado && coordenadas && (
+        <MapaMeteorologico
+          latitude={coordenadas.lat}
+          longitude={coordenadas.lng}
+          icao={pesquisado}
+          colors={colors}
+        />
+      )}
+      {!!pesquisado && !carregando && !coordenadas && (
+        <Text style={[styles.helper, { color: colors.mutedForeground }]}>
+          Mapa indisponível: a API ROTAER não retornou coordenadas para este
+          aeródromo.
+        </Text>
       )}
     </ScrollView>
   );

@@ -32,6 +32,8 @@ const {
   velocidadeCruzeiroDaAeronave,
   velocidadeIcao,
   modeloParaFormulario,
+  preencherDadosAeronaveIcao,
+  normalizarRespostaRotaer,
   paraPlano,
   paraRegistro,
 } = modeloModule.exports;
@@ -234,7 +236,7 @@ test("seleção de aeronave preserva os dados D1 e prioriza a performance", () =
   });
 
   assert.equal(aeronave.id, "10");
-  assert.equal(modeloParaFormulario(aeronave), "Cessna 172");
+  assert.equal(modeloParaFormulario(aeronave), "C172");
   assert.equal(velocidadeCruzeiroDaAeronave(aeronave), 125);
   assert.equal(velocidadeIcao(velocidadeCruzeiroDaAeronave(aeronave)), "N0125");
   assert.equal(esteiraDaAeronave(aeronave), "L");
@@ -244,7 +246,95 @@ test("seleção de aeronave preserva os dados D1 e prioriza a performance", () =
 
 test("esteira de jato é M e não depende do campo designador ICAO", () => {
   assert.equal(
-    esteiraDaAeronave({ id: "j1", modelo: "Phenom 100", tipo_aeronave: "JATO", designador_icao: "E50P" }),
+    esteiraDaAeronave({
+      id: "j1",
+      modelo: "Phenom 100",
+      tipo_aeronave: "JATO",
+      designador_icao: "E50P",
+    }),
     "M",
   );
+});
+
+test("preenche todos os dados ICAO cadastrados da aeronave selecionada", () => {
+  const aeronave = normalizarAeronaveSolicitacao({
+    id: "42",
+    matricula_registro: "PR-XYZ",
+    fabricante: "Embraer",
+    modelo: "EMB-711",
+    designador_icao: "P28T",
+    esteira_turbulencia: "H",
+    equipamentos_icao: "SDFG",
+    vigilancia_icao: "LB1",
+    pbn_icao: "B2D2",
+    autonomia_padrao_minutos: "305",
+    cor_marcas: "BRANCA COM FAIXA AZUL",
+    consumo_combustivel: "65,5",
+    performance: {
+      velocidade_cruzeiro_kt: "142",
+      categoria: "A",
+      teto_servico_ft: 18000,
+      taxa_subida_fpm: 850,
+      taxa_descida_fpm: 700,
+    },
+  });
+  const fpl = preencherDadosAeronaveIcao(aeronave, criarFormularioIcao());
+
+  assert.equal(fpl.identificacao, "PRXYZ");
+  assert.equal(fpl.tipoAeronave, "P28T");
+  assert.equal(fpl.esteira, "H");
+  assert.equal(fpl.equipamento, "SDFG/LB1");
+  assert.equal(fpl.velocidade, "N0142");
+  assert.equal(fpl.autonomia, "0505");
+  assert.equal(fpl.corAeronave, "BRANCA COM FAIXA AZUL");
+  assert.match(fpl.outrasInformacoes, /REG\/PRXYZ/);
+  assert.match(fpl.outrasInformacoes, /TYP\/EMB-711/);
+  assert.match(fpl.outrasInformacoes, /PBN\/B2D2/);
+  assert.equal(aeronave.consumo_combustivel, 65.5);
+  assert.equal(aeronave.performance_categoria, "A");
+  assert.equal(aeronave.performance_taxa_subida_fpm, 850);
+});
+
+test("normaliza envelopes ROTAER e variantes de coordenadas e pistas", () => {
+  const aeroporto = normalizarRespostaRotaer(
+    {
+      success: true,
+      data: {
+        airport: {
+          AeroCode: "SBSP",
+          nome: "Congonhas",
+          cidade: "São Paulo",
+          uf: "SP",
+          altFt: "2631",
+          latitude: "-23.6261",
+          longitude: "-46.6566",
+          runways: {
+            runway: [{ ident: "17R/35L", length: { "#text": "1940" } }],
+          },
+          services: {
+            service: [
+              {
+                "@_type": "COM",
+                type: "TWR",
+                callsign: "CONGONHAS TOWER",
+                freqs: { freq: { "#text": "118.250" } },
+              },
+            ],
+          },
+        },
+      },
+    },
+    "SBSP",
+  );
+
+  assert.equal(aeroporto.icao, "SBSP");
+  assert.equal(aeroporto.name, "Congonhas");
+  assert.equal(aeroporto.city, "São Paulo");
+  assert.equal(aeroporto.coordinates.lat, -23.6261);
+  assert.equal(aeroporto.coordinates.lng, -46.6566);
+  assert.equal(aeroporto.elevation, "2631");
+  assert.equal(aeroporto.runways.length, 1);
+  assert.equal(aeroporto.runways[0].ident, "17R/35L");
+  assert.equal(aeroporto.frequencies[0].frequency, "118.250");
+  assert.equal(aeroporto.frequencies[0].type, "TWR");
 });
