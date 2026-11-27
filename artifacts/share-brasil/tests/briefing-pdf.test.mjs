@@ -30,6 +30,17 @@ test("agenda e checklist oferecem briefing da versão recebida pelo Worker", () 
   assert.match(preparacao, /if \(dirty\)/);
 });
 
+test("checklist de aeronave usa as quatro seções operacionais", async () => {
+  const checklist = await readFile(
+    new URL("src/features/checklist/checklist.ts", root),
+    "utf8",
+  );
+  assert.match(checklist, /Coordenação de voo/);
+  assert.match(checklist, /Despachante — check externo/);
+  assert.match(checklist, /Aeronave — check interno/);
+  assert.match(checklist, /Segurança e documentação crítica/);
+});
+
 test("dependências Expo SDK 58 de PDF estão alinhadas ao lockfile", () => {
   const pack = JSON.parse(packageFile);
   assert.equal(pack.dependencies["expo-file-system"], "~58.0.14");

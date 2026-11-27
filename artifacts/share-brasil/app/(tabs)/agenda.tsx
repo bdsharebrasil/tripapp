@@ -9,6 +9,7 @@ import React, {
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -28,8 +29,10 @@ import {
   Toque,
   type Icone,
 } from "@/src/components/ui";
-import { apiFetch } from "@/src/lib/api";
+import { API_URL, apiFetch } from "@/src/lib/api";
 import { abrirBriefingPdf } from "@/src/lib/briefing-pdf";
+import { getToken } from "@/src/lib/session";
+import { useAeronave } from "@/hooks/useAeronave";
 
 type Flight = {
   id: string;
@@ -40,16 +43,28 @@ type Flight = {
   destino_cidade?: string;
   data_agendada?: string;
   horario_previsto_agendamento?: string;
-  duracao?: string;
-  duracao_minutos?: number;
-  tempo_voo?: string;
+  duracao?: string | number;
+  duracao_minutos?: number | string;
+  tempo_voo?: string | number;
   matricula_registro?: string;
   modelo?: string;
   status?: string;
   solicitacao_id?: string;
-  aeronave_id?: string;
+  numero_passageiros?: number | null;
+  aeronave_id?: string | null;
   cliente_id?: string;
   socio_id?: string;
+  url_imagem?: string | null;
+  aeronave_url_imagem?: string | null;
+  foto_aeronave?: string | null;
+  aeronave_foto_url?: string | null;
+  imagem_aeronave?: string | null;
+  aeronave?: {
+    url_imagem?: string | null;
+    image_url?: string | null;
+    foto_url?: string | null;
+    imagem_url?: string | null;
+  } | null;
 };
 
 type Leg = {
@@ -128,17 +143,52 @@ const today = () => {
   ].join("-");
 };
 
-const formatDateShort = (v?: string) => {
-  if (!v) return "—";
-  const clean = v.slice(0, 10);
-  const [, month, day] = clean.split("-");
-  const monthIdx = Number(month) - 1;
-  if (!day || monthIdx < 0 || monthIdx > 11) return clean;
-  return `${day} ${MESES_CURTOS[monthIdx]}`;
-};
-
 const formatDateFull = (v?: string) =>
   v ? v.slice(0, 10).split("-").reverse().join("/") : "—";
+
+const formatDateEmphasis = (v?: string) => {
+  const [year, month, day] = String(v || "").slice(0, 10).split("-");
+  const monthLabel = MESES_CURTOS[Number(month) - 1];
+  return year && day && monthLabel
+    ? `${day} ${monthLabel.toUpperCase()} ${year}`
+    : "A definir";
+};
+
+const aircraftImageOf = (voo: Flight) => {
+  const image =
+    voo.url_imagem ||
+    voo.aeronave_url_imagem ||
+    voo.foto_aeronave ||
+    voo.aeronave_foto_url ||
+    voo.imagem_aeronave ||
+    voo.aeronave?.url_imagem ||
+    voo.aeronave?.image_url ||
+    voo.aeronave?.foto_url ||
+    voo.aeronave?.imagem_url;
+  return typeof image === "string" && image.trim() ? image.trim() : null;
+};
+
+const normalizeAircraftImageUrl = (image?: string | null) => {
+  const value = image?.trim();
+  if (!value) return null;
+  if (/^(https?:\/\/|data:|content:\/\/|file:\/\/)/i.test(value)) return value;
+  return new URL(value, `${API_URL}/`).toString();
+};
+
+const timeUntilFlight = (voo: Flight) => {
+  const hora = hhmm(voo.horario_previsto_agendamento);
+  const data = String(voo.data_agendada || "").slice(0, 10);
+  if (!hora || !data) return null;
+
+  const remainingMinutes = Math.round(
+    (new Date(`${data}T${hora}:00`).getTime() - Date.now()) / 60_000,
+  );
+  if (!Number.isFinite(remainingMinutes) || remainingMinutes <= 0) return null;
+  if (remainingMinutes < 60) return `${remainingMinutes}MIN`;
+  return `${Math.floor(remainingMinutes / 60)}H${String(
+    remainingMinutes % 60,
+  ).padStart(2, "0")}MIN`;
+};
 
 const dateKey = (d: Date) =>
   [
@@ -147,15 +197,42 @@ const dateKey = (d: Date) =>
     String(d.getDate()).padStart(2, "0"),
   ].join("-");
 
+const flightDurationMinutes = (voo: Flight) => {
+  const minutes = Number(voo.duracao_minutos);
+  if (Number.isFinite(minutes) && minutes > 0) return Math.round(minutes);
+
+  const raw = voo.tempo_voo ?? voo.duracao;
+  if (typeof raw === "number") {
+    return Number.isFinite(raw) && raw > 0 ? Math.round(raw * 60) : 0;
+  }
+  if (typeof raw !== "string") return 0;
+
+  const value = raw.trim().toLowerCase().replace(",", ".");
+  const clock = value.match(/^(\d+):([0-5]\d)(?::[0-5]\d)?$/);
+  if (clock) return Number(clock[1]) * 60 + Number(clock[2]);
+
+  const hoursAndMinutes = value.match(
+    /^(\d+(?:\.\d+)?)\s*h(?:oras?)?\s*(\d+)?\s*m?(?:in(?:utos?)?)?$/,
+  );
+  if (hoursAndMinutes) {
+    return (
+      Math.round(Number(hoursAndMinutes[1]) * 60) +
+      Number(hoursAndMinutes[2] || 0)
+    );
+  }
+
+  const decimalHours = value.match(/^(\d+(?:\.\d+)?)\s*(?:h|horas?)?$/);
+  return decimalHours ? Math.round(Number(decimalHours[1]) * 60) : 0;
+};
+
 const formatDuration = (voo: Flight) => {
-  if (voo.duracao) return voo.duracao;
-  if (voo.tempo_voo) return voo.tempo_voo;
-  if (typeof voo.duracao_minutos === "number" && voo.duracao_minutos > 0) {
-    const h = Math.floor(voo.duracao_minutos / 60);
-    const m = voo.duracao_minutos % 60;
+  const minutes = flightDurationMinutes(voo);
+  if (minutes > 0) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
     return `${h}h ${String(m).padStart(2, "0")}m`;
   }
-  return "—";
+  return voo.duracao || voo.tempo_voo || "—";
 };
 
 const normalizeStatus = (status?: string) =>
@@ -192,6 +269,27 @@ const STATUS_APROVADOS = new Set([
 
 function getStatusBadge(status?: string) {
   const norm = normalizeStatus(status);
+  if (isClosedStatus(status)) {
+    return {
+      label: "Concluído",
+      bg: "rgba(142, 150, 176, 0.16)",
+      color: CORES.textoSecundario,
+    };
+  }
+  if (["EM_ROTA", "EM_VOO", "DECOLADO"].includes(norm)) {
+    return {
+      label: "Em voo",
+      bg: CORES.verdeSuave,
+      color: CORES.verde,
+    };
+  }
+  if (["EM_SOLO", "ACIONADO", "POUSADO"].includes(norm)) {
+    return {
+      label: norm === "ACIONADO" ? "Acionado" : "Em solo",
+      bg: CORES.verdeSuave,
+      color: CORES.verde,
+    };
+  }
   if (STATUS_APROVAR.has(norm)) {
     return {
       label: "A aprovar",
@@ -201,7 +299,7 @@ function getStatusBadge(status?: string) {
   }
   if (STATUS_APROVADOS.has(norm)) {
     return {
-      label: "Aprovado",
+      label: "Confirmado",
       bg: CORES.verdeSuave,
       color: CORES.verde,
     };
@@ -213,9 +311,27 @@ function getStatusBadge(status?: string) {
   };
 }
 
-function CardVooItem({ voo, onPress }: { voo: Flight; onPress?: () => void }) {
+function CardVooItem({
+  voo,
+  onPress,
+  isNextFlight = false,
+}: {
+  voo: Flight;
+  onPress?: () => void;
+  isNextFlight?: boolean;
+}) {
   const badge = getStatusBadge(voo.status);
   const horaZ = hhmm(voo.horario_previsto_agendamento);
+  const status = normalizeStatus(voo.status);
+  const isActive = [
+    "EM_SOLO",
+    "EM_ROTA",
+    "EM_VOO",
+    "ACIONADO",
+    "DECOLADO",
+    "POUSADO",
+  ].includes(status);
+  const countdown = timeUntilFlight(voo);
   const aeronave = [voo.matricula_registro, voo.modelo]
     .filter(Boolean)
     .join(" · ");
@@ -223,9 +339,21 @@ function CardVooItem({ voo, onPress }: { voo: Flight; onPress?: () => void }) {
   const content = (
     <View style={s.flightCard}>
       <View style={s.cardTopRow}>
-        <Text numberOfLines={1} style={s.aircraftText}>
-          {aeronave || voo.numero_voo || "Aeronave não informada"}
-        </Text>
+        <View style={{ flex: 1 }}>
+          {(isNextFlight || isActive) && (
+            <Text style={s.kicker}>
+              {isActive
+                ? "EM OPERAÇÃO"
+                : countdown
+                  ? `PRÓXIMO VOO · EM ${countdown}`
+                  : "PRÓXIMO VOO"}
+            </Text>
+          )}
+          <Text style={s.dateLabel}>DATA DO VOO</Text>
+          <Text style={s.dateValue}>
+            {formatDateEmphasis(voo.data_agendada)}
+          </Text>
+        </View>
         <View style={[s.statusBadge, { backgroundColor: badge.bg }]}>
           <Text style={[s.statusBadgeText, { color: badge.color }]}>
             {badge.label}
@@ -233,20 +361,28 @@ function CardVooItem({ voo, onPress }: { voo: Flight; onPress?: () => void }) {
         </View>
       </View>
 
+      <Text numberOfLines={1} style={s.aircraftText}>
+        {aeronave || voo.numero_voo || "Aeronave não informada"}
+      </Text>
+
       <View style={s.routeRow}>
         <View style={s.airportCol}>
           <Text style={s.icaoCode}>{voo.origem || "----"}</Text>
           <Text numberOfLines={1} style={s.cityText}>
             {voo.origem_cidade || "Origem"}
           </Text>
+          <Text style={s.airportTime}>{horaZ ? `${horaZ} LT` : "—"}</Text>
         </View>
 
-        <View style={s.routeLineWrap}>
-          <View style={s.dashedLine} />
-          <View style={s.planeIconWrap}>
-            <Icon name="send" size={14} color={CORES.amarelo} />
+        <View style={s.routeCenter}>
+          <View style={s.routeLineWrap}>
+            <View style={s.routeDot} />
+            <View style={s.dashedLine} />
+            <Icon name="airplane" size={18} color={CORES.azul} />
+            <View style={s.dashedLine} />
+            <View style={s.routeDot} />
           </View>
-          <View style={s.dashedLine} />
+          <Text style={s.routeMeta}>{formatDuration(voo)}</Text>
         </View>
 
         <View style={[s.airportCol, { alignItems: "flex-end" }]}>
@@ -257,23 +393,17 @@ function CardVooItem({ voo, onPress }: { voo: Flight; onPress?: () => void }) {
         </View>
       </View>
 
-      <View style={s.cardFooter}>
-        <View style={s.footerCol}>
-          <Text style={s.footerLabel}>Data</Text>
-          <Text style={s.footerValue}>
-            {formatDateShort(voo.data_agendada)}
+      <View style={s.flightMetaRow}>
+        <View style={s.flightMetaCard}>
+          <Text style={s.footerLabel}>SOLICITAÇÃO</Text>
+          <Text numberOfLines={1} style={s.footerValue}>
+            {voo.solicitacao_id || "—"}
           </Text>
         </View>
-
-        <View style={s.footerCol}>
-          <Text style={s.footerLabel}>Horário</Text>
-          <Text style={s.footerValue}>{horaZ ? `${horaZ} Z` : "—"}</Text>
-        </View>
-
-        <View style={[s.footerCol, { alignItems: "flex-end" }]}>
-          <Text style={s.footerLabel}>Duração</Text>
-          <Text style={[s.footerValue, { color: "#A16207" }]}>
-            {formatDuration(voo)}
+        <View style={s.flightMetaCard}>
+          <Text style={s.footerLabel}>PAX</Text>
+          <Text style={s.footerValue}>
+            {voo.numero_passageiros ?? "—"}
           </Text>
         </View>
       </View>
@@ -281,15 +411,112 @@ function CardVooItem({ voo, onPress }: { voo: Flight; onPress?: () => void }) {
   );
 
   if (!onPress) return content;
-
   return (
     <Toque
       accessibilityRole="button"
+      accessibilityLabel={`Detalhes do voo ${voo.numero_voo || voo.origem || ""}`}
       onPress={onPress}
       style={{ marginBottom: 14 }}
     >
       {content}
     </Toque>
+  );
+}
+
+function CardVooDetalhe({
+  voo,
+  imagemAeronave,
+  imageToken,
+  imageTokenLoaded,
+}: {
+  voo: Flight;
+  imagemAeronave?: string | null;
+  imageToken: string | null;
+  imageTokenLoaded: boolean;
+}) {
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const badge = getStatusBadge(voo.status);
+  const hora = hhmm(voo.horario_previsto_agendamento);
+  const coverContent = (
+    <View style={s.detailCoverShade}>
+      <View style={s.detailCoverTop}>
+        <Text numberOfLines={1} style={s.detailCoverFlight}>
+          Voo {voo.numero_voo || "—"}
+        </Text>
+        <Text numberOfLines={1} style={s.detailCoverRegistration}>
+          {voo.matricula_registro || "—"}
+        </Text>
+      </View>
+      <View style={[s.statusBadge, { backgroundColor: badge.bg }]}>
+        <Text style={[s.statusBadgeText, { color: badge.color }]}>
+          {badge.label}
+        </Text>
+      </View>
+    </View>
+  );
+  const photo = normalizeAircraftImageUrl(
+    imagemAeronave?.trim() || aircraftImageOf(voo),
+  );
+  const imageHeaders =
+    imageToken && photo && new URL(photo).origin === new URL(API_URL).origin
+      ? { Authorization: `Bearer ${imageToken}` }
+      : undefined;
+  const imageRequiresAuth = Boolean(
+    photo && new URL(photo).origin === new URL(API_URL).origin,
+  );
+  const shouldLoadPhoto = Boolean(
+    photo &&
+      !photoFailed &&
+      (!imageRequiresAuth || imageTokenLoaded),
+  );
+  useEffect(() => {
+    setPhotoFailed(false);
+  }, [photo, imageToken]);
+
+  return (
+    <View style={s.detailFlightCard}>
+      <View style={s.detailCover}>
+        {photo && shouldLoadPhoto ? (
+          <Image
+            source={{ uri: photo, headers: imageHeaders }}
+            resizeMode="cover"
+            accessibilityIgnoresInvertColors
+            onError={() => setPhotoFailed(true)}
+            style={s.detailCoverImage}
+          />
+        ) : null}
+        {coverContent}
+      </View>
+
+      <View style={s.detailRouteRow}>
+        <View style={s.detailAirport}>
+          <Text style={s.detailAirportCode}>{voo.origem || "—"}</Text>
+          <Text numberOfLines={1} style={s.detailAirportCity}>
+            {voo.origem_cidade || "Origem"}
+          </Text>
+        </View>
+        <View style={s.detailRouteCenter}>
+          <View style={s.detailPlane}>
+            <Icon name="airplane" size={17} color={CORES.azul} />
+          </View>
+        </View>
+        <View style={[s.detailAirport, { alignItems: "flex-end" }]}>
+          <Text style={s.detailAirportCode}>{voo.destino || "—"}</Text>
+          <Text numberOfLines={1} style={s.detailAirportCity}>
+            {voo.destino_cidade || "Destino"}
+          </Text>
+        </View>
+      </View>
+
+      <View style={s.detailFlightMeta}>
+        <Text style={s.detailFlightTime}>
+          {hora ? `${hora} UTC` : "Horário não informado"}
+        </Text>
+        <Text style={s.detailFlightDate}>
+          {formatDateEmphasis(voo.data_agendada)}
+        </Text>
+      </View>
+    </View>
   );
 }
 
@@ -307,7 +534,37 @@ export default function AgendaScreen() {
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(today().slice(0, 7));
   const [flights, setFlights] = useState<Flight[]>([]);
+  const [horasMesPerfil, setHorasMesPerfil] = useState<number | null>(null);
   const [selected, setSelected] = useState<Detail | null>(null);
+  const [imageToken, setImageToken] = useState<string | null>(null);
+  const [imageTokenLoaded, setImageTokenLoaded] = useState(false);
+  const listedSelectedFlight = selected
+    ? flights.find((flight) => flight.id === selected.voo.id)
+    : undefined;
+  const { imagem: imagemAeronave } = useAeronave({
+    id: selected?.voo.aeronave_id || listedSelectedFlight?.aeronave_id,
+    matricula:
+      selected?.voo.matricula_registro ||
+      listedSelectedFlight?.matricula_registro,
+    habilitado: Boolean(selected),
+  });
+  useEffect(() => {
+    let active = true;
+    void getToken()
+      .then((token) => {
+        if (active) {
+          setImageToken(token);
+          setImageTokenLoaded(true);
+        }
+      })
+      .catch((cause) => {
+        console.error("Falha ao carregar autenticação da imagem da aeronave:", cause);
+        if (active) setImageTokenLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [openingBriefing, setOpeningBriefing] = useState(false);
@@ -328,10 +585,19 @@ export default function AgendaScreen() {
     if (!loaded.current) setLoading(true);
     setError("");
     try {
-      const result = await apiFetch<{ voos: Flight[] }>(
-        "/api/colaborador/meus-voos",
-      );
+      const [result, perfil] = await Promise.all([
+        apiFetch<{ voos: Flight[] }>("/api/colaborador/meus-voos"),
+        apiFetch<{
+          horas_voo_minutos?: { mes?: number | null } | null;
+        }>("/api/colaborador/perfil").catch(() => null),
+      ]);
       setFlights(result.voos || []);
+      const minutosMes = perfil?.horas_voo_minutos?.mes;
+      setHorasMesPerfil(
+        typeof minutosMes === "number" && Number.isFinite(minutosMes)
+          ? Math.max(0, Math.round(minutosMes))
+          : null,
+      );
     } catch (e) {
       setError(
         e instanceof Error
@@ -369,6 +635,25 @@ export default function AgendaScreen() {
   useEffect(() => {
     if (vooId) void openFlight(vooId);
   }, [vooId]);
+
+  useEffect(() => {
+    if (!selected) return;
+    const currentImage = aircraftImageOf(selected.voo);
+    if (currentImage) return;
+
+    const listedFlight = flights.find((flight) => flight.id === selected.voo.id);
+    const listedImage = listedFlight && aircraftImageOf(listedFlight);
+    if (!listedImage) return;
+
+    setSelected((current) => {
+      if (!current || current.voo.id !== selected.voo.id) return current;
+      if (aircraftImageOf(current.voo)) return current;
+      return {
+        ...current,
+        voo: { ...current.voo, url_imagem: listedImage },
+      };
+    });
+  }, [flights, selected]);
 
   const saveTimes = async () => {
     if (!editing || saving) return;
@@ -457,22 +742,21 @@ export default function AgendaScreen() {
   );
 
   const horasMesFormatada = useMemo(() => {
+    if (horasMesPerfil != null) {
+      const h = Math.floor(horasMesPerfil / 60);
+      const m = horasMesPerfil % 60;
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+
     const mesAtual = today().slice(0, 7);
     const totalMin = flights.reduce((acc, f) => {
       if (!String(f.data_agendada || "").startsWith(mesAtual)) return acc;
-      if (typeof f.duracao_minutos === "number") return acc + f.duracao_minutos;
-      const match = String(f.duracao || f.tempo_voo || "").match(
-        /(\d+)\s*h\s*(\d+)?/i,
-      );
-      if (match) {
-        return acc + Number(match[1]) * 60 + Number(match[2] || 0);
-      }
-      return acc;
+      return acc + flightDurationMinutes(f);
     }, 0);
     const h = Math.floor(totalMin / 60);
     const m = totalMin % 60;
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-  }, [flights]);
+  }, [flights, horasMesPerfil]);
 
   const pendentesCount = useMemo(
     () =>
@@ -514,6 +798,14 @@ export default function AgendaScreen() {
         ? String(b.data_agendada).localeCompare(String(a.data_agendada))
         : String(a.data_agendada).localeCompare(String(b.data_agendada)),
     );
+  const nextFlightId =
+    filter === "historico"
+      ? null
+      : visible.find(
+          (flight) =>
+            String(flight.data_agendada || "").slice(0, 10) >= today() &&
+            !isClosedStatus(flight.status),
+        )?.id;
 
   const monthDate = new Date(`${calendarMonth}-01T12:00:00`);
   const monthDayCount = new Date(
@@ -535,8 +827,8 @@ export default function AgendaScreen() {
     <SafeAreaView edges={["top"]} style={s.root}>
       {detail ? (
         <Cabecalho
-          titulo="Meu voo"
-          apoio="DIÁRIO DE BORDO"
+          titulo="Detalhes do voo"
+          apoio="MEUS VOOS"
           voltar={() => setSelected(null)}
           acao={() => void openFlight(detail.voo.id, true)}
         />
@@ -691,6 +983,7 @@ export default function AgendaScreen() {
                     key={f.id}
                     voo={f}
                     onPress={() => void openFlight(f.id)}
+                    isNextFlight={f.id === nextFlightId}
                   />
                 ))
               ) : (
@@ -704,7 +997,12 @@ export default function AgendaScreen() {
           ) : (
             <>
               <View style={{ marginBottom: 14 }}>
-                <CardVooItem voo={detail.voo} />
+                <CardVooDetalhe
+                  voo={detail.voo}
+                  imagemAeronave={imagemAeronave}
+                  imageToken={imageToken}
+                  imageTokenLoaded={imageTokenLoaded}
+                />
               </View>
 
               {action("Acompanhar voo", "map", () =>
@@ -1169,10 +1467,10 @@ const s = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
   },
   flightCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: CORES.card,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: "#E3E8F2",
+    borderColor: CORES.cardBorda,
     padding: 18,
   },
   cardTopRow: {
@@ -1181,11 +1479,31 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     gap: 10,
   },
+  kicker: {
+    color: CORES.azul,
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1,
+    marginBottom: 6,
+  },
+  dateLabel: {
+    color: CORES.muted,
+    fontSize: 9,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 1,
+  },
+  dateValue: {
+    color: CORES.azul,
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+    marginTop: 3,
+  },
   aircraftText: {
     flex: 1,
-    color: "#6B7394",
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
+    color: "#F2F3F6",
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    marginTop: 12,
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -1204,20 +1522,50 @@ const s = StyleSheet.create({
     marginBottom: 18,
     gap: 10,
   },
+  routeCenter: {
+    flex: 1,
+    minWidth: 72,
+  },
   airportCol: {
-    minWidth: 76,
+    minWidth: 68,
   },
   icaoCode: {
-    color: "#0B1024",
-    fontSize: 23,
+    color: "#F2F3F6",
+    fontSize: 22,
     fontFamily: "Inter_700Bold",
     letterSpacing: 0.5,
   },
   cityText: {
-    color: "#6B7394",
-    fontSize: 12,
+    color: CORES.muted,
+    fontSize: 10,
     fontFamily: "Inter_500Medium",
     marginTop: 2,
+  },
+  airportTime: {
+    color: CORES.textoSecundario,
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    marginTop: 5,
+  },
+  routeMeta: {
+    color: CORES.muted,
+    fontSize: 9,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+    marginTop: 6,
+  },
+  flightMetaRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  flightMetaCard: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   routeLineWrap: {
     flex: 1,
@@ -1226,37 +1574,134 @@ const s = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
   },
+  routeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: CORES.azul,
+  },
   dashedLine: {
     flex: 1,
     height: 1,
     borderBottomWidth: 1,
     borderStyle: "dashed",
-    borderColor: "#C9D1E3",
-  },
-  planeIconWrap: {
-    transform: [{ rotate: "45deg" }],
-  },
-  cardFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#E3E8F2",
-  },
-  footerCol: {
-    flex: 1,
+    borderColor: "rgba(142,150,176,0.65)",
   },
   footerLabel: {
-    color: "#6B7394",
-    fontSize: 11,
+    color: CORES.muted,
+    fontSize: 10,
     fontFamily: "Inter_500Medium",
   },
   footerValue: {
-    color: "#0B1024",
+    color: "#FFFFFF",
     fontSize: 14,
     fontFamily: "Inter_700Bold",
-    marginTop: 3,
+    marginTop: 4,
+  },
+  detailFlightCard: {
+    backgroundColor: CORES.card,
+    borderColor: CORES.cardBorda,
+    borderWidth: 1,
+    borderRadius: 22,
+    overflow: "hidden",
+  },
+  detailCover: {
+    height: 112,
+    overflow: "hidden",
+    backgroundColor: "#10243A",
+  },
+  detailCoverImage: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: "100%",
+    height: "100%",
+    borderTopLeftRadius: 21,
+    borderTopRightRadius: 21,
+  },
+  detailCoverShade: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "rgba(4,11,22,0.42)",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+  },
+  detailCoverTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  detailCoverFlight: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+  },
+  detailCoverRegistration: {
+    color: "rgba(255,255,255,0.78)",
+    fontSize: 10,
+    fontFamily: "Inter_500Medium",
+  },
+  detailRouteRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+  },
+  detailAirport: {
+    flex: 1,
+    minWidth: 0,
+  },
+  detailAirportCode: {
+    color: "#FFFFFF",
+    fontSize: 27,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: -0.5,
+  },
+  detailAirportCity: {
+    color: CORES.muted,
+    fontSize: 10,
+    marginTop: 2,
+  },
+  detailRouteCenter: {
+    flex: 0.55,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  detailPlane: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "rgba(255,255,255,0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  detailFlightMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(255,255,255,0.08)",
+  },
+  detailFlightTime: {
+    color: "#CBD7E7",
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  detailFlightDate: {
+    color: CORES.textoSecundario,
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
   },
   fab: {
     position: "absolute",

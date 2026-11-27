@@ -16,6 +16,11 @@ import {
 } from "react-native-safe-area-context";
 import { apiFetch } from "@/src/lib/api";
 import { abrirBriefingPdf } from "@/src/lib/briefing-pdf";
+import {
+  checklistItemsForAircraft,
+  FLIGHT_CHECKLIST_SECTIONS,
+  type ChecklistItem,
+} from "@/src/features/checklist/checklist";
 
 type Estado =
   | "PENDENTE"
@@ -46,8 +51,9 @@ type Preparacao = {
 type Secao = {
   id: string;
   titulo: string;
+  subtitulo?: string;
   segmento: string;
-  itens: { id: string; label: string }[];
+  itens: ChecklistItem[];
 };
 type Snapshot = {
   versao: number;
@@ -57,7 +63,11 @@ type Snapshot = {
   secoes: Secao[];
   tipos_servico: { id: string; nome: string }[];
   resumo: { total: number; resolvidos: number; pendencias: number };
-  voo?: { numero_voo?: string; matricula_registro?: string };
+  voo?: {
+    numero_voo?: string;
+    matricula_registro?: string;
+    modelo?: string;
+  };
 };
 const bg = tema.fundo,
   panel = tema.superficie,
@@ -198,11 +208,37 @@ export default function PreparacaoVoo() {
   };
   const readonly = Boolean(snapshot?.somente_leitura);
   const sections = useMemo(
-    () => (snapshot?.secoes || []).filter((s) => s.segmento === tab),
-    [snapshot?.secoes, tab],
+    () => {
+      if (tab === "aeronave") {
+        const allowedItems = new Set(
+          checklistItemsForAircraft(
+            snapshot?.voo?.matricula_registro,
+            snapshot?.voo?.modelo,
+          ).map((item) => item.id),
+        );
+        return FLIGHT_CHECKLIST_SECTIONS.map((section) => ({
+          ...section,
+          segmento: "aeronave",
+          itens: section.itens.filter((item) => allowedItems.has(item.id)),
+        }));
+      }
+      return (snapshot?.secoes || []).filter((s) => s.segmento === tab);
+    },
+    [
+      snapshot?.secoes,
+      snapshot?.voo?.matricula_registro,
+      snapshot?.voo?.modelo,
+      tab,
+    ],
   );
   useEffect(() => {
-    if (sections.length && !openSection) setOpenSection(sections[0].id);
+    if (!sections.length) {
+      setOpenSection("");
+      return;
+    }
+    if (!sections.some((section) => section.id === openSection)) {
+      setOpenSection(sections[0].id);
+    }
   }, [sections, openSection]);
   const statePicker = (value: Estado, change: (v: Estado) => void) => (
     <View style={styles.states}>
@@ -272,6 +308,11 @@ export default function PreparacaoVoo() {
               <Text style={styles.pending}>
                 {snapshot.resumo.pendencias} pendência(s) no último salvamento
               </Text>
+              {tab === "aeronave" ? (
+                <Text style={styles.checklistVersion}>
+                  CHECKLIST OPERACIONAL · 4 ETAPAS
+                </Text>
+              ) : null}
               {readonly ? (
                 <Text style={styles.pending}>
                   Voo encerrado: somente leitura
@@ -332,6 +373,11 @@ export default function PreparacaoVoo() {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.stageTitle}>{sec.titulo}</Text>
+                      {sec.subtitulo ? (
+                        <Text style={styles.stageDescription}>
+                          {sec.subtitulo}
+                        </Text>
+                      ) : null}
                       <Text style={styles.stageSubtitle}>
                         {concluidos === sec.itens.length ? "Etapa concluída" : `${sec.itens.length - concluidos} pendências nesta etapa`}
                       </Text>
@@ -370,30 +416,31 @@ export default function PreparacaoVoo() {
                           onChangeText={(v) => setItem(item.id, { observacao: v })}
                           style={styles.input}
                         />
+                        {item.tipo === "oleo" ? (
+                          <View style={styles.oilLevel}>
+                            <Text style={styles.itemStatus}>Nível de óleo LH / RH</Text>
+                            <TextInput
+                              editable={!readonly}
+                              placeholder="Informe os níveis"
+                              placeholderTextColor={muted}
+                              value={draft.nivel_oleo}
+                              onChangeText={(v) =>
+                                update((d) => {
+                                  d.nivel_oleo = v;
+                                  return d;
+                                })
+                              }
+                              style={styles.input}
+                            />
+                          </View>
+                        ) : null}
                       </View>
                     );
                   }) : null}
                 </View>
               );
             })}
-            {tab === "aeronave" ? (
-              <View style={styles.card}>
-                <Text style={styles.itemTitle}>Nível de óleo</Text>
-                <TextInput
-                  editable={!readonly}
-                  placeholder="Informe o nível de óleo"
-                  placeholderTextColor={muted}
-                  value={draft.nivel_oleo}
-                  onChangeText={(v) =>
-                    update((d) => {
-                      d.nivel_oleo = v;
-                      return d;
-                    })
-                  }
-                  style={styles.input}
-                />
-              </View>
-            ) : (
+            {tab === "tripulacao" ? (
               draft.escalas.map((escala) => (
                 <View key={escala.id}>
                   <Text style={styles.section}>
@@ -430,7 +477,7 @@ export default function PreparacaoVoo() {
                   ))}
                 </View>
               ))
-            )}
+            ) : null}
             <Text style={styles.section}>OBSERVAÇÕES GERAIS</Text>
             <TextInput
               editable={!readonly}
@@ -527,6 +574,13 @@ const styles = StyleSheet.create({
   flight: { color: "#fff", fontSize: 19, fontWeight: "800" },
   description: { color: muted, fontSize: 12, lineHeight: 19, marginTop: 6 },
   pending: { color: "#f0c47d", fontSize: 12, marginTop: 8 },
+  checklistVersion: {
+    color: accent,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+    marginTop: 8,
+  },
   tabs: {
     flexDirection: "row",
     backgroundColor: panel,
@@ -577,6 +631,7 @@ const styles = StyleSheet.create({
   stageCount: { color: "#fff", fontSize: 12, fontWeight: "900" },
   stageTitle: { color: "#fff", fontSize: 15, fontWeight: "800" },
   stageSubtitle: { color: muted, fontSize: 11, marginTop: 4 },
+  stageDescription: { color: muted, fontSize: 11, lineHeight: 16, marginTop: 4 },
   checkItem: {
     paddingHorizontal: 14,
     paddingTop: 12,
@@ -597,6 +652,12 @@ const styles = StyleSheet.create({
   nativeCheckActive: { backgroundColor: "#248b70", borderColor: "#248b70" },
   itemTitleDone: { color: muted },
   itemStatus: { color: accent, fontSize: 11, marginTop: 3 },
+  oilLevel: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: line,
+    marginTop: 12,
+    paddingTop: 10,
+  },
   itemTitle: {
     color: "#fff",
     fontSize: 15,

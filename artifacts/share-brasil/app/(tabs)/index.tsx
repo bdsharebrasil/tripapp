@@ -390,10 +390,6 @@ export default function HomeScreen() {
               {nome}
             </Text>
             <View style={s.heroTituloWrap}>
-              <Text style={s.heroTitulo}>
-                Pronta para a{" "}
-                <Text style={s.heroTituloDestaque}>próxima</Text> missão
-              </Text>
             </View>
           </View>
 
