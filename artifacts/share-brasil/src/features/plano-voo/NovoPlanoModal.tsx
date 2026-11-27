@@ -33,6 +33,7 @@ import {
   criarFormulario,
   criarFormularioIcao,
   formatarHoraUtc,
+  formatarTempoVoo,
   mensagemErro,
   modeloParaFormulario,
   preencherDadosAeronaveIcao,
@@ -42,7 +43,6 @@ import {
   velocidadeIcao,
   validarFpl,
 } from "./modelo";
-import { MapaMeteorologico } from "./MapaMeteorologico";
 
 export function NovoPlanoModal({
   visivel,
@@ -144,7 +144,15 @@ export function NovoPlanoModal({
     setErroRota("");
     const timer = setTimeout(() => {
       setCalculandoRota(true);
-      buscarRota(partidaIcao, chegadaIcao, form.aeronaveId)
+      buscarRota(
+        partidaIcao,
+        chegadaIcao,
+        form.aeronaveId,
+        (aeronaveSelecionada
+          ? velocidadeCruzeiroDaAeronave(aeronaveSelecionada)
+          : undefined) ??
+          (Number(fpl.velocidade.replace(/^[NKM]/i, "")) || undefined),
+      )
         .then((rota) => {
           if (!ativo) return;
           if (rota.error) {
@@ -796,11 +804,13 @@ export function NovoPlanoModal({
                       ]}
                     >
                       {rotaCalculada.flightplan?.distance_nm != null
-                        ? `${rotaCalculada.flightplan.distance_nm} NM`
+                        ? `Distância: ${Math.round(rotaCalculada.flightplan.distance_nm)} NM`
                         : "Distância indisponível"}
-                      {rotaCalculada.flightplan?.estimated_time
-                        ? ` · ${rotaCalculada.flightplan.estimated_time}`
-                        : ""}
+                      {rotaCalculada.flightplan?.flight_minutes
+                        ? ` · Tempo de voo: ${formatarTempoVoo(rotaCalculada.flightplan.flight_minutes)}`
+                        : rotaCalculada.flightplan?.estimated_time
+                          ? ` · Tempo de voo: ${rotaCalculada.flightplan.estimated_time}`
+                          : " · Tempo de voo indisponível"}
                       {rotaCalculada.fuel?.total_required != null
                         ? ` · ${Math.round(rotaCalculada.fuel.total_required)} L de combustível`
                         : ""}
@@ -826,21 +836,17 @@ export function NovoPlanoModal({
                           origemNome={rotaCalculada.departure.icao}
                           destinoNome={rotaCalculada.destination.icao}
                           atual={false}
-                        />
-                        <MapaMeteorologico
-                          latitude={
-                            (rotaCalculada.departure.lat +
-                              rotaCalculada.destination.lat) /
-                            2
-                          }
-                          longitude={
-                            (rotaCalculada.departure.lon +
-                              rotaCalculada.destination.lon) /
-                            2
-                          }
-                          icao={`${partidaIcao}–${chegadaIcao}`}
-                          colors={colors}
-                          altura={280}
+                          meteorologia={{
+                            latitude:
+                              (rotaCalculada.departure.lat +
+                                rotaCalculada.destination.lat) /
+                              2,
+                            longitude:
+                              (rotaCalculada.departure.lon +
+                                rotaCalculada.destination.lon) /
+                              2,
+                            icao: `${partidaIcao}–${chegadaIcao}`,
+                          }}
                         />
                       </>
                     ) : (

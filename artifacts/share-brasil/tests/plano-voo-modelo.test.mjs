@@ -34,6 +34,8 @@ const {
   modeloParaFormulario,
   preencherDadosAeronaveIcao,
   normalizarRespostaRotaer,
+  normalizarRespostaRota,
+  formatarTempoVoo,
   paraPlano,
   paraRegistro,
 } = modeloModule.exports;
@@ -337,4 +339,41 @@ test("normaliza envelopes ROTAER e variantes de coordenadas e pistas", () => {
   assert.equal(aeroporto.runways[0].ident, "17R/35L");
   assert.equal(aeroporto.frequencies[0].frequency, "118.250");
   assert.equal(aeroporto.frequencies[0].type, "TWR");
+});
+
+test("normaliza distância e tempo quando a API retorna aliases em envelope", () => {
+  const rota = normalizarRespostaRota(
+    {
+      success: true,
+      data: {
+        flightplan: { route_string: "DCT", distance: "105 NM", ete: "01:30" },
+        departure: { icao: "SBGR", lat: -23.4356, longitude: -46.4731 },
+        destination: { icao: "SBBR", latitude: -15.8692, lon: -47.9208 },
+      },
+    },
+    "SBGR",
+    "SBBR",
+  );
+
+  assert.equal(rota.flightplan.route, "DCT");
+  assert.equal(rota.flightplan.distance_nm, 105);
+  assert.equal(rota.flightplan.flight_minutes, 90);
+  assert.equal(formatarTempoVoo(rota.flightplan.flight_minutes), "1h 30min");
+  assert.equal(rota.departure.icao, "SBGR");
+});
+
+test("calcula distância geodésica e tempo pela velocidade quando a API omite os dados", () => {
+  const rota = normalizarRespostaRota(
+    {
+      departure: { icao: "SBGR", lat: -23.4356, lon: -46.4731 },
+      destination: { icao: "SBBR", lat: -15.8692, lon: -47.9208 },
+    },
+    "SBGR",
+    "SBBR",
+    120,
+  );
+
+  assert.ok(rota.flightplan.distance_nm > 400);
+  assert.ok(rota.flightplan.flight_minutes > 200);
+  assert.match(rota.flightplan.estimated_time, /h/);
 });

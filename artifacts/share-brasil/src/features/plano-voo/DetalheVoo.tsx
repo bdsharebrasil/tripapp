@@ -15,7 +15,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CartaoClima } from "./CartaoClima";
-import { MapaMeteorologico } from "./MapaMeteorologico";
 import {
   Clima,
   Cores,
@@ -24,6 +23,7 @@ import {
   STATUS_CONFIG,
   buscarClima,
   buscarRota,
+  formatarTempoVoo,
   formatarData,
   gerarMensagemIcao,
   mensagemErro,
@@ -64,7 +64,12 @@ export function DetalheVoo({
     setErroRota(null);
 
     setCarregandoRota(true);
-    buscarRota(plano.partida, plano.chegada, plano.aeronaveId)
+    buscarRota(
+      plano.partida,
+      plano.chegada,
+      plano.aeronaveId,
+      Number(plano.fpl.velocidade.replace(/^[NKM]/i, "")) || undefined,
+    )
       .then((d) => {
         if (!ativo) return;
         if (d.error) setErroRota(d.error);
@@ -236,13 +241,12 @@ export function DetalheVoo({
                     origemNome={rota.departure.icao}
                     destinoNome={rota.destination.icao}
                     atual={false}
-                  />
-                  <MapaMeteorologico
-                    latitude={(rota.departure.lat + rota.destination.lat) / 2}
-                    longitude={(rota.departure.lon + rota.destination.lon) / 2}
-                    icao={`${plano.partida}–${plano.chegada}`}
-                    colors={colors}
-                    altura={300}
+                    meteorologia={{
+                      latitude: (rota.departure.lat + rota.destination.lat) / 2,
+                      longitude:
+                        (rota.departure.lon + rota.destination.lon) / 2,
+                      icao: `${plano.partida}–${plano.chegada}`,
+                    }}
                   />
                 </>
               ) : null}
@@ -293,7 +297,9 @@ export function DetalheVoo({
                   <Text
                     style={[dStyles.infoValue, { color: colors.foreground }]}
                   >
-                    {rota.flightplan?.distance_nm ?? "—"} NM
+                    {rota.flightplan?.distance_nm != null
+                      ? `${Math.round(rota.flightplan.distance_nm)} NM`
+                      : "— NM"}
                   </Text>
                   <Text
                     style={[
@@ -312,7 +318,9 @@ export function DetalheVoo({
                   <Text
                     style={[dStyles.infoValue, { color: colors.foreground }]}
                   >
-                    {rota.flightplan?.estimated_time ?? "—"}
+                    {rota.flightplan?.flight_minutes
+                      ? formatarTempoVoo(rota.flightplan.flight_minutes)
+                      : rota.flightplan?.estimated_time || "—"}
                   </Text>
                   <Text
                     style={[
@@ -320,7 +328,7 @@ export function DetalheVoo({
                       { color: colors.mutedForeground },
                     ]}
                   >
-                    Estimativa
+                    Tempo de voo
                   </Text>
                 </View>
                 <View

@@ -1,5 +1,19 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { PanResponder, StyleSheet, Text, View } from "react-native";
+import React, {
+  createElement,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  PanResponder,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { WebView } from "react-native-webview";
 import Svg, { Circle, G, Path, Text as SvgText } from "react-native-svg";
 import terra from "../lib/terra.json";
 import {
@@ -10,6 +24,16 @@ import {
   type Posicao,
 } from "../lib/acompanhamento";
 import { tema, Toque } from "./ui";
+
+const CAMADAS_METEO = [
+  ["wind", "Vento"],
+  ["rain", "Chuva"],
+  ["clouds", "Nuvens"],
+  ["temp", "Temperatura"],
+  ["pressure", "Pressão"],
+  ["visibility", "Visibilidade"],
+] as const;
+
 const mundo = terra
   .map(
     (r) =>
@@ -21,6 +45,7 @@ const mundo = terra
         .join("") + "Z",
   )
   .join("");
+
 export function MapaVoo({
   origem,
   destino,
@@ -29,6 +54,7 @@ export function MapaVoo({
   origemNome,
   destinoNome,
   atual,
+  meteorologia,
 }: {
   origem: Coord | null;
   destino: Coord | null;
@@ -37,6 +63,7 @@ export function MapaVoo({
   origemNome: string;
   destinoNome: string;
   atual: boolean;
+  meteorologia?: { latitude: number; longitude: number; icao?: string };
 }) {
   const [width, setWidth] = useState(360),
     [zoom, setZoom] = useState(5),
@@ -45,7 +72,12 @@ export function MapaVoo({
   const ref = useRef({ center, zoom });
   ref.current = { center, zoom };
   const [drag, setDrag] = useState({ x: 0, y: 0 });
+  const [meteorologiaAtiva, setMeteorologiaAtiva] = useState(false);
+  const [camadaMeteorologica, setCamadaMeteorologica] =
+    useState<string>("wind");
+  const [versaoMeteorologica, setVersaoMeteorologica] = useState(0);
   const altura = 345;
+
   useEffect(() => {
     const pts = [origem, destino].filter(coordValida).map(projetar);
     if (!pts.length) return;
@@ -60,9 +92,59 @@ export function MapaVoo({
     );
     setZoom(Math.max(1, Math.min(9, Math.floor(Math.log2(240 / span)))));
   }, [origem?.lat, origem?.lon, destino?.lat, destino?.lon]);
+
   useEffect(() => {
     if (follow && coordValida(posicao)) setCenter(projetar(posicao));
   }, [follow, posicao?.lat, posicao?.lon]);
+
+  useEffect(() => {
+    if (!meteorologiaAtiva) return;
+    const timer = setInterval(
+      () => setVersaoMeteorologica((value) => value + 1),
+      10 * 60 * 1000,
+    );
+    return () => clearInterval(timer);
+  }, [meteorologiaAtiva]);
+
+  const urlMeteorologica = useMemo(() => {
+    if (!meteorologia) return "";
+    const query = new URLSearchParams({
+      type: "map",
+      location: "coordinates",
+      product: "ecmwf",
+      level: "surface",
+      overlay: camadaMeteorologica,
+      metricWind: "kt",
+      metricTemp: "°C",
+      metricRain: "mm",
+      zoom: String(zoom),
+      lat: String(meteorologia.latitude),
+      lon: String(meteorologia.longitude),
+      detailLat: String(meteorologia.latitude),
+      detailLon: String(meteorologia.longitude),
+      marker: "false",
+    });
+    return `https://embed.windy.com/embed.html?${query.toString()}&refresh=${versaoMeteorologica}`;
+  }, [camadaMeteorologica, meteorologia, versaoMeteorologica, zoom]);
+
+  const iframeMeteorologico =
+    meteorologiaAtiva && Platform.OS === "web" && urlMeteorologica
+      ? createElement("iframe" as never, {
+          title: `Camada meteorológica${meteorologia?.icao ? ` de ${meteorologia.icao}` : " da rota"}`,
+          src: urlMeteorologica,
+          loading: "lazy",
+          allowFullScreen: true,
+          referrerPolicy: "strict-origin-when-cross-origin",
+          style: {
+            ...StyleSheet.absoluteFill,
+            width: "100%",
+            height: altura,
+            border: 0,
+            pointerEvents: "none",
+          },
+        })
+      : null;
+
   const pan = useMemo(
     () =>
       PanResponder.create({
@@ -82,6 +164,7 @@ export function MapaVoo({
       }),
     [],
   );
+
   const scale = 2 ** zoom,
     offset = {
       x: width / 2 - center.x * scale + drag.x,
@@ -98,17 +181,41 @@ export function MapaVoo({
         return `${i ? "L" : "M"}${q.x},${q.y}`;
       })
       .join(" ");
+
   return (
     <View style={s.map} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
-      <View {...pan.panHandlers}>
+      <View {...pan.panHandlers} style={{ width: "100%", height: altura }}>
+        {meteorologiaAtiva && meteorologia ? (
+          Platform.OS === "web" ? (
+            <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+              {iframeMeteorologico}
+            </View>
+          ) : (
+            <WebView
+              key={urlMeteorologica}
+              source={{ uri: urlMeteorologica }}
+              originWhitelist={["https://*"]}
+              javaScriptEnabled
+              domStorageEnabled
+              setSupportMultipleWindows={false}
+              pointerEvents="none"
+              style={[
+                StyleSheet.absoluteFill,
+                { height: altura, backgroundColor: "#090c10" },
+              ]}
+            />
+          )
+        ) : null}
         <Svg width={width} height={altura} viewBox={`0 0 ${width} ${altura}`}>
           <G transform={`translate(${offset.x},${offset.y}) scale(${scale})`}>
-            <Path
-              d={mundo}
-              fill="#171d24"
-              stroke="#303b46"
-              strokeWidth={0.6 / scale}
-            />
+            {!meteorologiaAtiva ? (
+              <Path
+                d={mundo}
+                fill="#171d24"
+                stroke="#303b46"
+                strokeWidth={0.6 / scale}
+              />
+            ) : null}
           </G>
           {coordValida(origem) && coordValida(destino) && (
             <Path
@@ -162,6 +269,57 @@ export function MapaVoo({
             })()}
         </Svg>
       </View>
+
+      {meteorologia ? (
+        <View style={s.weatherControls}>
+          <Toque
+            accessibilityRole="button"
+            accessibilityState={{ selected: meteorologiaAtiva }}
+            accessibilityLabel={
+              meteorologiaAtiva
+                ? "Desativar camada meteorológica"
+                : "Ativar camada meteorológica"
+            }
+            onPress={() => setMeteorologiaAtiva((ativa) => !ativa)}
+            style={[
+              s.weatherToggle,
+              meteorologiaAtiva && s.weatherToggleActive,
+            ]}
+          >
+            <Text style={s.weatherToggleText}>
+              {meteorologiaAtiva
+                ? "☁ Meteorologia ligada"
+                : "☁ Meteorologia desligada"}
+            </Text>
+          </Toque>
+          {meteorologiaAtiva ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={s.weatherLayers}
+            >
+              {CAMADAS_METEO.map(([id, label]) => {
+                const selecionada = camadaMeteorologica === id;
+                return (
+                  <Toque
+                    key={id}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: selecionada }}
+                    onPress={() => setCamadaMeteorologica(id)}
+                    style={[
+                      s.weatherLayer,
+                      selecionada && s.weatherLayerActive,
+                    ]}
+                  >
+                    <Text style={s.weatherLayerText}>{label}</Text>
+                  </Toque>
+                );
+              })}
+            </ScrollView>
+          ) : null}
+        </View>
+      ) : null}
+
       <View style={s.controls}>
         {[
           {
@@ -195,11 +353,12 @@ export function MapaVoo({
         ))}
       </View>
       <Text style={s.credit}>
-        Natural Earth · domínio público · mapa básico offline
+        Natural Earth · domínio público · meteorologia Windy/ECMWF opcional
       </Text>
     </View>
   );
 }
+
 const s = StyleSheet.create({
   map: {
     backgroundColor: "#090c10",
@@ -208,7 +367,47 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: tema.borda,
   },
-  controls: { position: "absolute", right: 12, bottom: 40, gap: 6 },
+  controls: {
+    position: "absolute",
+    right: 12,
+    bottom: 40,
+    gap: 6,
+    zIndex: 6,
+    elevation: 6,
+  },
+  weatherControls: {
+    position: "absolute",
+    zIndex: 5,
+    elevation: 5,
+    top: 10,
+    left: 10,
+    right: 58,
+    gap: 6,
+  },
+  weatherToggle: {
+    alignSelf: "flex-start",
+    minHeight: 34,
+    justifyContent: "center",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    backgroundColor: "#111820E8",
+    borderWidth: 1,
+    borderColor: "#42505D",
+  },
+  weatherToggleActive: { backgroundColor: "#125D73E8", borderColor: "#53B7CC" },
+  weatherToggleText: { color: "#FFFFFF", fontSize: 11, fontWeight: "600" },
+  weatherLayers: { gap: 5, paddingRight: 8 },
+  weatherLayer: {
+    minHeight: 30,
+    justifyContent: "center",
+    paddingHorizontal: 9,
+    borderRadius: 9,
+    backgroundColor: "#111820E8",
+    borderWidth: 1,
+    borderColor: "#42505D",
+  },
+  weatherLayerActive: { backgroundColor: "#125D73E8", borderColor: "#53B7CC" },
+  weatherLayerText: { color: "#FFFFFF", fontSize: 10, fontWeight: "600" },
   button: {
     width: 42,
     height: 42,

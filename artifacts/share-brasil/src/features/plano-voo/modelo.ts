@@ -157,6 +157,297 @@ export type PlanoRota = {
   error?: string;
 };
 
+const numeroResposta = (valor: unknown): number | undefined => {
+  if (typeof valor === "number")
+    return Number.isFinite(valor) && valor > 0 ? valor : undefined;
+  if (typeof valor !== "string") return undefined;
+  const numero = Number(
+    valor
+      .trim()
+      .replace(",", ".")
+      .match(/\d+(?:\.\d+)?/)?.[0],
+  );
+  return Number.isFinite(numero) && numero > 0 ? numero : undefined;
+};
+
+function minutosDaResposta(valor: unknown): number | undefined {
+  if (typeof valor === "number")
+    return valor > 0 ? Math.round(valor) : undefined;
+  if (typeof valor !== "string" || !valor.trim()) return undefined;
+  const texto = valor.trim();
+  const relogio = texto.match(/^(\d{1,3}):([0-5]\d)$/);
+  if (relogio) return Number(relogio[1]) * 60 + Number(relogio[2]);
+  const horasMinutos = texto.match(
+    /(?:(\d+(?:[.,]\d+)?)\s*h)?\s*(?:(\d+)\s*m(?:in)?)?/i,
+  );
+  if (horasMinutos && (horasMinutos[1] || horasMinutos[2]))
+    return Math.round(
+      Number((horasMinutos[1] || "0").replace(",", ".")) * 60 +
+        Number(horasMinutos[2] || 0),
+    );
+  const minutos = numeroResposta(texto);
+  return minutos ? Math.round(minutos) : undefined;
+}
+
+export function formatarTempoVoo(minutos?: number | null): string {
+  if (!minutos || !Number.isFinite(minutos) || minutos <= 0) return "—";
+  const horas = Math.floor(minutos / 60);
+  const resto = Math.round(minutos % 60);
+  return horas
+    ? `${horas}h ${String(resto).padStart(2, "0")}min`
+    : `${resto} min`;
+}
+
+const distanciaEntrePontosNm = (a: Ponto, b: Ponto) => {
+  const rad = (graus: number) => (graus * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLon = rad(b.lon - a.lon);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
+  return Math.round(2 * 3440.065 * Math.asin(Math.sqrt(Math.min(1, h))));
+};
+
+function pontoRota(valor: unknown, icaoFallback: string): Ponto | undefined {
+  const registro = objeto(valor);
+  if (!registro) return undefined;
+  const lat = numeroCoordenada(registro.lat ?? registro.latitude);
+  const lon = numeroCoordenada(
+    registro.lon ?? registro.lng ?? registro.longitude,
+  );
+  if (lat == null || lon == null) return undefined;
+  return {
+    icao: String(
+      registro.icao ?? registro.ident ?? registro.code ?? icaoFallback,
+    ),
+    name: String(
+      registro.name ?? registro.nome ?? registro.label ?? icaoFallback,
+    ),
+    lat,
+    lon,
+  };
+}
+
+export function normalizarRespostaRota(
+  resposta: unknown,
+  adep: string,
+  ades: string,
+  velocidadeFallbackKt?: number,
+): PlanoRota {
+  const fila: Record<string, unknown>[] = [];
+  const vistos = new Set<object>();
+  const adicionar = (valor: unknown) => {
+    if (Array.isArray(valor)) {
+      valor.forEach(adicionar);
+      return;
+    }
+    const registro = objeto(valor);
+    if (!registro || vistos.has(registro)) return;
+    vistos.add(registro);
+    fila.push(registro);
+    Object.values(registro).forEach((filho) => {
+      if (objeto(filho) || Array.isArray(filho)) adicionar(filho);
+    });
+  };
+  adicionar(resposta);
+  const origemRaw = fila.find(
+    (r) => r.departure || r.origin || r.origem || r.departure_airport,
+  );
+  const destinoRaw = fila.find(
+    (r) => r.destination || r.destino || r.arrival || r.arrival_airport,
+  );
+  const departure = pontoRota(
+    origemRaw?.departure ??
+      origemRaw?.origin ??
+      origemRaw?.origem ??
+      origemRaw?.departure_airport,
+    adep,
+  );
+  const destination = pontoRota(
+    destinoRaw?.destination ??
+      destinoRaw?.destino ??
+      destinoRaw?.arrival ??
+      destinoRaw?.arrival_airport,
+    ades,
+  );
+  const planoRaw =
+    (fila.find((r) => objeto(r.flightplan))?.flightplan as
+      | Record<string, unknown>
+      | undefined) ??
+    fila.find(
+      (r) =>
+        r.route != null ||
+        r.distance_nm != null ||
+        r.distanceNM != null ||
+        r.estimated_time != null ||
+        r.flight_minutes != null,
+    );
+  const performanceRaw =
+    (fila.find((r) => objeto(r.performance))?.performance as
+      | Record<string, unknown>
+      | undefined) ??
+    fila.find(
+      (r) => r.velocidade_cruzeiro_kt != null || r.cruise_speed != null,
+    );
+  const errorRaw = fila.find((r) => r.error != null)?.error;
+  const flightplan: PlanoRota["flightplan"] = planoRaw
+    ? {
+        adep: String(planoRaw.adep ?? planoRaw.departure ?? adep),
+        ades: String(planoRaw.ades ?? planoRaw.destination ?? ades),
+        route:
+          String(
+            planoRaw.route ?? planoRaw.route_string ?? planoRaw.rota ?? "",
+          ) || undefined,
+        route_source:
+          String(planoRaw.route_source ?? planoRaw.source ?? "") || undefined,
+        distance_nm: numeroResposta(
+          planoRaw.distance_nm ??
+            planoRaw.distanceNM ??
+            planoRaw.total_distance_nm ??
+            planoRaw.distance ??
+            planoRaw.distancia_nm,
+        ),
+        estimated_time:
+          typeof (
+            planoRaw.estimated_time ??
+            planoRaw.estimatedTime ??
+            planoRaw.ete ??
+            planoRaw.flight_time
+          ) === "string"
+            ? String(
+                planoRaw.estimated_time ??
+                  planoRaw.estimatedTime ??
+                  planoRaw.ete ??
+                  planoRaw.flight_time,
+              )
+            : undefined,
+        flight_minutes: numeroResposta(
+          planoRaw.flight_minutes ??
+            planoRaw.flightMinutes ??
+            planoRaw.duration_minutes ??
+            planoRaw.ete_minutes,
+        ),
+        cruise_speed: numeroResposta(
+          planoRaw.cruise_speed ??
+            planoRaw.cruise_speed_kt ??
+            planoRaw.velocidade_cruzeiro_kt,
+        ),
+      }
+    : {};
+  const performance: PlanoRota["performance"] = performanceRaw
+    ? {
+        modelo:
+          String(performanceRaw.modelo ?? performanceRaw.model ?? "") ||
+          undefined,
+        tipo_aeronave:
+          String(
+            performanceRaw.tipo_aeronave ?? performanceRaw.aircraft_type ?? "",
+          ) || undefined,
+        velocidade_cruzeiro_kt: numeroResposta(
+          performanceRaw.velocidade_cruzeiro_kt ??
+            performanceRaw.cruise_speed_kt ??
+            performanceRaw.cruise_speed,
+        ),
+        equipamentos_icao:
+          String(performanceRaw.equipamentos_icao ?? "") || undefined,
+        vigilancia_icao:
+          String(performanceRaw.vigilancia_icao ?? "") || undefined,
+        pbn_icao: String(performanceRaw.pbn_icao ?? "") || undefined,
+      }
+    : null;
+  const velocidade =
+    flightplan.cruise_speed ??
+    performance?.velocidade_cruzeiro_kt ??
+    velocidadeFallbackKt;
+  const distanceNm =
+    flightplan.distance_nm ??
+    (departure && destination
+      ? distanciaEntrePontosNm(departure, destination)
+      : undefined);
+  const flightMinutes =
+    flightplan.flight_minutes ??
+    minutosDaResposta(flightplan.estimated_time) ??
+    (distanceNm && velocidade
+      ? Math.round((distanceNm / velocidade) * 60)
+      : undefined);
+  if (distanceNm != null) flightplan.distance_nm = distanceNm;
+  if (flightMinutes != null) {
+    flightplan.flight_minutes = flightMinutes;
+    if (!flightplan.estimated_time)
+      flightplan.estimated_time = formatarTempoVoo(flightMinutes);
+  }
+  const fuelRaw = fila.find((r) => objeto(r.fuel))?.fuel as
+    | Record<string, unknown>
+    | undefined;
+  return {
+    flightplan,
+    performance,
+    fuel: fuelRaw
+      ? {
+          total_required: numeroResposta(
+            fuelRaw.total_required ??
+              fuelRaw.totalRequired ??
+              fuelRaw.total_liters,
+          ),
+          trip_liters: numeroResposta(
+            fuelRaw.trip_liters ?? fuelRaw.tripLiters,
+          ),
+          reserve_liters: numeroResposta(
+            fuelRaw.reserve_liters ?? fuelRaw.reserveLiters,
+          ),
+          taxi_liters: numeroResposta(
+            fuelRaw.taxi_liters ?? fuelRaw.taxiLiters,
+          ),
+          reserve_min: numeroResposta(
+            fuelRaw.reserve_min ?? fuelRaw.reserveMinutes,
+          ),
+        }
+      : undefined,
+    departure,
+    destination,
+    alternates: fila.flatMap((r) => {
+      const lista = r.alternates ?? r.alternados;
+      const itens = Array.isArray(lista) ? lista : [];
+      return itens.flatMap((item) => {
+        const registro = objeto(item);
+        const icao = String(registro?.icao ?? registro?.ident ?? "");
+        if (!registro || !icao) return [];
+        return [
+          {
+            icao,
+            name: String(registro.name ?? registro.nome ?? icao),
+            distance_km:
+              numeroResposta(registro.distance_km ?? registro.distanceKm) ?? 0,
+          },
+        ];
+      });
+    }),
+    notam_alerts: fila.flatMap((r) => {
+      const lista = r.notam_alerts ?? r.notams;
+      const itens = Array.isArray(lista) ? lista : [];
+      return itens.flatMap((item) => {
+        const registro = objeto(item);
+        return registro
+          ? [
+              {
+                icao: String(registro.icao ?? "") || undefined,
+                number:
+                  String(registro.number ?? registro.numero ?? "") || undefined,
+                message:
+                  String(registro.message ?? registro.mensagem ?? "") ||
+                  undefined,
+                start:
+                  String(registro.start ?? registro.inicio ?? "") || undefined,
+                end: String(registro.end ?? registro.fim ?? "") || undefined,
+              },
+            ]
+          : [];
+      });
+    }),
+    error: errorRaw == null ? undefined : String(errorRaw),
+  };
+}
+
 export type AerodromoRotaer = {
   icao?: string;
   name?: string;
@@ -689,10 +980,18 @@ export async function buscarClima(icao: string): Promise<Clima> {
   };
 }
 
-export const buscarRota = (adep: string, ades: string, aeronaveId?: string) => {
+export const buscarRota = async (
+  adep: string,
+  ades: string,
+  aeronaveId?: string,
+  velocidadeFallbackKt?: number,
+) => {
   const params = new URLSearchParams({ adep, ades });
   if (aeronaveId) params.set("aeronave_id", aeronaveId);
-  return apiFetch<PlanoRota>(`/api/v1/flightplan?${params.toString()}`);
+  const resposta = await apiFetch<unknown>(
+    `/api/v1/flightplan?${params.toString()}`,
+  );
+  return normalizarRespostaRota(resposta, adep, ades, velocidadeFallbackKt);
 };
 
 export function validarFpl(fpl: FormularioIcao): string[] {
