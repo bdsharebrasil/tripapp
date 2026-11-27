@@ -10,6 +10,8 @@ import {
   View,
   type TextStyle,
 } from "react-native";
+import { FotoAeronave } from "./FotoAeronave";
+import { obterImagemAeronave } from "@/src/lib/aeronave-imagem";
 import { tema, Icon, Toque } from "./ui";
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 export type DadosCartaoVoo = {
@@ -21,6 +23,20 @@ export type DadosCartaoVoo = {
   horario_previsto_agendamento?: string;
   matricula_registro?: string;
   modelo?: string;
+  url_imagem?: string | null;
+  image_url?: string | null;
+  foto_url?: string | null;
+  imagem_url?: string | null;
+  aeronave_url_imagem?: string | null;
+  foto_aeronave?: string | null;
+  aeronave_foto_url?: string | null;
+  imagem_aeronave?: string | null;
+  aeronave?: {
+    url_imagem?: string | null;
+    image_url?: string | null;
+    foto_url?: string | null;
+    imagem_url?: string | null;
+  } | null;
   status?: string;
   cliente_razao_social?: string | null;
 };
@@ -268,6 +284,7 @@ export function CartaoVoo({
   }));
   const status = String(voo.status || "PROGRAMADO").toUpperCase();
   const label = statuses[status] || status.replace(/_/g, " ");
+  const fotoAeronave = obterImagemAeronave(voo);
   const color = status.includes("CANCEL")
     ? tema.perigo
     : ["APROVADA", "APROVADO", "EM_ROTA", "EM_VOO"].includes(status)
@@ -285,6 +302,24 @@ export function CartaoVoo({
       }
       style={({ pressed }) => [s.card, pressed && { opacity: 0.85 }]}
     >
+      {fotoAeronave && (
+        <View style={s.photoCover}>
+          <FotoAeronave
+            uri={fotoAeronave}
+            style={s.photoCoverImage}
+            accessibilityLabel={`Foto da aeronave ${voo.matricula_registro || ""}`}
+          />
+          <View style={s.photoCoverShade} />
+          <View style={s.photoCoverMeta}>
+            <Text numberOfLines={1} style={s.photoCoverFlight}>
+              Voo {voo.numero_voo || "programado"}
+            </Text>
+            <Text numberOfLines={1} style={s.photoCoverRegistration}>
+              {voo.matricula_registro || voo.modelo || "Aeronave"}
+            </Text>
+          </View>
+        </View>
+      )}
       <View style={s.body}>
         <View style={s.row}>
           <View style={[s.row, { flex: 1, justifyContent: "flex-start" }]}>
@@ -369,6 +404,43 @@ const s = StyleSheet.create({
     backgroundColor: tema.superficie,
     borderRadius: 23,
     marginBottom: 12,
+    overflow: "hidden",
+  },
+  photoCover: {
+    height: 106,
+    backgroundColor: "#10243A",
+    overflow: "hidden",
+  },
+  photoCoverImage: {
+    ...StyleSheet.absoluteFill,
+    width: "100%",
+    height: "100%",
+  },
+  photoCoverShade: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(4,11,22,0.42)",
+  },
+  photoCoverMeta: {
+    position: "absolute",
+    top: 14,
+    left: 18,
+    right: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  photoCoverFlight: {
+    flex: 1,
+    color: "#FFFFFF",
+    fontFamily: "Inter_700Bold",
+    fontSize: 12,
+  },
+  photoCoverRegistration: {
+    maxWidth: "45%",
+    color: "rgba(255,255,255,0.82)",
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
   },
   body: { padding: 18 },
   row: {

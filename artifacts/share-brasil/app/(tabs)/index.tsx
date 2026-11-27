@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { apiFetch } from "@/src/lib/api";
 import { PerfilCompleto, hoje } from "@/src/lib/perfil";
 import { Avatar } from "@/src/components/Avatar";
+import { FotoAeronave } from "@/src/components/FotoAeronave";
 import {
   ErroConsulta,
   Icon,
@@ -20,6 +21,8 @@ import {
   tema,
   type Icone,
 } from "@/src/components/ui";
+import { obterImagemAeronave } from "@/src/lib/aeronave-imagem";
+import { useAeronave } from "@/hooks/useAeronave";
 
 type Voo = {
   id: string;
@@ -30,6 +33,7 @@ type Voo = {
   destino_cidade?: string;
   data_agendada?: string;
   horario_previsto_agendamento?: string;
+  aeronave_id?: string | null;
   matricula_registro?: string;
   modelo?: string;
   aeronave_modelo?: string;
@@ -42,29 +46,13 @@ type Voo = {
     matricula?: string;
     modelo?: string;
     url_imagem?: string | null;
+    image_url?: string | null;
     foto_url?: string | null;
     imagem_url?: string | null;
   } | null;
   numero_passageiros?: number | null;
   status?: string;
   pagamento_total?: number;
-};
-
-const imagemAeronaveDo = (voo?: Voo): string | null => {
-  if (!voo) return null;
-  const candidata =
-    voo.url_imagem ||
-    voo.aeronave_url_imagem ||
-    voo.foto_aeronave ||
-    voo.aeronave_foto_url ||
-    voo.imagem_aeronave ||
-    voo.aeronave?.url_imagem ||
-    voo.aeronave?.foto_url ||
-    voo.aeronave?.imagem_url ||
-    null;
-  return typeof candidata === "string" && candidata.trim()
-    ? candidata.trim()
-    : null;
 };
 
 type RelatorioDespesa = {
@@ -238,6 +226,7 @@ const tempoParaPartida = (v: Voo) => {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { todasAeronaves } = useAeronave();
   const [perfil, setPerfil] = useState<PerfilCompleto | null>(null);
   const [voos, setVoos] = useState<Voo[] | null>(null);
   const [relatorios, setRelatorios] = useState<RelatorioDespesa[]>([]);
@@ -317,7 +306,15 @@ export default function HomeScreen() {
   const proximoAtivo =
     !!proximo && EM_OPERACAO.has(normalizarStatus(proximo.status));
   const contagem = proximo && !proximoAtivo ? tempoParaPartida(proximo) : null;
-  const fotoAeronave = imagemAeronaveDo(proximo);
+  const aeronaveDoProximo = todasAeronaves.find(
+    (aeronave) =>
+      aeronave.id === proximo?.aeronave_id ||
+      (!!proximo?.matricula_registro &&
+        aeronave.matricula_registro.trim().toUpperCase() ===
+          proximo.matricula_registro.trim().toUpperCase()),
+  );
+  const fotoAeronave =
+    obterImagemAeronave(proximo) || obterImagemAeronave(aeronaveDoProximo);
   const matriculaProximo =
     proximo?.matricula_registro || proximo?.aeronave?.matricula || "PR-SHB";
   const modeloProximo =
@@ -421,21 +418,19 @@ export default function HomeScreen() {
 
           {proximo && (
             <View style={s.hero}>
-              {fotoAeronave ? (
+              <View style={s.heroBgFallback}>
                 <Image
-                  source={{ uri: fotoAeronave }}
-                  resizeMode="cover"
-                  accessibilityIgnoresInvertColors
-                  style={s.heroBgImagem}
+                  source={LOGO}
+                  resizeMode="contain"
+                  style={s.heroBgLogoFallback}
                 />
-              ) : (
-                <View style={s.heroBgFallback}>
-                  <Image
-                    source={LOGO}
-                    resizeMode="contain"
-                    style={s.heroBgLogoFallback}
-                  />
-                </View>
+              </View>
+              {!!fotoAeronave && (
+                <FotoAeronave
+                  uri={fotoAeronave}
+                  style={s.heroBgImagem}
+                  accessibilityLabel={`Foto da aeronave ${matriculaProximo}`}
+                />
               )}
               <View pointerEvents="none" style={s.heroOverlayBase} />
               <View pointerEvents="none" style={s.heroOverlayInferior} />

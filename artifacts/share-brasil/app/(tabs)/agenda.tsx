@@ -29,9 +29,10 @@ import {
   Toque,
   type Icone,
 } from "@/src/components/ui";
-import { API_URL, apiFetch } from "@/src/lib/api";
+import { FotoAeronave } from "@/src/components/FotoAeronave";
+import { apiFetch } from "@/src/lib/api";
+import { obterImagemAeronave } from "@/src/lib/aeronave-imagem";
 import { abrirBriefingPdf } from "@/src/lib/briefing-pdf";
-import { getToken } from "@/src/lib/session";
 import { useAeronave } from "@/hooks/useAeronave";
 
 type Flight = {
@@ -154,26 +155,7 @@ const formatDateEmphasis = (v?: string) => {
     : "A definir";
 };
 
-const aircraftImageOf = (voo: Flight) => {
-  const image =
-    voo.url_imagem ||
-    voo.aeronave_url_imagem ||
-    voo.foto_aeronave ||
-    voo.aeronave_foto_url ||
-    voo.imagem_aeronave ||
-    voo.aeronave?.url_imagem ||
-    voo.aeronave?.image_url ||
-    voo.aeronave?.foto_url ||
-    voo.aeronave?.imagem_url;
-  return typeof image === "string" && image.trim() ? image.trim() : null;
-};
-
-const normalizeAircraftImageUrl = (image?: string | null) => {
-  const value = image?.trim();
-  if (!value) return null;
-  if (/^(https?:\/\/|data:|content:\/\/|file:\/\/)/i.test(value)) return value;
-  return new URL(value, `${API_URL}/`).toString();
-};
+const aircraftImageOf = (voo: Flight) => obterImagemAeronave(voo);
 
 const timeUntilFlight = (voo: Flight) => {
   const hora = hhmm(voo.horario_previsto_agendamento);
@@ -315,10 +297,12 @@ function CardVooItem({
   voo,
   onPress,
   isNextFlight = false,
+  imagemAeronave,
 }: {
   voo: Flight;
   onPress?: () => void;
   isNextFlight?: boolean;
+  imagemAeronave?: string | null;
 }) {
   const badge = getStatusBadge(voo.status);
   const horaZ = hhmm(voo.horario_previsto_agendamento);
@@ -335,9 +319,26 @@ function CardVooItem({
   const aeronave = [voo.matricula_registro, voo.modelo]
     .filter(Boolean)
     .join(" · ");
+  const imagem = imagemAeronave?.trim() || obterImagemAeronave(voo);
 
   const content = (
     <View style={s.flightCard}>
+      <View style={s.flightCardCover}>
+        <FotoAeronave
+          uri={imagem}
+          style={s.flightCardCoverImage}
+          accessibilityLabel={`Foto da aeronave ${voo.matricula_registro || ""}`}
+        />
+        <View style={s.flightCardCoverShade}>
+          <Text numberOfLines={1} style={s.flightCardCoverTitle}>
+            {voo.numero_voo || "Voo programado"}
+          </Text>
+          <Text numberOfLines={1} style={s.flightCardCoverRegistration}>
+            {voo.matricula_registro || voo.modelo || "Aeronave"}
+          </Text>
+        </View>
+      </View>
+      <View style={s.flightCardContent}>
       <View style={s.cardTopRow}>
         <View style={{ flex: 1 }}>
           {(isNextFlight || isActive) && (
@@ -407,6 +408,7 @@ function CardVooItem({
           </Text>
         </View>
       </View>
+      </View>
     </View>
   );
 
@@ -426,15 +428,10 @@ function CardVooItem({
 function CardVooDetalhe({
   voo,
   imagemAeronave,
-  imageToken,
-  imageTokenLoaded,
 }: {
   voo: Flight;
   imagemAeronave?: string | null;
-  imageToken: string | null;
-  imageTokenLoaded: boolean;
 }) {
-  const [photoFailed, setPhotoFailed] = useState(false);
   const badge = getStatusBadge(voo.status);
   const hora = hhmm(voo.horario_previsto_agendamento);
   const coverContent = (
@@ -454,37 +451,16 @@ function CardVooDetalhe({
       </View>
     </View>
   );
-  const photo = normalizeAircraftImageUrl(
-    imagemAeronave?.trim() || aircraftImageOf(voo),
-  );
-  const imageHeaders =
-    imageToken && photo && new URL(photo).origin === new URL(API_URL).origin
-      ? { Authorization: `Bearer ${imageToken}` }
-      : undefined;
-  const imageRequiresAuth = Boolean(
-    photo && new URL(photo).origin === new URL(API_URL).origin,
-  );
-  const shouldLoadPhoto = Boolean(
-    photo &&
-      !photoFailed &&
-      (!imageRequiresAuth || imageTokenLoaded),
-  );
-  useEffect(() => {
-    setPhotoFailed(false);
-  }, [photo, imageToken]);
+  const photo = imagemAeronave?.trim() || obterImagemAeronave(voo);
 
   return (
     <View style={s.detailFlightCard}>
       <View style={s.detailCover}>
-        {photo && shouldLoadPhoto ? (
-          <Image
-            source={{ uri: photo, headers: imageHeaders }}
-            resizeMode="cover"
-            accessibilityIgnoresInvertColors
-            onError={() => setPhotoFailed(true)}
-            style={s.detailCoverImage}
-          />
-        ) : null}
+        <FotoAeronave
+          uri={photo}
+          style={s.detailCoverImage}
+          accessibilityLabel={`Foto da aeronave ${voo.matricula_registro || ""}`}
+        />
         {coverContent}
       </View>
 
@@ -536,35 +512,15 @@ export default function AgendaScreen() {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [horasMesPerfil, setHorasMesPerfil] = useState<number | null>(null);
   const [selected, setSelected] = useState<Detail | null>(null);
-  const [imageToken, setImageToken] = useState<string | null>(null);
-  const [imageTokenLoaded, setImageTokenLoaded] = useState(false);
   const listedSelectedFlight = selected
     ? flights.find((flight) => flight.id === selected.voo.id)
     : undefined;
-  const { imagem: imagemAeronave } = useAeronave({
+  const { imagem: imagemAeronave, todasAeronaves } = useAeronave({
     id: selected?.voo.aeronave_id || listedSelectedFlight?.aeronave_id,
     matricula:
       selected?.voo.matricula_registro ||
       listedSelectedFlight?.matricula_registro,
-    habilitado: Boolean(selected),
   });
-  useEffect(() => {
-    let active = true;
-    void getToken()
-      .then((token) => {
-        if (active) {
-          setImageToken(token);
-          setImageTokenLoaded(true);
-        }
-      })
-      .catch((cause) => {
-        console.error("Falha ao carregar autenticação da imagem da aeronave:", cause);
-        if (active) setImageTokenLoaded(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [openingBriefing, setOpeningBriefing] = useState(false);
@@ -984,6 +940,15 @@ export default function AgendaScreen() {
                     voo={f}
                     onPress={() => void openFlight(f.id)}
                     isNextFlight={f.id === nextFlightId}
+                    imagemAeronave={
+                      todasAeronaves.find(
+                        (aeronave) =>
+                          aeronave.id === f.aeronave_id ||
+                          (!!f.matricula_registro &&
+                            aeronave.matricula_registro.trim().toUpperCase() ===
+                              f.matricula_registro.trim().toUpperCase()),
+                      )?.url_imagem
+                    }
                   />
                 ))
               ) : (
@@ -1000,8 +965,6 @@ export default function AgendaScreen() {
                 <CardVooDetalhe
                   voo={detail.voo}
                   imagemAeronave={imagemAeronave}
-                  imageToken={imageToken}
-                  imageTokenLoaded={imageTokenLoaded}
                 />
               </View>
 
@@ -1471,6 +1434,46 @@ const s = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     borderColor: CORES.cardBorda,
+    overflow: "hidden",
+  },
+  flightCardCover: {
+    height: 106,
+    backgroundColor: "#10243A",
+    overflow: "hidden",
+  },
+  flightCardCoverImage: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: "100%",
+    height: "100%",
+  },
+  flightCardCoverShade: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    backgroundColor: "rgba(4,11,22,0.42)",
+  },
+  flightCardCoverTitle: {
+    flex: 1,
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+  },
+  flightCardCoverRegistration: {
+    maxWidth: "45%",
+    color: "rgba(255,255,255,0.82)",
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    textAlign: "right",
+  },
+  flightCardContent: {
     padding: 18,
   },
   cardTopRow: {
