@@ -46,6 +46,7 @@ import {
 import { avisar, confirmar } from "@/src/lib/confirmar";
 import { anexarArquivo } from "@/src/lib/upload";
 import { abrirArquivoPrivado } from "@/src/lib/arquivo-privado";
+import RelatorioPdfViewer from "@/src/components/RelatorioPdfViewer";
 
 type Obj = Record<string, any>;
 type Attachment = {
@@ -562,6 +563,10 @@ export default function RelatorioViagemScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(
     params.relatorioId || null,
   );
+  const [paymentMonthSummary, setPaymentMonthSummary] = useState<{
+    mes: string;
+    valor: number;
+  } | null>(null);
   const [section, setSection] = useState<"lancamentos" | "historico">(
     "lancamentos",
   );
@@ -586,12 +591,21 @@ export default function RelatorioViagemScreen() {
   const [proofPreview, setProofPreview] = useState<{
     uri: string;
     title: string;
+    path: string;
+    mime: string;
   } | null>(null);
+  const [proofPdfPreview, setProofPdfPreview] = useState<{
+    path: string;
+    title: string;
+    mime: string;
+  } | null>(null);
+  const [privateDownloadBusy, setPrivateDownloadBusy] = useState(false);
   const [approvalAction, setApprovalAction] = useState<"approve" | "reject" | null>(null);
   const [approvalReason, setApprovalReason] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState("");
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [error, setError] = useState("");
 
   const selected = reports.find((r) => reportId(r) === selectedId);
@@ -624,7 +638,11 @@ export default function RelatorioViagemScreen() {
   );
   const paymentStats = useMemo(() => {
     const currentMonth = localISO().slice(0, 7);
-    return reports.reduce(
+    const calculated = reports.reduce<{
+      receber: number;
+      pago: number;
+      devolvidos: number;
+    }>(
       (stats, report) => {
         const status = String(report.pagamento_status || "")
           .trim()
@@ -664,7 +682,11 @@ export default function RelatorioViagemScreen() {
       },
       { receber: 0, pago: 0, devolvidos: 0 },
     );
-  }, [reports]);
+    const paidThisMonth = paymentMonthSummary?.mes === currentMonth
+      ? paymentMonthSummary.valor
+      : calculated.pago;
+    return { ...calculated, pago: paidThisMonth };
+  }, [reports, paymentMonthSummary]);
   const categoryTotals = useMemo(
     () =>
       CATEGORIES.map((category) => ({
@@ -801,12 +823,25 @@ export default function RelatorioViagemScreen() {
     else setLoading(true);
     setError("");
     try {
+      const currentMonth = localISO().slice(0, 7);
       const [f, r] = await Promise.all([
         apiFetch<{ voos: Obj[] }>(`${BASE}/meus-voos`),
-        apiFetch<{ relatorios: Obj[] }>(`${BASE}/minhas`),
+        apiFetch<{
+          relatorios: Obj[];
+          resumo_pagamentos?: { mes?: string; pago_mes_centavos?: number };
+        }>(`${BASE}/minhas?mes=${encodeURIComponent(currentMonth)}`),
       ]);
       setFlights(arr(f.voos));
       setReports(arr(r.relatorios));
+      const paidMonthCents = Number(r.resumo_pagamentos?.pago_mes_centavos);
+      setPaymentMonthSummary(
+        r.resumo_pagamentos && Number.isFinite(paidMonthCents)
+          ? {
+              mes: String(r.resumo_pagamentos.mes || currentMonth),
+              valor: paidMonthCents / 100,
+            }
+          : null,
+      );
       setSelectedId((current) =>
         current && !arr(r.relatorios).some((x) => reportId(x) === current)
           ? null
@@ -1269,9 +1304,13 @@ export default function RelatorioViagemScreen() {
         setProofPreview({
           uri: `data:${receivedMime};base64,${fromByteArray(bytes)}`,
           title,
+          path,
+          mime: receivedMime,
         });
+      } else if (mime === "application/pdf") {
+        setProofPdfPreview({ path, title, mime });
       } else {
-        await abrirArquivoPrivado(path, title, mime);
+        throw new Error("O formato deste comprovante não é compatível.");
       }
     } catch (e) {
       avisar(
@@ -1282,6 +1321,21 @@ export default function RelatorioViagemScreen() {
       setBusy("");
     }
   };
+  const downloadPrivateFile = async (path: string, title: string, mime: string) => {
+    if (privateDownloadBusy) return;
+    setPrivateDownloadBusy(true);
+    try {
+      await abrirArquivoPrivado(path, title, mime);
+    } catch (e) {
+      avisar(
+        "Não foi possível baixar o arquivo",
+        e instanceof Error ? e.message : "Tente novamente.",
+      );
+    } finally {
+      setPrivateDownloadBusy(false);
+    }
+  };
+
   const finalize = () => {
     if (!selected || !editable || busy) return;
     if (!items.length)
@@ -1310,23 +1364,8 @@ export default function RelatorioViagemScreen() {
       },
     );
   };
-  const viewReportPdf = async () => {
-    if (!selected || busy) return;
-    setBusy("report-pdf");
-    try {
-      await abrirArquivoPrivado(
-        `${BASE}/${encodeURIComponent(reportId(selected))}/pdf`,
-        String(selected.numero_relatorio || "relatorio"),
-        "application/pdf",
-      );
-    } catch (e) {
-      avisar(
-        "PDF indisponível",
-        e instanceof Error ? e.message : "O PDF ainda não foi gerado.",
-      );
-    } finally {
-      setBusy("");
-    }
+  const viewReportPdf = () => {
+    if (selected) setPdfPreviewOpen(true);
   };
   const decideApproval = async () => {
     if (!selected || !approvalAction || busy) return;
@@ -1806,11 +1845,11 @@ export default function RelatorioViagemScreen() {
                 {!!(selected.pdf_path || selected.pdf_url) && (
                   <Toque
                     accessibilityRole="button"
-                    onPress={() => void viewReportPdf()}
+                    onPress={viewReportPdf}
                     style={styles.outlinedButton}
                   >
                     <Icon name="file-text" size={16} color={tema.azul} />
-                    <Text style={styles.link}>Abrir PDF do relatório</Text>
+                    <Text style={styles.link}>Ver PDF do relatório</Text>
                   </Toque>
                 )}
               </View>
@@ -1893,7 +1932,6 @@ export default function RelatorioViagemScreen() {
 
               {visibleItems.map((item) => {
                 const i = items.indexOf(item);
-                const firstAttachment = item.anexos[0];
                 return (
                   <ExpenseSwipeRow
                     key={item.id}
@@ -1942,41 +1980,53 @@ export default function RelatorioViagemScreen() {
                         </Toque>
                         <View style={styles.expenseTrailing}>
                           <Text style={styles.amount}>{money(item.valor)}</Text>
-                          {firstAttachment ? (
-                            <Toque
-                              accessibilityRole="button"
-                              accessibilityLabel={`Abrir comprovante de ${item.descricao || item.categoria}`}
-                              disabled={!!busy}
-                              onPress={() => void viewProof(firstAttachment)}
-                              style={styles.proofBadgeButton}
-                            >
-                              <Icon
-                                name="paperclip"
-                                size={12}
-                                color="#35D6A0"
-                              />
-                              <Text style={styles.proofBadgeText}>
-                                {item.anexos.length > 1
-                                  ? `Anexos (${item.anexos.length})`
-                                  : "Anexo"}
-                              </Text>
-                            </Toque>
-                          ) : (
-                            <Toque
-                              accessibilityRole="button"
-                              accessibilityLabel="Editar despesa"
-                              onPress={() => setExpenseSheetId(item.id)}
-                              style={styles.editChevronButton}
-                            >
-                              <Icon
-                                name="chevron-right"
-                                size={15}
-                                color={tema.suave}
-                              />
-                            </Toque>
-                          )}
+                          <Toque
+                            accessibilityRole="button"
+                            accessibilityLabel="Editar despesa"
+                            onPress={() => setExpenseSheetId(item.id)}
+                            style={styles.editChevronButton}
+                          >
+                            <Icon
+                              name="chevron-right"
+                              size={15}
+                              color={tema.suave}
+                            />
+                          </Toque>
                         </View>
                       </View>
+                      {item.anexos.map((attachment, attachmentIndex) => (
+                        <Toque
+                          key={attachment.id}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Ver comprovante ${attachmentIndex + 1} de ${item.descricao || item.categoria}`}
+                          disabled={busy === "open-proof"}
+                          onPress={() => void viewProof(attachment)}
+                          style={styles.expenseAttachmentButton}
+                        >
+                          <View style={styles.expenseAttachmentIcon}>
+                            <Icon
+                              name={attachment.tipo_arquivo?.startsWith("image/") ? "image" : "file-text"}
+                              size={18}
+                              color="#35D6A0"
+                            />
+                          </View>
+                          <View style={styles.expenseAttachmentInfo}>
+                            <Text style={styles.expenseAttachmentTitle} numberOfLines={1}>
+                              {item.anexos.length > 1
+                                ? `Ver comprovante ${attachmentIndex + 1}`
+                                : "Ver comprovante"}
+                            </Text>
+                            <Text style={styles.expenseAttachmentName} numberOfLines={1}>
+                              {attachment.nome_arquivo || "Imagem ou PDF"}
+                            </Text>
+                          </View>
+                          {busy === "open-proof" ? (
+                            <ActivityIndicator size="small" color="#35D6A0" />
+                          ) : (
+                            <Icon name="eye" size={18} color="#35D6A0" />
+                          )}
+                        </Toque>
+                      ))}
                     </View>
                   </ExpenseSwipeRow>
                 );
@@ -2109,6 +2159,36 @@ export default function RelatorioViagemScreen() {
           )}
         </ScrollView>
       )}
+      <RelatorioPdfViewer
+        visible={pdfPreviewOpen}
+        path={selected ? `${BASE}/${encodeURIComponent(reportId(selected))}/pdf` : null}
+        title={String(selected?.numero_relatorio || "Relatório de viagem")}
+        onClose={() => setPdfPreviewOpen(false)}
+        onDownload={() => {
+          if (!selected) return;
+          void downloadPrivateFile(
+            `${BASE}/${encodeURIComponent(reportId(selected))}/pdf`,
+            String(selected.numero_relatorio || "relatorio"),
+            "application/pdf",
+          );
+        }}
+        downloadBusy={privateDownloadBusy}
+      />
+      <RelatorioPdfViewer
+        visible={Boolean(proofPdfPreview)}
+        path={proofPdfPreview?.path || null}
+        title={proofPdfPreview?.title || "Comprovante"}
+        onClose={() => setProofPdfPreview(null)}
+        onDownload={() => {
+          if (!proofPdfPreview) return;
+          void downloadPrivateFile(
+            proofPdfPreview.path,
+            proofPdfPreview.title,
+            proofPdfPreview.mime,
+          );
+        }}
+        downloadBusy={privateDownloadBusy}
+      />
       <Modal
         transparent
         animationType="slide"
@@ -2340,13 +2420,15 @@ export default function RelatorioViagemScreen() {
                     />
                     <Toque
                       accessibilityRole="button"
-                      style={{ flex: 1 }}
+                      accessibilityLabel={`Visualizar comprovante ${attachment.nome_arquivo || "anexado"}`}
+                      style={styles.proofRowOpenButton}
                       disabled={!!busy}
                       onPress={() => void viewProof(attachment)}
                     >
                       <Text style={styles.link} numberOfLines={1}>
                         {attachment.nome_arquivo || "Abrir comprovante"}
                       </Text>
+                      <Text style={styles.muted}>Toque para visualizar</Text>
                     </Toque>
                     {editable && (
                       <Toque
@@ -2655,6 +2737,29 @@ export default function RelatorioViagemScreen() {
               <Text style={styles.proofPreviewTitle} numberOfLines={1}>
                 {proofPreview?.title || "Comprovante"}
               </Text>
+              <Toque
+                accessibilityRole="button"
+                accessibilityLabel="Baixar comprovante"
+                disabled={!proofPreview || privateDownloadBusy}
+                onPress={() => {
+                  if (!proofPreview) return;
+                  void downloadPrivateFile(
+                    proofPreview.path,
+                    proofPreview.title,
+                    proofPreview.mime,
+                  );
+                }}
+                style={styles.proofDownloadButton}
+              >
+                {privateDownloadBusy ? (
+                  <ActivityIndicator size="small" color={tema.azul} />
+                ) : (
+                  <>
+                    <Icon name="download" size={16} color={tema.azul} />
+                    <Text style={styles.proofDownloadText}>Baixar</Text>
+                  </>
+                )}
+              </Toque>
               <Toque
                 accessibilityRole="button"
                 accessibilityLabel="Fechar comprovante"
@@ -3005,6 +3110,19 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   proofPreviewImage: { flex: 1, width: "100%" },
+  proofDownloadButton: {
+    minHeight: 38,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: tema.borda,
+    backgroundColor: "#14243A",
+  },
+  proofDownloadText: { color: tema.azul, fontSize: 12, fontWeight: "700" },
   approvalActions: {
     marginTop: 14,
     paddingTop: 14,
@@ -3680,18 +3798,31 @@ const styles = StyleSheet.create({
     gap: 11,
   },
   expenseTrailing: { alignItems: "flex-end", gap: 3 },
-  proofBadgeButton: {
+  expenseAttachmentButton: {
+    minHeight: 56,
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingVertical: 2,
-    paddingLeft: 4,
+    gap: 11,
+    marginTop: 10,
+    paddingTop: 9,
+    borderTopWidth: 1,
+    borderTopColor: tema.borda,
   },
-  proofBadgeText: {
+  expenseAttachmentIcon: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 11,
+    backgroundColor: "rgba(53, 214, 160, 0.12)",
+  },
+  expenseAttachmentInfo: { flex: 1, minWidth: 0, gap: 3 },
+  expenseAttachmentTitle: {
     color: "#35D6A0",
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "700",
   },
+  expenseAttachmentName: { color: tema.suave, fontSize: 11 },
   editChevronButton: {
     paddingVertical: 2,
     paddingLeft: 6,
@@ -3705,6 +3836,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderTopWidth: 1,
     borderTopColor: tema.borda,
+  },
+  proofRowOpenButton: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 46,
+    justifyContent: "center",
+    gap: 3,
   },
   attachActions: { flexDirection: "row", gap: 8, marginTop: 11 },
   attach: {

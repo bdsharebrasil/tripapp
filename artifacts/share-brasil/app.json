@@ -4,6 +4,7 @@
     "slug": "trip-share",
     "owner": "ssharebrasil",
     "version": "1.0.0",
+    "newArchEnabled": true,
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "share-brasil",
