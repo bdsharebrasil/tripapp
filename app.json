@@ -1,5 +1,18 @@
 {
   "plugins": [
     "expo-sharing"
-  ]
+  ],
+  "extra": {
+    "eas": {
+      "projectId": "4243aca3-c157-4e2d-9670-c7782534999a"
+    }
+  },
+  "runtimeVersion": {
+    "policy": "appVersion"
+  },
+  "updates": {
+    "url": "https://u.expo.dev/4243aca3-c157-4e2d-9670-c7782534999a"
+  },
+  "android": {},
+  "ios": {}
 }

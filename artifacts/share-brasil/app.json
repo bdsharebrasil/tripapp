@@ -14,7 +14,15 @@
       "bundleIdentifier": "com.sharebrasil.tripshare"
     },
     "android": {
-      "package": "com.sharebrasil.tripshare"
+      "package": "com.sharebrasil.tripshare",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/images/icon.png",
@@ -56,6 +64,12 @@
       "eas": {
         "projectId": "4243aca3-c157-4e2d-9670-c7782534999a"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/4243aca3-c157-4e2d-9670-c7782534999a"
     }
   }
 }
