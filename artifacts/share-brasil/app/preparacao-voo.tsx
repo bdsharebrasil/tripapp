@@ -1,7 +1,13 @@
 import { Cabecalho, tema, Icon, Toque } from "@/src/components/ui";
 import { avisar, confirmar } from "@/src/lib/confirmar";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -17,8 +23,10 @@ import {
 import { apiFetch } from "@/src/lib/api";
 import { abrirBriefingPdf } from "@/src/lib/briefing-pdf";
 import {
+  checklistItemResolvido,
   checklistItemsForAircraft,
   FLIGHT_CHECKLIST_SECTIONS,
+  proximaSecaoPendente,
   type ChecklistItem,
 } from "@/src/features/checklist/checklist";
 
@@ -93,6 +101,8 @@ export default function PreparacaoVoo() {
     [error, setError] = useState("");
   const [tab, setTab] = useState<"aeronave" | "tripulacao">("aeronave");
   const [openSection, setOpenSection] = useState("");
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const stageOffsets = useRef<Record<string, number>>({});
   const [dirty, setDirty] = useState(false);
   const [openingPdf, setOpeningPdf] = useState(false);
   const base = `/api/interno/agendamento/${encodeURIComponent(id || "")}/preparacao`;
@@ -207,57 +217,110 @@ export default function PreparacaoVoo() {
     }
   };
   const readonly = Boolean(snapshot?.somente_leitura);
-  const sections = useMemo(
-    () => {
-      if (tab === "aeronave") {
-        const allowedItems = new Set(
-          checklistItemsForAircraft(
-            snapshot?.voo?.matricula_registro,
-            snapshot?.voo?.modelo,
-          ).map((item) => item.id),
-        );
-        return FLIGHT_CHECKLIST_SECTIONS.map((section) => ({
-          ...section,
-          segmento: "aeronave",
-          itens: section.itens.filter((item) => allowedItems.has(item.id)),
-        }));
-      }
-      return (snapshot?.secoes || []).filter((s) => s.segmento === tab);
-    },
-    [
-      snapshot?.secoes,
-      snapshot?.voo?.matricula_registro,
-      snapshot?.voo?.modelo,
-      tab,
-    ],
-  );
+  const sections = useMemo(() => {
+    if (tab === "aeronave") {
+      const allowedItems = new Set(
+        checklistItemsForAircraft(
+          snapshot?.voo?.matricula_registro,
+          snapshot?.voo?.modelo,
+        ).map((item) => item.id),
+      );
+      return FLIGHT_CHECKLIST_SECTIONS.map((section) => ({
+        ...section,
+        segmento: "aeronave",
+        itens: section.itens.filter((item) => allowedItems.has(item.id)),
+      }));
+    }
+    return (snapshot?.secoes || []).filter((s) => s.segmento === tab);
+  }, [
+    snapshot?.secoes,
+    snapshot?.voo?.matricula_registro,
+    snapshot?.voo?.modelo,
+    tab,
+  ]);
   useEffect(() => {
     if (!sections.length) {
       setOpenSection("");
       return;
     }
     if (!sections.some((section) => section.id === openSection)) {
-      setOpenSection(sections[0].id);
+      const estados = Object.fromEntries(
+        Object.entries(draft?.itens ?? {}).map(([key, resposta]) => [
+          key,
+          resposta.estado,
+        ]),
+      );
+      setOpenSection(
+        sections.find((section) =>
+          section.itens.some(
+            (item) => !checklistItemResolvido(estados[item.id]),
+          ),
+        )?.id ?? "",
+      );
     }
-  }, [sections, openSection]);
+  }, [sections, openSection, draft]);
+
+  const atualizarItemChecklist = (key: string, patch: Partial<Resposta>) => {
+    const secao = sections.find((section) =>
+      section.itens.some((item) => item.id === key),
+    );
+    if (!secao || !patch.estado || !draft) {
+      setItem(key, patch);
+      return;
+    }
+    const estados = Object.fromEntries(
+      Object.entries(draft.itens).map(([itemId, resposta]) => [
+        itemId,
+        resposta.estado,
+      ]),
+    );
+    const antesConcluida = secao.itens.every((item) =>
+      checklistItemResolvido(estados[item.id]),
+    );
+    estados[key] = patch.estado;
+    const depoisConcluida = secao.itens.every((item) =>
+      checklistItemResolvido(estados[item.id]),
+    );
+    setItem(key, patch);
+    if (!antesConcluida && depoisConcluida) {
+      const proxima = proximaSecaoPendente(sections, estados, secao.id);
+      setOpenSection(proxima);
+      if (proxima) {
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            const y = stageOffsets.current[proxima];
+            if (y != null) scrollRef.current?.scrollTo({ y, animated: true });
+          }),
+        );
+      }
+    }
+  };
   const statePicker = (value: Estado, change: (v: Estado) => void) => (
     <View style={styles.states}>
-      {states.filter((s) => s.id !== "PENDENTE").map((s) => (
-        <Toque
-          key={s.id}
-          accessibilityRole="button"
-          accessibilityState={{ selected: value === s.id, disabled: readonly }}
-          disabled={readonly}
-          onPress={() => change(s.id)}
-          style={[styles.state, value === s.id && styles.stateActive]}
-        >
-          <Text
-            style={[styles.stateText, value === s.id && styles.stateTextActive]}
+      {states
+        .filter((s) => s.id !== "PENDENTE")
+        .map((s) => (
+          <Toque
+            key={s.id}
+            accessibilityRole="button"
+            accessibilityState={{
+              selected: value === s.id,
+              disabled: readonly,
+            }}
+            disabled={readonly}
+            onPress={() => change(s.id)}
+            style={[styles.state, value === s.id && styles.stateActive]}
           >
-            {s.label}
-          </Text>
-        </Toque>
-      ))}
+            <Text
+              style={[
+                styles.stateText,
+                value === s.id && styles.stateTextActive,
+              ]}
+            >
+              {s.label}
+            </Text>
+          </Toque>
+        ))}
     </View>
   );
 
@@ -290,6 +353,7 @@ export default function PreparacaoVoo() {
       ) : snapshot && draft ? (
         <>
           <ScrollView
+            ref={scrollRef}
             contentContainerStyle={{
               paddingHorizontal: 18,
               paddingBottom: 180,
@@ -335,6 +399,8 @@ export default function PreparacaoVoo() {
               {(["aeronave", "tripulacao"] as const).map((t) => (
                 <Toque
                   key={t}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: tab === t }}
                   onPress={() => {
                     setTab(t);
                     setOpenSection("");
@@ -353,23 +419,43 @@ export default function PreparacaoVoo() {
               ))}
             </View>
             {sections.map((sec) => {
-              const respostas = sec.itens.map((item) =>
-                draft.itens[item.id]?.estado || "PENDENTE",
+              const respostas = sec.itens.map(
+                (item) => draft.itens[item.id]?.estado || "PENDENTE",
               );
               const concluidos = respostas.filter(
-                (estado) => estado === "CONCLUIDO" || estado === "NAO_APLICAVEL",
+                checklistItemResolvido,
               ).length;
+              const secaoConcluida =
+                sec.itens.length > 0 && concluidos === sec.itens.length;
               const isOpen = openSection === sec.id;
               return (
-                <View key={sec.id} style={styles.stage}>
+                <View
+                  key={sec.id}
+                  style={styles.stage}
+                  onLayout={(event) => {
+                    stageOffsets.current[sec.id] = event.nativeEvent.layout.y;
+                  }}
+                >
                   <Toque
                     accessibilityRole="button"
+                    accessibilityLabel={`${sec.titulo}. ${secaoConcluida ? "Etapa concluída" : `${sec.itens.length - concluidos} pendências`}. ${isOpen ? "Recolher etapa" : "Abrir etapa"}`}
                     accessibilityState={{ expanded: isOpen }}
                     onPress={() => setOpenSection(isOpen ? "" : sec.id)}
                     style={styles.stageHeader}
                   >
-                    <View style={styles.stageProgress}>
-                      <Text style={styles.stageCount}>{concluidos}/{sec.itens.length}</Text>
+                    <View
+                      style={[
+                        styles.stageProgress,
+                        secaoConcluida && styles.stageProgressComplete,
+                      ]}
+                    >
+                      {secaoConcluida ? (
+                        <Icon name="check" size={18} color="#fff" />
+                      ) : (
+                        <Text style={styles.stageCount}>
+                          {concluidos}/{sec.itens.length}
+                        </Text>
+                      )}
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.stageTitle}>{sec.titulo}</Text>
@@ -378,106 +464,151 @@ export default function PreparacaoVoo() {
                           {sec.subtitulo}
                         </Text>
                       ) : null}
-                      <Text style={styles.stageSubtitle}>
-                        {concluidos === sec.itens.length ? "Etapa concluída" : `${sec.itens.length - concluidos} pendências nesta etapa`}
+                      <Text
+                        style={[
+                          styles.stageSubtitle,
+                          secaoConcluida && styles.stageSubtitleComplete,
+                        ]}
+                      >
+                        {secaoConcluida
+                          ? isOpen
+                            ? "Etapa concluída · toque para recolher"
+                            : "Etapa concluída · toque para revisar"
+                          : `${sec.itens.length - concluidos} pendências nesta etapa`}
                       </Text>
                     </View>
-                    <Icon name={isOpen ? "chevron-up" : "chevron-down"} size={19} color={muted} />
+                    <Icon
+                      name={isOpen ? "chevron-up" : "chevron-down"}
+                      size={19}
+                      color={secaoConcluida ? "#55c99b" : muted}
+                    />
                   </Toque>
-                  {isOpen ? sec.itens.map((item) => {
-                    const estado = draft.itens[item.id]?.estado || "PENDENTE";
-                    const concluido = estado === "CONCLUIDO" || estado === "NAO_APLICAVEL";
-                    return (
-                      <View key={item.id} style={styles.checkItem}>
-                        <Toque
-                          accessibilityRole="checkbox"
-                          accessibilityState={{ checked: concluido, disabled: readonly }}
-                          disabled={readonly}
-                          onPress={() => setItem(item.id, {
-                            estado: concluido ? "PENDENTE" : "CONCLUIDO",
-                          })}
-                          style={styles.checkRow}
-                        >
-                          <View style={[styles.nativeCheck, concluido && styles.nativeCheckActive]}>
-                            {concluido ? <Icon name="check" size={16} color="#fff" /> : null}
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.itemTitle, concluido && styles.itemTitleDone]}>{item.label}</Text>
-                            <Text style={styles.itemStatus}>{states.find((s) => s.id === estado)?.label}</Text>
-                          </View>
-                        </Toque>
-                        {statePicker(estado, (v) => setItem(item.id, { estado: v }))}
-                        <TextInput
-                          editable={!readonly}
-                          placeholder="Observação (opcional)"
-                          placeholderTextColor={muted}
-                          multiline
-                          value={draft.itens[item.id]?.observacao || ""}
-                          onChangeText={(v) => setItem(item.id, { observacao: v })}
-                          style={styles.input}
-                        />
-                        {item.tipo === "oleo" ? (
-                          <View style={styles.oilLevel}>
-                            <Text style={styles.itemStatus}>Nível de óleo LH / RH</Text>
+                  {isOpen
+                    ? sec.itens.map((item) => {
+                        const estado =
+                          draft.itens[item.id]?.estado || "PENDENTE";
+                        const concluido =
+                          estado === "CONCLUIDO" || estado === "NAO_APLICAVEL";
+                        return (
+                          <View key={item.id} style={styles.checkItem}>
+                            <Toque
+                              accessibilityRole="checkbox"
+                              accessibilityState={{
+                                checked: concluido,
+                                disabled: readonly,
+                              }}
+                              disabled={readonly}
+                              onPress={() =>
+                                atualizarItemChecklist(item.id, {
+                                  estado: concluido ? "PENDENTE" : "CONCLUIDO",
+                                })
+                              }
+                              style={styles.checkRow}
+                            >
+                              <View
+                                style={[
+                                  styles.nativeCheck,
+                                  concluido && styles.nativeCheckActive,
+                                ]}
+                              >
+                                {concluido ? (
+                                  <Icon name="check" size={16} color="#fff" />
+                                ) : null}
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text
+                                  style={[
+                                    styles.itemTitle,
+                                    concluido && styles.itemTitleDone,
+                                  ]}
+                                >
+                                  {item.label}
+                                </Text>
+                                <Text style={styles.itemStatus}>
+                                  {states.find((s) => s.id === estado)?.label}
+                                </Text>
+                              </View>
+                            </Toque>
+                            {statePicker(estado, (v) =>
+                              atualizarItemChecklist(item.id, { estado: v }),
+                            )}
                             <TextInput
                               editable={!readonly}
-                              placeholder="Informe os níveis"
+                              placeholder="Observação (opcional)"
                               placeholderTextColor={muted}
-                              value={draft.nivel_oleo}
+                              multiline
+                              value={draft.itens[item.id]?.observacao || ""}
                               onChangeText={(v) =>
-                                update((d) => {
-                                  d.nivel_oleo = v;
-                                  return d;
-                                })
+                                setItem(item.id, { observacao: v })
                               }
                               style={styles.input}
                             />
+                            {item.tipo === "oleo" ? (
+                              <View style={styles.oilLevel}>
+                                <Text style={styles.itemStatus}>
+                                  Nível de óleo LH / RH
+                                </Text>
+                                <TextInput
+                                  editable={!readonly}
+                                  placeholder="Informe os níveis"
+                                  placeholderTextColor={muted}
+                                  value={draft.nivel_oleo}
+                                  onChangeText={(v) =>
+                                    update((d) => {
+                                      d.nivel_oleo = v;
+                                      return d;
+                                    })
+                                  }
+                                  style={styles.input}
+                                />
+                              </View>
+                            ) : null}
                           </View>
-                        ) : null}
-                      </View>
-                    );
-                  }) : null}
+                        );
+                      })
+                    : null}
                 </View>
               );
             })}
-            {tab === "tripulacao" ? (
-              draft.escalas.map((escala) => (
-                <View key={escala.id}>
-                  <Text style={styles.section}>
-                    SERVIÇOS · {escala.icao || "ESCALA"}
-                  </Text>
-                  {escala.servicos.map((serv) => (
-                    <View key={serv.id} style={styles.card}>
-                      <Text style={styles.itemTitle}>
-                        {snapshot.tipos_servico.find((t) => t.id === serv.tipo)
-                          ?.nome || serv.tipo}
-                      </Text>
-                      {statePicker(serv.estado, (v) =>
-                        setService(escala.id, serv.tipo, { estado: v }),
-                      )}
-                      <TextInput
-                        editable={!readonly}
-                        placeholder="Observação do serviço"
-                        placeholderTextColor={muted}
-                        multiline
-                        value={serv.observacao}
-                        onChangeText={(v) =>
-                          setService(escala.id, serv.tipo, { observacao: v })
-                        }
-                        style={styles.input}
-                      />
-                      {Object.entries(serv.dados || {})
-                        .filter(([, v]) => v)
-                        .map(([key, val]) => (
-                          <Text key={key} style={styles.description}>
-                            {key.replace(/_/g, " ")}: {val}
-                          </Text>
-                        ))}
-                    </View>
-                  ))}
-                </View>
-              ))
-            ) : null}
+            {tab === "tripulacao"
+              ? draft.escalas.map((escala) => (
+                  <View key={escala.id}>
+                    <Text style={styles.section}>
+                      SERVIÇOS · {escala.icao || "ESCALA"}
+                    </Text>
+                    {escala.servicos.map((serv) => (
+                      <View key={serv.id} style={styles.card}>
+                        <Text style={styles.itemTitle}>
+                          {snapshot.tipos_servico.find(
+                            (t) => t.id === serv.tipo,
+                          )?.nome || serv.tipo}
+                        </Text>
+                        {statePicker(serv.estado, (v) =>
+                          setService(escala.id, serv.tipo, { estado: v }),
+                        )}
+                        <TextInput
+                          editable={!readonly}
+                          placeholder="Observação do serviço"
+                          placeholderTextColor={muted}
+                          multiline
+                          value={serv.observacao}
+                          onChangeText={(v) =>
+                            setService(escala.id, serv.tipo, { observacao: v })
+                          }
+                          style={styles.input}
+                        />
+                        {Object.entries(serv.dados || {})
+                          .filter(([, v]) => v)
+                          .map(([key, val]) => (
+                            <Text key={key} style={styles.description}>
+                              {key.replace(/_/g, " ")}: {val}
+                            </Text>
+                          ))}
+                      </View>
+                    ))}
+                  </View>
+                ))
+              : null}
             <Text style={styles.section}>OBSERVAÇÕES GERAIS</Text>
             <TextInput
               editable={!readonly}
@@ -590,6 +721,7 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
+    minHeight: 50,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -618,20 +750,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     padding: 14,
+    minHeight: 76,
   },
   stageProgress: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 2,
     borderColor: accent,
     alignItems: "center",
     justifyContent: "center",
   },
+  stageProgressComplete: { borderColor: "#35a879", backgroundColor: "#1b503b" },
   stageCount: { color: "#fff", fontSize: 12, fontWeight: "900" },
   stageTitle: { color: "#fff", fontSize: 15, fontWeight: "800" },
   stageSubtitle: { color: muted, fontSize: 11, marginTop: 4 },
-  stageDescription: { color: muted, fontSize: 11, lineHeight: 16, marginTop: 4 },
+  stageSubtitleComplete: { color: "#55c99b", fontWeight: "700" },
+  stageDescription: {
+    color: muted,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 4,
+  },
   checkItem: {
     paddingHorizontal: 14,
     paddingTop: 12,
@@ -639,7 +779,12 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: line,
   },
-  checkRow: { flexDirection: "row", alignItems: "center", gap: 11 },
+  checkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 11,
+    minHeight: 48,
+  },
   nativeCheck: {
     width: 26,
     height: 26,
@@ -666,6 +811,8 @@ const styles = StyleSheet.create({
   },
   states: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   state: {
+    minHeight: 40,
+    justifyContent: "center",
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: 9,

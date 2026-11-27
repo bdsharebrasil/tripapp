@@ -1,4 +1,8 @@
-export type ChecklistItemType = "check" | "oleo" | "abastecimento" | "documentos";
+export type ChecklistItemType =
+  | "check"
+  | "oleo"
+  | "abastecimento"
+  | "documentos";
 
 export type ChecklistItem = {
   id: string;
@@ -13,6 +17,29 @@ export type ChecklistSection = {
   subtitulo: string;
   itens: ChecklistItem[];
 };
+
+export function checklistItemResolvido(estado?: string | null): boolean {
+  return estado === "CONCLUIDO" || estado === "NAO_APLICAVEL";
+}
+
+export function proximaSecaoPendente<
+  T extends {
+    id: string;
+    itens: Pick<ChecklistItem, "id">[];
+  },
+>(
+  secoes: readonly T[],
+  estados: Record<string, string | undefined>,
+  depoisDeId: string,
+): string {
+  const indice = secoes.findIndex((secao) => secao.id === depoisDeId);
+  const seguintes = [...secoes.slice(indice + 1), ...secoes.slice(0, indice)];
+  return (
+    seguintes.find((secao) =>
+      secao.itens.some((item) => !checklistItemResolvido(estados[item.id])),
+    )?.id ?? ""
+  );
+}
 
 const FLIGHT_CHECKLIST_SECTIONS: ChecklistSection[] = [
   {
